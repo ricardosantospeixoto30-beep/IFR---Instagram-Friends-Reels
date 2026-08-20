@@ -1,0 +1,23 @@
+# Gradle files
+.gradle
+/build
+/out
+/.gradle
+/build
+/.idea
+*.iml
+# Android Studio
+local.properties
+*.keystore
+# Misc
+.DS_Store
+# macOS
+*.DS_Store
+# Windows
+Thumbs.db
+# Generated files
+generated/
+# Kotlin
+*.class
+# Log files
+*.log

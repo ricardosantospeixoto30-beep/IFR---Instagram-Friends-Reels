@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Friends Reels Inbox</string>
+    <string name="acc_service_desc">Reads Instagram UI to import Reels and send reactions/replies.</string>
+    <string name="btn_sync">Sync selected conversations</string>
+    <string name="btn_enable_service">Enable Accessibility Service</string>
+    <string name="msg_service_enabled">Accessibility service is enabled.</string>
+    <string name="msg_service_disabled">Accessibility service is NOT enabled.</string>
+</resources>
