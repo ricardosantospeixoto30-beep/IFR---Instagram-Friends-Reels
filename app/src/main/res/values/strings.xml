@@ -12,11 +12,19 @@
     <string name="btn_sync">Sincronizar Reels</string>
 
     <string name="poc_tools_title">Ferramentas de PoC</string>
-    <string name="poc_tools_help">Abre o Instagram, entra numa conversa com um Reel visível, volta a esta app e usa os botões abaixo.</string>
+    <string name="poc_tools_help">Fluxo recomendado: abre a conversa no Instagram e usa os botões da notificação persistente do Friends Reels (baixa a barra). Assim o Instagram fica na conversa. Os botões abaixo funcionam mas trocam de app, o que pode fazer o IG voltar ao inbox.</string>
     <string name="btn_long_press_reel">Long-press no 1.º Reel (+ dump de janelas)</string>
     <string name="btn_dump_all_windows">Dump de todas as janelas</string>
     <string name="btn_react_heart">Reagir com ❤ ao 1.º Reel</string>
     <string name="btn_react_laugh">Reagir com 😂 ao 1.º Reel</string>
+
+    <string name="notif_channel_name">Ações rápidas do Reels</string>
+    <string name="notif_channel_description">Notificação persistente com botões para reagir ao Reel visível no Instagram.</string>
+    <string name="notif_title">Friends Reels</string>
+    <string name="notif_text">Abre uma conversa com Reel e usa os botões abaixo.</string>
+    <string name="notif_action_heart">❤</string>
+    <string name="notif_action_laugh">😂</string>
+    <string name="notif_action_dump">Dump</string>
 
     <string name="settings_title">Definições</string>
     <string name="settings_selection_mode">Modo de seleção</string>

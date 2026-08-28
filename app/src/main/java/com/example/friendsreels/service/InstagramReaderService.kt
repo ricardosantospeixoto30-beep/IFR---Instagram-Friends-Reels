@@ -2,6 +2,9 @@ package com.example.friendsreels.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -14,6 +17,9 @@ import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import com.example.friendsreels.R
 import com.example.friendsreels.instagram.IgSelectors
 
 /**
@@ -43,14 +49,38 @@ class InstagramReaderService : AccessibilityService() {
     private var actionReceiver: BroadcastReceiver? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    /**
+     * Header title of the last Instagram conversation the user visibly opened.
+     * Captured from `header_title` in the thread screen. Used as a defensive
+     * hint (e.g. logs and future navigation) — restoring the exact thread is
+     * currently not needed because bringing IG to front without
+     * `FLAG_ACTIVITY_REORDER_TO_FRONT` already resumes the last screen.
+     */
+    private var lastKnownConversationTitle: String? = null
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.i(TAG, "InstagramReaderService connected")
         registerActionReceiver()
+        postControlNotification()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Kept intentionally empty: everything is broadcast-driven during PoC.
+        // Track which conversation the user opens so we can log / restore it
+        // if IG ever fails to come back to the same thread.
+        val pkg = event?.packageName?.toString() ?: return
+        if (pkg != IgSelectors.IG_PACKAGE) return
+        val root = rootInActiveWindow ?: return
+        val title = root
+            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.HEADER_TITLE))
+            ?.firstOrNull()
+            ?.text
+            ?.toString()
+            ?.trim()
+        if (!title.isNullOrEmpty() && title != lastKnownConversationTitle) {
+            lastKnownConversationTitle = title
+            Log.d(TAG, "Tracked last conversation title='$title'")
+        }
     }
 
     override fun onInterrupt() {
@@ -60,6 +90,7 @@ class InstagramReaderService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterActionReceiver()
+        cancelControlNotification()
         mainHandler.removeCallbacksAndMessages(null)
     }
 
@@ -123,6 +154,14 @@ class InstagramReaderService : AccessibilityService() {
      * user was on, since the standard launch intent resumes the existing
      * task) and polls until IG becomes the active window or a small timeout
      * expires.
+     *
+     * IMPORTANT: we use only `FLAG_ACTIVITY_NEW_TASK`, matching what the
+     * system launcher does when you tap the Instagram icon. We deliberately
+     * do NOT add `FLAG_ACTIVITY_REORDER_TO_FRONT` because that flag causes
+     * Instagram to reset the task back to its root activity (the inbox
+     * list), losing the conversation the user was on. `NEW_TASK` alone
+     * brings the existing task to the front in its current state — same as
+     * pressing Home and re-opening the app icon.
      */
     private fun runInInstagram(action: () -> Unit) {
         val currentPkg = rootInActiveWindow?.packageName?.toString()
@@ -136,7 +175,7 @@ class InstagramReaderService : AccessibilityService() {
             Log.e(TAG, "runInInstagram: Instagram is not installed (no launch intent).")
             return
         }
-        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             startActivity(launch)
         } catch (e: Exception) {
@@ -441,5 +480,85 @@ class InstagramReaderService : AccessibilityService() {
         const val ACTION_LONG_PRESS_FIRST_REEL = "com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL"
         const val ACTION_REACT_HEART = "com.example.friendsreels.ACTION_REACT_HEART"
         const val ACTION_REACT_LAUGH = "com.example.friendsreels.ACTION_REACT_LAUGH"
+
+        private const val NOTIF_CHANNEL_ID = "friends_reels_controls"
+        private const val NOTIF_ID = 1001
+    }
+
+    // ---------------------------------------------------------------------
+    // Control notification — persistent notification with action buttons.
+    //
+    // Tapping a button inside the notification shade closes the shade and
+    // returns focus to whatever app was underneath (typically Instagram in
+    // the exact conversation the user was on). This avoids the foreground
+    // switch that happens when the user leaves IG to tap a button inside our
+    // MainActivity, which is why this is the recommended way to trigger the
+    // PoC actions.
+    // ---------------------------------------------------------------------
+
+    private fun postControlNotification() {
+        createNotificationChannel()
+        val builder = NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.notif_title))
+            .setContentText(getString(R.string.notif_text))
+            .setOngoing(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setShowWhen(false)
+            .addAction(
+                0,
+                getString(R.string.notif_action_heart),
+                pendingBroadcast(ACTION_REACT_HEART, requestCode = 1)
+            )
+            .addAction(
+                0,
+                getString(R.string.notif_action_laugh),
+                pendingBroadcast(ACTION_REACT_LAUGH, requestCode = 2)
+            )
+            .addAction(
+                0,
+                getString(R.string.notif_action_dump),
+                pendingBroadcast(ACTION_DUMP_ALL_WINDOWS, requestCode = 3)
+            )
+
+        val nm = NotificationManagerCompat.from(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !nm.areNotificationsEnabled()) {
+            Log.w(TAG, "Notifications disabled by the user — control notification skipped.")
+            return
+        }
+        try {
+            nm.notify(NOTIF_ID, builder.build())
+            Log.i(TAG, "Control notification posted (id=$NOTIF_ID).")
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Missing POST_NOTIFICATIONS permission — control notification skipped.", e)
+        }
+    }
+
+    private fun cancelControlNotification() {
+        NotificationManagerCompat.from(this).cancel(NOTIF_ID)
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val channel = NotificationChannel(
+            NOTIF_CHANNEL_ID,
+            getString(R.string.notif_channel_name),
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = getString(R.string.notif_channel_description)
+            setShowBadge(false)
+            enableVibration(false)
+        }
+        val system = getSystemService(NotificationManager::class.java)
+        system?.createNotificationChannel(channel)
+    }
+
+    private fun pendingBroadcast(action: String, requestCode: Int): PendingIntent {
+        val intent = Intent(action).setPackage(packageName)
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        return PendingIntent.getBroadcast(this, requestCode, intent, flags)
     }
 }

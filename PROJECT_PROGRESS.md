@@ -7,8 +7,8 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-5 (reagir) revisto para trazer IG à frente automaticamente.
-**Última atualização:** 2025-08-28 (sessão 7)
+**Fase atual:** Fase 1 (PoC) — PoC-5 (reagir) com notificação persistente para evitar troca de foreground.
+**Última atualização:** 2025-08-28 (sessão 8)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ---
@@ -19,6 +19,7 @@ Ver `Friends_Reels_Inbox_Technical_Spec_v2.md` para o detalhe completo. Pontos-c
 
 - Feed vertical/full-screen com um Reel por ecrã dos Reels **recebidos em DMs**.
 - Descoberta de Reels em conversas existentes sem obrigar o utilizador a reencaminhar manualmente.
+- **Novo (2025-08-28, sessão 8):** o utilizador também envia mensagens e Reels aos amigos. O MVP tem de distinguir mensagens **recebidas** (elegíveis para o feed) das **enviadas** por nós próprios (excluídas). Já temos o marcador certo — a presença do nó `sender_avatar` dentro de `message_content` indica mensagem recebida; a sua ausência indica mensagem enviada por nós. Ficará implementado no PoC-4 (identificação do remetente).
 - Reações (❤️ 😂 na v1) e respostas ligadas à **mensagem original** na DM.
 - Modos de seleção: *apenas selecionados* e *excluir selecionados*.
 - Estados: `UNSEEN`, `SEEN`, `REACTION_SENT`, `REPLIED`, `FAILED`, `UNAVAILABLE` (não exclusivos).
@@ -155,6 +156,8 @@ Já entregue no primeiro commit:
 - **Reprodução do Reel diretamente na app externa:** o URL do Reel público (`https://www.instagram.com/reel/XXX/`) não é diretamente reproduzível num `ExoPlayer` — o IG serve o vídeo apenas para clientes autenticados. Alternativas: (a) reproduzir um preview via URL da thumbnail e o vídeo apenas ao "Abrir no Instagram", ou (b) tentar extrair o `media_url` via web scraping (frágil), ou (c) usar a Graph API (não aplicável a DMs). **Escolha por decidir no PoC-8.**
 - **Ban risk operacional:** mesmo sem cliente modificado, se a AccessibilityService automatizar demasiado agressivamente pode disparar heurísticas de "comportamento não humano" da Meta. Mitigar com delays humanos entre ações, sync em background em pequenas rajadas, e nunca partilhar login com servidor terceiro.
 - **Notificações push do IG não são intercetáveis** sem `NotificationListenerService`. Se quisermos deteção em tempo real de novos Reels, avaliamos essa via como complemento no PoC-2/3.
+- **Fluxo de disparo das ações (PoC-5+):** usar sempre a **notificação persistente** ("Friends Reels") no shade. Tocar botões dentro da MainActivity funciona (o service traz o IG à frente automaticamente), mas alterna o foreground e algumas builds do IG podem reagir de forma inesperada. A notificação evita totalmente a troca de app.
+- **Mensagens enviadas por nós:** a mesma DM pode conter mensagens que o utilizador enviou. Estas **não** devem entrar no feed nem em ações de reação (o IG não permite reagir às próprias mensagens em muitos casos). O sinal está em `message_content`: se contém o nó `sender_avatar` a mensagem foi recebida; se não, foi enviada por nós. Implementação no PoC-4.
 
 ---
 
@@ -241,3 +244,24 @@ Já entregue no primeiro commit:
   4. Quando o IG está foreground, corre a ação.
 - **UX resultante:** o utilizador abre a conversa, volta à nossa app, toca em "Reagir com ❤", e a app traz automaticamente o IG à frente antes de fazer o gesto. Não é preciso `adb`.
 - **Próximo passo do utilizador:** retestar. Se falhar, capturar Logcat (`IGReaderService`) — os logs vão mostrar "foreground is 'X', bringing Instagram to front" e depois "Instagram now in foreground" ou "gave up waiting".
+
+### 2025-08-28 — Sessão 8 (Ricardo + Copilot CLI)
+
+- **Bug encontrado na sessão 7:** o `runInInstagram` fazia `startActivity(launch)` com `FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_REORDER_TO_FRONT`. Resultado: o Instagram vinha para a frente **mas na lista de conversas**, não na conversa que o utilizador tinha aberto.
+- **Diagnóstico do utilizador (fundamental):** fez o teste manualmente — abriu conversa no IG → HOME → abriu IG pelo ícone → **restaurou a conversa**. Também abriu conversa → alternou para a nossa app pelo task switcher → voltou ao IG → **restaurou a conversa**. Só quando o botão dentro da app disparava `startActivity(launch)` é que o IG caía no inbox. Logo o problema estava no **flag**, não no comportamento normal do IG.
+- **Causa raiz:** `FLAG_ACTIVITY_REORDER_TO_FRONT` reordena a activity dentro da task e, quando é aplicado à activity de launcher do IG (que é `singleTask`), a task é reduzida ao root — ou seja, cai no MainTabActivity, aba Direct/Inbox. O launcher do Android tapa no ícone com o intent sem esse flag, e por isso funciona.
+- **Correção 1 (essencial):** manter apenas `FLAG_ACTIVITY_NEW_TASK` (o launcher intent já traz esse flag). Sem `REORDER_TO_FRONT` o IG mantém-se exactamente onde estava.
+- **Correção 2 (UX melhor para MVP):** o service posta agora uma **notificação persistente** ("Friends Reels") com botões de ação (❤ / 😂 / Dump). Ao tocar num botão do shade, o Android fecha o shade e devolve o foco à app subjacente (o IG na conversa) — **sem passar pela nossa app**. Isto elimina completamente o problema de troca de foreground. Os botões dentro da MainActivity continuam a existir para debug e para uso via `adb`.
+- **Rastreamento defensivo:** o `onAccessibilityEvent` agora captura o `header_title` das conversas abertas em `lastKnownConversationTitle`. Serve como base para diagnóstico e para o PoC-4 (identificar quem enviou cada Reel). Não é usado ainda para navegar de volta à conversa porque a Correção 1 já resolve isso; fica de reserva se algum flow futuro voltar a partir a restauração da conversa.
+- **Nova constraint documentada (Requisitos, §1):** o utilizador também envia Reels aos amigos — o MVP tem de filtrar mensagens enviadas por nós. Diferenciação já mapeada: presença de `sender_avatar` dentro de `message_content` = mensagem recebida. Vai ser implementado no PoC-4.
+- **Alterações concretas neste commit:**
+  - `InstagramReaderService.kt`: remove `FLAG_ACTIVITY_REORDER_TO_FRONT`; adiciona `postControlNotification`/`cancelControlNotification`/`createNotificationChannel`/`pendingBroadcast`; adiciona tracking de `lastKnownConversationTitle` em `onAccessibilityEvent`.
+  - `MainActivity.kt`: pede a permissão `POST_NOTIFICATIONS` no arranque (Android 13+).
+  - `res/drawable/ic_notification.xml`: ícone monocromático simples para a notificação.
+  - `res/values/strings.xml`: strings da notificação e novo texto de ajuda dos botões.
+- **Próximo passo do utilizador:**
+  1. Puxar o repo, correr no OnePlus.
+  2. Aceitar o pedido de permissão de notificações (aparece ao abrir a app).
+  3. Abrir uma conversa no IG com um Reel visível.
+  4. Baixar a barra de notificações → tocar em ❤ ou 😂 na notificação **Friends Reels**. Não abrir a nossa app.
+  5. Reportar: (a) se o IG mantém a conversa aberta, (b) se a reação aparece na bolha do Reel, (c) o Logcat do `IGReaderService` se algo falhar.
