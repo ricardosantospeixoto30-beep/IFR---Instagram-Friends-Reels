@@ -1,10 +1,12 @@
 package com.example.friendsreels.service
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
 import android.os.Handler
@@ -20,10 +22,13 @@ import com.example.friendsreels.instagram.IgSelectors
  * PoC-2 (dump): on-demand dump of the currently active window's accessibility
  * tree to logcat. Triggered by ACTION_DUMP_TREE from adb.
  *
- * PoC-3 (long-press): finds the first Reel-carrying message in the currently
- * open Instagram conversation and triggers a long-press on it via the
- * accessibility API. Triggered by ACTION_LONG_PRESS_FIRST_REEL. A follow-up
- * dump is scheduled 1500ms later so we can inspect the full context menu.
+ * PoC-3 (long-press): finds the visible Reel bubble in the currently open
+ * Instagram conversation and dispatches a long-press gesture centered on the
+ * bubble. The gesture uses AccessibilityService.dispatchGesture so we can
+ * control both the location and the duration (short enough to open the IG
+ * context menu while staying under the OxygenOS "Portal de conteúdo"
+ * threshold). Triggered by ACTION_LONG_PRESS_FIRST_REEL. A follow-up dump is
+ * scheduled once the gesture completes so we can inspect the resulting menu.
  */
 class InstagramReaderService : AccessibilityService() {
 
@@ -108,50 +113,79 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
 
-        val reelMessage = findFirstReelMessage(messageList)
-        if (reelMessage == null) {
-            Log.w(TAG, "LONG_PRESS: no Reel-carrying message found in the visible message list.")
+        val target = findFirstReelBubble(messageList)
+        if (target == null) {
+            Log.w(TAG, "LONG_PRESS: no Reel bubble (portrait/generic xma container) found in the visible message list.")
             return
         }
 
-        val authorUsername = extractReelAuthor(reelMessage)
-        val bounds = Rect().also { reelMessage.getBoundsInScreen(it) }
-        Log.i(TAG, "LONG_PRESS: target message bounds=${bounds.toShortString()} author=$authorUsername")
+        val bounds = Rect().also { target.node.getBoundsInScreen(it) }
+        Log.i(
+            TAG,
+            "LONG_PRESS: target kind=${target.kind} author=${target.authorUsername} " +
+                "bounds=${bounds.toShortString()} center=(${bounds.centerX()},${bounds.centerY()})"
+        )
 
-        val performed = reelMessage.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
-        Log.i(TAG, "LONG_PRESS: performAction(ACTION_LONG_CLICK) returned $performed")
+        if (bounds.width() <= 0 || bounds.height() <= 0) {
+            Log.w(TAG, "LONG_PRESS: bubble has empty bounds; refusing to dispatch gesture.")
+            return
+        }
 
-        // Wait long enough for the context menu animation to settle, then dump
-        // so we can see all menu items in the same log block.
-        mainHandler.postDelayed({ dumpActiveWindow("after-longpress") }, 1500)
+        val path = Path().apply { moveTo(bounds.exactCenterX(), bounds.exactCenterY()) }
+        val stroke = GestureDescription.StrokeDescription(path, 0L, LONG_PRESS_DURATION_MS)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+
+        val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                Log.i(TAG, "LONG_PRESS: gesture completed")
+            }
+
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                Log.w(TAG, "LONG_PRESS: gesture cancelled by system")
+            }
+        }, mainHandler)
+        Log.i(TAG, "LONG_PRESS: dispatchGesture accepted=$dispatched duration=${LONG_PRESS_DURATION_MS}ms")
+
+        // Give the context menu animation enough time to settle, then dump.
+        mainHandler.postDelayed({ dumpActiveWindow("after-longpress") }, LONG_PRESS_DURATION_MS + 1500L)
     }
 
-    /**
-     * Walk the message_list looking for the first `message_content` node whose
-     * subtree contains a Reel/media container. Returns the outer
-     * `message_content` frame (long-clickable) or null.
-     */
-    private fun findFirstReelMessage(messageList: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        val messageContentId = IgSelectors.id(IgSelectors.Thread.MESSAGE_CONTENT)
-        val messageContents = messageList.findAccessibilityNodeInfosByViewId(messageContentId) ?: return null
+    private data class ReelTarget(
+        val kind: String,
+        val node: AccessibilityNodeInfo,
+        val authorUsername: String?,
+    )
 
+    /**
+     * Walk the message_list and return the tightest Reel-carrying subtree we
+     * can find: prefer the portrait media container, fall back to the generic
+     * card container. Both hold the actual visible reel bubble; the outer
+     * message_content wrapper spans the entire row width so it is unsuitable
+     * as a long-press target.
+     */
+    private fun findFirstReelBubble(messageList: AccessibilityNodeInfo): ReelTarget? {
         val portraitId = IgSelectors.id(IgSelectors.Thread.MESSAGE_MEDIA_PORTRAIT)
         val genericId = IgSelectors.id(IgSelectors.Thread.MESSAGE_MEDIA_GENERIC)
 
-        for (content in messageContents) {
-            val hasPortrait = content.findAccessibilityNodeInfosByViewId(portraitId)?.isNotEmpty() == true
-            val hasGeneric = content.findAccessibilityNodeInfosByViewId(genericId)?.isNotEmpty() == true
-            if (hasPortrait || hasGeneric) return content
-        }
-        return null
-    }
+        val portraits = messageList.findAccessibilityNodeInfosByViewId(portraitId).orEmpty()
+        val generics = messageList.findAccessibilityNodeInfosByViewId(genericId).orEmpty()
 
-    /** Reads the Reel's original author username from within a message content node. */
-    private fun extractReelAuthor(messageContent: AccessibilityNodeInfo): String? {
-        val usernameNode = messageContent
+        val candidates = (portraits.map { "portrait" to it } + generics.map { "generic" to it })
+            .filter {
+                val r = Rect(); it.second.getBoundsInScreen(r)
+                r.width() > 0 && r.height() > 0
+            }
+            .sortedBy {
+                val r = Rect(); it.second.getBoundsInScreen(r); r.top
+            }
+
+        val (kind, node) = candidates.firstOrNull() ?: return null
+        val author = node
             .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.REEL_AUTHOR_USERNAME))
             ?.firstOrNull()
-        return usernameNode?.text?.toString()
+            ?.text
+            ?.toString()
+        return ReelTarget(kind, node, author)
     }
 
     // ---------------------------------------------------------------------
@@ -200,6 +234,7 @@ class InstagramReaderService : AccessibilityService() {
 
     companion object {
         private const val TAG = "IGReaderService"
+        private const val LONG_PRESS_DURATION_MS = 600L
         const val ACTION_DUMP_TREE = "com.example.friendsreels.ACTION_DUMP_TREE"
         const val ACTION_LONG_PRESS_FIRST_REEL = "com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL"
     }

@@ -7,8 +7,8 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-2 concluído, PoC-3 (long-press bypass) prestes a ser testado.
-**Última atualização:** 2025-08-28 (sessão 3)
+**Fase atual:** Fase 1 (PoC) — PoC-3 (long-press dirigido) prestes a ser retestado.
+**Última atualização:** 2025-08-28 (sessão 4)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ---
@@ -196,3 +196,17 @@ Já entregue no primeiro commit:
 - **Descoberta importante (menu de contexto):** após long-press aparecem em simultâneo (a) o painel de reações rápidas com 6 emojis (❤️ 😂 😮 😢 😡 👍) já com IDs identificados, e (b) o menu completo (Responder, Copiar link, Reencaminhar, Eliminar…) implementado em Compose. O menu completo ainda não foi totalmente capturado em nenhum dump por causa do timing da animação.
 - **Novo broadcast implementado:** `com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL` faz agora `performAction(ACTION_LONG_CLICK)` no primeiro `message_content` cuja subtree contém `message_content_portrait_xma_container` ou `message_content_generic_xma_container`, e dispara automaticamente um dump 1500ms depois. Isto resolve o problema de timing manual e (esperamos) contornar o Portal de conteúdo.
 - **Próximo passo do utilizador:** correr o novo broadcast dentro de uma conversa com um Reel e enviar os logs do IGReaderService entre `===== DUMP START reason=after-longpress =====` e `===== DUMP END =====`. Com esse dump completo, ficamos com todos os labels do menu (Responder, Copiar link, ...) para PoC-5 (reagir) e PoC-6 (responder).
+
+### 2025-08-28 — Sessão 4 (Ricardo + Copilot CLI)
+
+- **PoC-3 primeira tentativa falhou:** ao correr `ACTION_LONG_PRESS_FIRST_REEL`, o `performAction(ACTION_LONG_CLICK)` no `message_content` **abriu o menu de personalização do fundo da conversa**, não o menu do Reel.
+- **Causa identificada:** o `message_content` é um `FrameLayout` que ocupa **toda a largura da linha** (`[0,267][1080,318]`), enquanto a bolha do Reel (mensagem recebida) só ocupa metade esquerda do ecrã. Sem coordenadas, o `performAction` dispara no centro da bounding box → cai fora da bolha → IG interpreta como long-click no fundo da conversa.
+- **Solução implementada:** substituir `performAction(ACTION_LONG_CLICK)` por `dispatchGesture(...)` centrado nas coordenadas do próprio container do Reel (`message_content_portrait_xma_container` ou `message_content_generic_xma_container`), com duração de 600ms:
+  - 600ms é longo o suficiente para o IG considerar long-press (~500ms é o threshold do sistema).
+  - Curto o suficiente para não acionar o *Portal de conteúdo* do OxygenOS, que precisa de um press mais longo.
+- **Melhoria adicional:** o candidato é escolhido pelo `top` da bubble mais próximo do topo do ecrã (primeiro Reel visível de cima para baixo), independentemente de ser `portrait` ou `generic`.
+- **Novos logs esperados:**
+  - `LONG_PRESS: target kind=portrait author=... bounds=... center=(x,y)`
+  - `LONG_PRESS: dispatchGesture accepted=true duration=600ms`
+  - `LONG_PRESS: gesture completed`
+  - Dump com `reason=after-longpress`
