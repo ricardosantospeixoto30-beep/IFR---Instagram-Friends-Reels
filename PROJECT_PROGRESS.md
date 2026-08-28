@@ -7,17 +7,17 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-5 (reagir) ✅ concluído no OnePlus. Próximo: PoC-4 (identificar remetente).
-**Última atualização:** 2025-08-28 (sessão 11)
+**Fase atual:** Fase 1 (PoC) — PoC-4 (identificar remetente) ✅ código implementado, aguarda validação no OnePlus.
+**Última atualização:** 2025-08-28 (sessão 12)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Estado a partir do commit `c09b3bb` (PoC-5 concluído).
+1. **Pull** do repo. Estado a partir da sessão 12 (PoC-4 implementado, por testar).
 2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" → **6.1 PoC-4** tem o plano detalhado.
-    - Último log de sessão em §7 (sessão 11) — sucesso e observações do utilizador.
+    - §6 "Próximos passos concretos" → **6.1** tem o que falta testar no PoC-4 e o plano do PoC-6.
+    - Últimos logs de sessão em §7 (sessões 11 e 12).
 3. **Ficheiros-chave a rever antes de mexer código:**
     - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor de a11y, gestos, dumps.
     - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG.
@@ -186,38 +186,28 @@ Já entregue no primeiro commit:
 - ✅ PoC-1 — skeleton (compila, corre, a11y service ativa)
 - ✅ PoC-2 — dump da árvore de acessibilidade (`ACTION_DUMP_TREE`, `ACTION_DUMP_ALL_WINDOWS`)
 - ✅ PoC-3 — long-press dirigido ao bubble do Reel via `dispatchGesture`
-- 🔲 PoC-4 — **PRÓXIMO** — identificar quem enviou cada Reel na DM
-- ✅ PoC-5 — reagir ao 1.º Reel com ❤ e 😂
+- 🟡 PoC-4 — **CÓDIGO IMPLEMENTADO (sessão 12), aguarda teste no OnePlus** — identificar quem enviou cada Reel na DM
+- ✅ PoC-5 — reagir ao 1.º Reel com ❤ e 😂 (agora filtra por RECEIVED por defeito)
 - 🔲 PoC-6 — responder ao Reel (via "Responder" no menu popup + composer)
 - 🔲 PoC-7 — extrair URL do Reel (menu não tem sempre "Copiar link"; alternativa: abrir Reel viewer / Reencaminhar)
 - 🔲 PoC-8 — feed vertical, Room DB, MVVM
 
-### 6.1 Próxima sessão — PoC-4 (identificação do remetente)
+### 6.1 Próxima sessão — validar PoC-4 + preparar PoC-6
 
-**Objetivo:** para cada `message_content` visível, determinar se foi enviado **por nós** ou **recebido** de outra pessoa. Base do filtro "não mostrar os meus Reels no feed" e para no futuro identificar quem enviou cada Reel em grupos.
+**PoC-4 — o que falta testar no OnePlus:**
 
-**Sinal já conhecido (dumps 2025-08-28):**
+1. Numa conversa 1-a-1 com Reels enviados e recebidos misturados, tocar em "Listar Reels" (no shade ou UI) e confirmar no Logcat (`IGReaderService`) que:
+    - Cada bubble aparece com `dir=RECEIVED` ou `dir=SENT`, `kind`, `author` e `bounds` corretos.
+    - O sumário `LIST_REELS: found N Reel bubble(s) — received=X sent=Y` bate certo com o que se vê no ecrã.
+2. Com o toggle "Ignorar Reels enviados por mim" **ligado** (default), tocar ❤ num ecrã onde o Reel de topo é enviado por nós:
+    - Verificar que a reação vai para o próximo Reel recebido, não para o nosso.
+    - Log esperado: `LONG_PRESS: target ... direction=RECEIVED`.
+3. Desligar o toggle e repetir: reação deve aplicar-se ao 1.º Reel independentemente da direção (log com `direction=SENT`).
+4. Repetir 1-3 num **grupo**: capturar dump da estrutura do bubble (o `sender_avatar` deve continuar presente em mensagens recebidas de qualquer membro; se não estiver, precisamos de outro sinal para o nome do remetente humano em grupos).
 
-- Presença de `com.instagram.android:id/sender_avatar` como filho directo de `message_content` = **recebida** (o avatar do outro utilizador é desenhado à esquerda do bubble).
-- Ausência de `sender_avatar` = **enviada por nós**.
-- Autor do Reel (não do envio): `message_content_portrait_xma_container` → `title_text`. Este campo é o utilizador do IG que **postou** o Reel, e é o mesmo em ambas as direções.
-
-**Passos concretos:**
-
-1. Adicionar em `IgSelectors.Thread`:
-    - `SENDER_AVATAR = "sender_avatar"` (já existe — verificar).
-2. Criar um data class `DmReelEntry(index, direction: Direction, reelAuthor: String?, bubbleBounds: Rect)` em `com.example.friendsreels.instagram`.
-3. Novo `ACTION_LIST_REELS`:
-    - Localiza `message_list` na janela do IG (via `findIgApplicationWindow()`).
-    - Itera os `message_content` filhos.
-    - Para cada um, resolve `Direction.RECEIVED` se contém `sender_avatar`, `Direction.SENT` caso contrário.
-    - Filtra os que contêm `message_content_portrait_xma_container` ou `_generic_xma_container` (só nos interessa Reels partilhados).
-    - Loga a lista.
-4. Actualizar `findFirstReelBubble` (usado pelo PoC-5) para aceitar um filtro `onlyDirection: Direction? = Direction.RECEIVED` e passar essa filtragem à reação.
-5. Colocar botão na notificação/UI a listar Reels + adicionar switch "Ignorar Reels enviados por mim" (mock, para já só log).
-6. Testar em grupo — verificar se em grupos aparece um label do utilizador dentro do `message_content` para além do `sender_avatar` (útil para identificar quem enviou cada Reel do grupo).
-
-**Estimativa:** 1 commit. Requer verificação no OnePlus (dump de grupo ainda não capturado).
+**Se algo falhar, o Logcat vai mostrar:**
+- `LIST_REELS: no message_list found.` → não estás numa conversa.
+- `LONG_PRESS: no eligible Reel bubble found (ignoreSent=true)` → não há Reels recebidos visíveis. Fazer scroll ou desligar o toggle.
 
 ### 6.2 A seguir do PoC-4
 
@@ -355,3 +345,32 @@ Já entregue no primeiro commit:
   - Filtrar as próprias mensagens do feed futuro.
   - Devolver ao PoC-5 uma opção para ignorar mensagens enviadas por nós na hora de escolher o alvo.
 - **A seguir:** PoC-6 (responder ao Reel via `context_menu_item` "Responder" + composer), PoC-7 (extrair URL do Reel).
+
+### 2025-08-28 — Sessão 12 (Ricardo + Copilot CLI) — PoC-4 implementado
+
+- **Novo ficheiro `instagram/DmReelEntry.kt`** com `enum Direction { RECEIVED, SENT }` e `data class DmReelEntry(index, kind, direction, reelAuthor, bounds, node)`. É o modelo partilhado que substitui o antigo `ReelTarget` interno da service. O `node` é sempre o container XMA (portrait ou generic), o alvo correcto para o long-press; `bounds` é uma cópia dos `getBoundsInScreen` capturada no momento da enumeração.
+- **Nova função `enumerateReels(messageList)`** na `InstagramReaderService`:
+  - Itera **todos** os `message_content` visíveis (não só o primeiro), o que é a base para a listagem completa e para o futuro sync.
+  - Para cada bubble, resolve `Direction.RECEIVED` se o `message_content` contiver algum descendente com `id/sender_avatar`, `SENT` caso contrário.
+  - Só devolve bubbles que contenham um dos containers de Reel (`message_content_portrait_xma_container` ou `_generic_xma_container`) — mensagens de texto/GIF/etc. são descartadas silenciosamente.
+  - Extrai o `title_text` do container XMA como `reelAuthor` (o *username* de quem postou o Reel, não de quem o partilhou na DM).
+- **`findFirstReelBubble` refactorada** para consumir `enumerateReels` e aceitar `onlyDirection: Direction? = Direction.RECEIVED`. Mantém o filtro `MIN_REEL_BUBBLE_HEIGHT_PX` (200 px) e a escolha do `bounds.top` mais pequeno. `longPressFirstReel` passa `onlyDirection = RECEIVED` se o toggle "Ignorar Reels enviados por mim" estiver ligado, `null` caso contrário.
+- **Novo `ACTION_LIST_REELS`** exposto na notificação (novo botão "Listar") e no ecrã da app ("Listar Reels na conversa (log)"). Loga um resumo `LIST_REELS: found N Reel bubble(s) — received=X sent=Y conversation='<titulo>'` seguido de uma linha por Reel (`LIST_REELS[i]: dir=... kind=... author=... bounds=...`). Consome-se em `adb logcat -s IGReaderService:I`.
+- **Preferência partilhada `friends_reels_prefs.ignore_sent_reels`** (default `true`) lida pela service em `isIgnoreSentEnabled()` e escrita pelo `Switch` na `MainActivity`. Estado sobrevive a reinstalação parcial (limpa se desinstalada).
+- **UI actualizada** (`MainActivity`): novo `Switch` "Ignorar Reels enviados por mim" com legenda explicativa; novo botão "Listar Reels". Strings acrescentadas em `res/values/strings.xml` (`btn_list_reels`, `toggle_ignore_sent`, `toggle_ignore_sent_help`, `notif_action_list`).
+- **Comportamento esperado no OnePlus:**
+  - Um dump numa conversa mista deve mostrar todos os bubbles com a direção correcta.
+  - Reagir com ❤ num ecrã cujo Reel de topo foi enviado por nós já não reage a esse Reel — vai para o próximo `RECEIVED` visível. Log do target confirma `direction=RECEIVED`.
+  - Desligar o switch → volta ao comportamento do PoC-5 (reage ao 1.º Reel, seja qual for a direção).
+- **Grupos:** ainda por dumpar. O `sender_avatar` deve estar presente em qualquer mensagem recebida (nossa hipótese); se em grupos aparecer também um label do nome do remetente humano dentro do `message_content`, capturaremos esse selector numa sessão futura para identificar quem partilhou o Reel em grupo. Fica em aberto para a próxima sessão de testes.
+- **Ficheiros alterados neste commit:**
+  - `app/src/main/java/com/example/friendsreels/instagram/DmReelEntry.kt` (novo).
+  - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` (enumerateReels, listReels, novo `ACTION_LIST_REELS`, `PREF_IGNORE_SENT`, filtragem por direção, notificação com botão "Listar").
+  - `app/src/main/java/com/example/friendsreels/MainActivity.kt` (Switch de ignore-sent + botão Listar Reels).
+  - `app/src/main/res/values/strings.xml` (strings novas).
+- **Próximo passo do utilizador (validação PoC-4):**
+  1. Pull, correr no OnePlus.
+  2. Abrir uma conversa com Reels enviados **e** recebidos misturados.
+  3. Baixar o shade → tocar "Listar" → confirmar Logcat (`adb logcat -s IGReaderService:I`) com as linhas `LIST_REELS[i]: dir=...`.
+  4. Testar ❤ com o switch ligado (default) e depois desligado; reportar se o alvo bate certo.
+  5. Repetir 3 num grupo e capturar o dump (`Dump`) para vermos que labels adicionais existem por bubble.

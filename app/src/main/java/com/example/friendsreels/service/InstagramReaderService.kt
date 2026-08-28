@@ -20,6 +20,8 @@ import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.friendsreels.R
+import com.example.friendsreels.instagram.Direction
+import com.example.friendsreels.instagram.DmReelEntry
 import com.example.friendsreels.instagram.IgSelectors
 
 /**
@@ -43,6 +45,13 @@ import com.example.friendsreels.instagram.IgSelectors
  * requested emoji ImageView. The reaction is applied to the underlying DM
  * message on Instagram's side and persists after we close the conversation.
  * Actions: ACTION_REACT_HEART, ACTION_REACT_LAUGH.
+ *
+ * PoC-4 (identify sender): before dispatching any action, every message
+ * bubble inside `message_list` is enumerated with its Direction (RECEIVED
+ * vs SENT) inferred from the presence of `sender_avatar`. Reactions default
+ * to Direction.RECEIVED only, controlled by the persisted
+ * `ignore_sent_reels` preference. The listing can also be dumped to logcat
+ * via ACTION_LIST_REELS.
  */
 class InstagramReaderService : AccessibilityService() {
 
@@ -105,6 +114,7 @@ class InstagramReaderService : AccessibilityService() {
                 when (intent?.action) {
                     ACTION_DUMP_TREE -> runInInstagram { dumpActiveWindow("adb") }
                     ACTION_DUMP_ALL_WINDOWS -> runInInstagram { dumpAllWindows("adb") }
+                    ACTION_LIST_REELS -> runInInstagram { listReels() }
                     ACTION_LONG_PRESS_FIRST_REEL ->
                         runInInstagram { longPressFirstReel(afterLongPress = AfterLongPress.DumpAllWindows) }
                     ACTION_REACT_HEART ->
@@ -117,6 +127,7 @@ class InstagramReaderService : AccessibilityService() {
         val filter = IntentFilter().apply {
             addAction(ACTION_DUMP_TREE)
             addAction(ACTION_DUMP_ALL_WINDOWS)
+            addAction(ACTION_LIST_REELS)
             addAction(ACTION_LONG_PRESS_FIRST_REEL)
             addAction(ACTION_REACT_HEART)
             addAction(ACTION_REACT_LAUGH)
@@ -131,7 +142,8 @@ class InstagramReaderService : AccessibilityService() {
         Log.i(
             TAG,
             "Action receiver registered (dump=$ACTION_DUMP_TREE, dumpAll=$ACTION_DUMP_ALL_WINDOWS, " +
-                "longpress=$ACTION_LONG_PRESS_FIRST_REEL, heart=$ACTION_REACT_HEART, laugh=$ACTION_REACT_LAUGH)"
+                "list=$ACTION_LIST_REELS, longpress=$ACTION_LONG_PRESS_FIRST_REEL, " +
+                "heart=$ACTION_REACT_HEART, laugh=$ACTION_REACT_LAUGH)"
         )
     }
 
@@ -270,16 +282,24 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
 
-        val target = findFirstReelBubble(messageList)
+        val target = findFirstReelBubble(
+            messageList,
+            onlyDirection = if (isIgnoreSentEnabled()) Direction.RECEIVED else null,
+        )
         if (target == null) {
-            Log.w(TAG, "LONG_PRESS: no Reel bubble (portrait/generic xma container) found in the visible message list.")
+            Log.w(
+                TAG,
+                "LONG_PRESS: no eligible Reel bubble found (ignoreSent=${isIgnoreSentEnabled()}). " +
+                    "Are you on a conversation with a received Reel visible?"
+            )
             return
         }
 
-        val bounds = Rect().also { target.node.getBoundsInScreen(it) }
+        val bounds = Rect(target.bounds)
         Log.i(
             TAG,
-            "LONG_PRESS: target kind=${target.kind} author=${target.authorUsername} " +
+            "LONG_PRESS: target index=${target.index} kind=${target.kind} " +
+                "direction=${target.direction} author=${target.reelAuthor} " +
                 "bounds=${bounds.toShortString()} center=(${bounds.centerX()},${bounds.centerY()}) " +
                 "afterLongPress=${afterLongPress::class.simpleName}"
         )
@@ -415,48 +435,124 @@ class InstagramReaderService : AccessibilityService() {
         return null
     }
 
-    private data class ReelTarget(
-        val kind: String,
-        val node: AccessibilityNodeInfo,
-        val authorUsername: String?,
-    )
+    // ---------------------------------------------------------------------
+    // PoC-4 — Enumerate Reel bubbles + detect sender direction
+    // ---------------------------------------------------------------------
+
+    /**
+     * List every Reel bubble currently visible on the open conversation, with
+     * direction (RECEIVED / SENT) and original Reel author. Result is logged.
+     * Used as the read-only entry point for PoC-4 verification.
+     */
+    private fun listReels() {
+        val igWindow = findIgApplicationWindow()
+        val root = igWindow?.root ?: rootInActiveWindow
+        if (root == null) {
+            Log.w(TAG, "LIST_REELS requested but no Instagram root node available.")
+            return
+        }
+        if (root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
+            Log.w(TAG, "LIST_REELS ignored: foreground is ${root.packageName}, expected ${IgSelectors.IG_PACKAGE}.")
+            return
+        }
+        val messageList = root
+            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
+            .firstOrNull()
+        if (messageList == null) {
+            Log.w(TAG, "LIST_REELS: no message_list found. Are you on a conversation screen?")
+            return
+        }
+
+        val entries = enumerateReels(messageList)
+        val received = entries.count { it.direction == Direction.RECEIVED }
+        val sent = entries.size - received
+        Log.i(
+            TAG,
+            "LIST_REELS: found ${entries.size} Reel bubble(s) — received=$received sent=$sent " +
+                "conversation='$lastKnownConversationTitle' ignoreSent=${isIgnoreSentEnabled()}"
+        )
+        entries.forEach { r ->
+            Log.i(
+                TAG,
+                "LIST_REELS[${r.index}]: dir=${r.direction} kind=${r.kind} " +
+                    "author=${r.reelAuthor ?: "?"} bounds=${r.bounds.toShortString()}"
+            )
+        }
+    }
+
+    /**
+     * Enumerate every `message_content` inside [messageList] that contains a
+     * Reel share (portrait or generic XMA container). Direction is inferred
+     * from the presence of `sender_avatar` inside the same bubble.
+     *
+     * Bubbles are returned in traversal order — which follows the
+     * RecyclerView, so top-visible messages come first. Filtering by
+     * on-screen size / direction is left to the caller.
+     */
+    private fun enumerateReels(messageList: AccessibilityNodeInfo): List<DmReelEntry> {
+        val bubbles = messageList
+            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_CONTENT))
+            .orEmpty()
+        val portraitId = IgSelectors.id(IgSelectors.Thread.MESSAGE_MEDIA_PORTRAIT)
+        val genericId = IgSelectors.id(IgSelectors.Thread.MESSAGE_MEDIA_GENERIC)
+        val senderAvatarId = IgSelectors.id(IgSelectors.Thread.SENDER_AVATAR)
+        val authorId = IgSelectors.id(IgSelectors.Thread.REEL_AUTHOR_USERNAME)
+
+        val entries = mutableListOf<DmReelEntry>()
+        var next = 0
+        for (bubble in bubbles) {
+            val portrait = bubble.findAccessibilityNodeInfosByViewId(portraitId)?.firstOrNull()
+            val generic = bubble.findAccessibilityNodeInfosByViewId(genericId)?.firstOrNull()
+            val media = portrait ?: generic ?: continue
+            val kind = if (portrait != null) "portrait" else "generic"
+
+            val direction = if (bubble.findAccessibilityNodeInfosByViewId(senderAvatarId).orEmpty().isNotEmpty()) {
+                Direction.RECEIVED
+            } else {
+                Direction.SENT
+            }
+
+            val author = media.findAccessibilityNodeInfosByViewId(authorId)?.firstOrNull()?.text?.toString()
+            val bounds = Rect().also { media.getBoundsInScreen(it) }
+            entries += DmReelEntry(
+                index = next++,
+                kind = kind,
+                direction = direction,
+                reelAuthor = author,
+                bounds = bounds,
+                node = media,
+            )
+        }
+        return entries
+    }
 
     /**
      * Walk the message_list and return the tightest Reel-carrying subtree we
-     * can find: prefer the portrait media container, fall back to the generic
-     * card container. Both hold the actual visible reel bubble; the outer
-     * message_content wrapper spans the entire row width so it is unsuitable
-     * as a long-press target.
+     * can find, filtered by [onlyDirection] (default: RECEIVED only, so we
+     * never accidentally react to a Reel we sent ourselves). Passing null
+     * disables the direction filter.
+     *
+     * The chosen candidate is the top-most bubble on screen (smallest
+     * `bounds.top`) that also has a reasonable visible height. Bubbles at
+     * the top of the RecyclerView are sometimes reported with just ~30 px
+     * visible height while they scroll into view; long-pressing those hits
+     * the partial area and IG doesn't recognise it as a message press.
      */
-    private fun findFirstReelBubble(messageList: AccessibilityNodeInfo): ReelTarget? {
-        val portraitId = IgSelectors.id(IgSelectors.Thread.MESSAGE_MEDIA_PORTRAIT)
-        val genericId = IgSelectors.id(IgSelectors.Thread.MESSAGE_MEDIA_GENERIC)
-
-        val portraits = messageList.findAccessibilityNodeInfosByViewId(portraitId).orEmpty()
-        val generics = messageList.findAccessibilityNodeInfosByViewId(genericId).orEmpty()
-
-        // We want a bubble that is actually visible enough to receive a
-        // long-press. Bubbles at the top or bottom of the RecyclerView are
-        // reported by the a11y layer even when they are almost fully clipped
-        // (e.g. only ~30 px tall). Long-pressing those hits the bubble's
-        // partial area — sometimes just the header row — and IG doesn't
-        // recognise it as a message press. Filter to bubbles with a
-        // reasonable visible height instead.
-        val candidates = (portraits.map { "portrait" to it } + generics.map { "generic" to it })
-            .mapNotNull {
-                val r = Rect(); it.second.getBoundsInScreen(r)
-                if (r.width() <= 0 || r.height() < MIN_REEL_BUBBLE_HEIGHT_PX) null
-                else Triple(it.first, it.second, r)
+    private fun findFirstReelBubble(
+        messageList: AccessibilityNodeInfo,
+        onlyDirection: Direction? = Direction.RECEIVED,
+    ): DmReelEntry? {
+        return enumerateReels(messageList)
+            .filter { r ->
+                r.bounds.width() > 0 && r.bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX
             }
-            .sortedBy { it.third.top }
+            .filter { r -> onlyDirection == null || r.direction == onlyDirection }
+            .minByOrNull { it.bounds.top }
+    }
 
-        val (kind, node, _) = candidates.firstOrNull() ?: return null
-        val author = node
-            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.REEL_AUTHOR_USERNAME))
-            ?.firstOrNull()
-            ?.text
-            ?.toString()
-        return ReelTarget(kind, node, author)
+    private fun isIgnoreSentEnabled(): Boolean {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(PREF_IGNORE_SENT, PREF_IGNORE_SENT_DEFAULT)
     }
 
     // ---------------------------------------------------------------------
@@ -560,9 +656,21 @@ class InstagramReaderService : AccessibilityService() {
 
         const val ACTION_DUMP_TREE = "com.example.friendsreels.ACTION_DUMP_TREE"
         const val ACTION_DUMP_ALL_WINDOWS = "com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS"
+        const val ACTION_LIST_REELS = "com.example.friendsreels.ACTION_LIST_REELS"
         const val ACTION_LONG_PRESS_FIRST_REEL = "com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL"
         const val ACTION_REACT_HEART = "com.example.friendsreels.ACTION_REACT_HEART"
         const val ACTION_REACT_LAUGH = "com.example.friendsreels.ACTION_REACT_LAUGH"
+
+        /** SharedPreferences file shared between the UI and the service. */
+        const val PREFS_NAME = "friends_reels_prefs"
+
+        /**
+         * When true, the reaction actions ignore Reels the user sent
+         * themselves (`sender_avatar` absent). Default true — this matches
+         * the MVP requirement of never re-reacting to our own shares.
+         */
+        const val PREF_IGNORE_SENT = "ignore_sent_reels"
+        const val PREF_IGNORE_SENT_DEFAULT = true
 
         private const val NOTIF_CHANNEL_ID = "friends_reels_controls"
         private const val NOTIF_ID = 1001
@@ -600,6 +708,11 @@ class InstagramReaderService : AccessibilityService() {
                 0,
                 getString(R.string.notif_action_laugh),
                 pendingBroadcast(ACTION_REACT_LAUGH, requestCode = 2)
+            )
+            .addAction(
+                0,
+                getString(R.string.notif_action_list),
+                pendingBroadcast(ACTION_LIST_REELS, requestCode = 4)
             )
             .addAction(
                 0,

@@ -1,6 +1,7 @@
 package com.example.friendsreels
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -11,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,9 +26,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -42,6 +49,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ensureNotificationPermission()
+        val prefs = getSharedPreferences(InstagramReaderService.PREFS_NAME, Context.MODE_PRIVATE)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -60,8 +68,18 @@ class MainActivity : ComponentActivity() {
                         },
                         onLongPressFirstReel = { sendServiceBroadcast(InstagramReaderService.ACTION_LONG_PRESS_FIRST_REEL) },
                         onDumpAllWindows = { sendServiceBroadcast(InstagramReaderService.ACTION_DUMP_ALL_WINDOWS) },
+                        onListReels = { sendServiceBroadcast(InstagramReaderService.ACTION_LIST_REELS) },
                         onReactHeart = { sendServiceBroadcast(InstagramReaderService.ACTION_REACT_HEART) },
                         onReactLaugh = { sendServiceBroadcast(InstagramReaderService.ACTION_REACT_LAUGH) },
+                        initialIgnoreSent = prefs.getBoolean(
+                            InstagramReaderService.PREF_IGNORE_SENT,
+                            InstagramReaderService.PREF_IGNORE_SENT_DEFAULT,
+                        ),
+                        onIgnoreSentChange = { enabled ->
+                            prefs.edit()
+                                .putBoolean(InstagramReaderService.PREF_IGNORE_SENT, enabled)
+                                .apply()
+                        },
                     )
                 }
             }
@@ -89,9 +107,13 @@ private fun HomeScreen(
     onOpenInstagram: () -> Unit,
     onLongPressFirstReel: () -> Unit,
     onDumpAllWindows: () -> Unit,
+    onListReels: () -> Unit,
     onReactHeart: () -> Unit,
     onReactLaugh: () -> Unit,
+    initialIgnoreSent: Boolean,
+    onIgnoreSentChange: (Boolean) -> Unit,
 ) {
+    var ignoreSent by remember { mutableStateOf(initialIgnoreSent) }
     Scaffold { padding ->
         Column(
             modifier = Modifier
@@ -129,6 +151,34 @@ private fun HomeScreen(
                 text = stringResource(R.string.poc_tools_help),
                 style = MaterialTheme.typography.bodySmall
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.padding(end = 12.dp)) {
+                    Text(
+                        text = stringResource(R.string.toggle_ignore_sent),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.toggle_ignore_sent_help),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = ignoreSent,
+                    onCheckedChange = {
+                        ignoreSent = it
+                        onIgnoreSentChange(it)
+                    },
+                )
+            }
+
+            OutlinedButton(onClick = onListReels, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.btn_list_reels))
+            }
             OutlinedButton(onClick = onLongPressFirstReel, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.btn_long_press_reel))
             }
@@ -144,3 +194,4 @@ private fun HomeScreen(
         }
     }
 }
+

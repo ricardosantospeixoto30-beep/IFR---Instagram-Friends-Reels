@@ -15,8 +15,11 @@
     <string name="poc_tools_help">Fluxo recomendado: abre a conversa no Instagram e usa os botões da notificação persistente do Friends Reels (baixa a barra). Assim o Instagram fica na conversa. Os botões abaixo funcionam mas trocam de app, o que pode fazer o IG voltar ao inbox.</string>
     <string name="btn_long_press_reel">Long-press no 1.º Reel (+ dump de janelas)</string>
     <string name="btn_dump_all_windows">Dump de todas as janelas</string>
+    <string name="btn_list_reels">Listar Reels na conversa (log)</string>
     <string name="btn_react_heart">Reagir com ❤ ao 1.º Reel</string>
     <string name="btn_react_laugh">Reagir com 😂 ao 1.º Reel</string>
+    <string name="toggle_ignore_sent">Ignorar Reels enviados por mim</string>
+    <string name="toggle_ignore_sent_help">Quando ativado, o alvo das reações é o primeiro Reel recebido visível (marcado com o avatar do remetente). Desativa para permitir reagir aos teus próprios Reels na conversa.</string>
 
     <string name="notif_channel_name">Ações rápidas do Reels</string>
     <string name="notif_channel_description">Notificação persistente com botões para reagir ao Reel visível no Instagram.</string>
@@ -24,6 +27,7 @@
     <string name="notif_text">Abre uma conversa com Reel e usa os botões abaixo.</string>
     <string name="notif_action_heart">❤</string>
     <string name="notif_action_laugh">😂</string>
+    <string name="notif_action_list">Listar</string>
     <string name="notif_action_dump">Dump</string>
 
     <string name="settings_title">Definições</string>
