@@ -7,8 +7,8 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-5 (reagir) com notificação persistente para evitar troca de foreground.
-**Última atualização:** 2025-08-28 (sessão 8)
+**Fase atual:** Fase 1 (PoC) — PoC-5 (reagir) ✅ concluído no OnePlus. Próximo: PoC-4 (identificar remetente).
+**Última atualização:** 2025-08-28 (sessão 11)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ---
@@ -290,3 +290,17 @@ Já entregue no primeiro commit:
   - Aumentado FOREGROUND_POLL_MAX_RETRIES de 20 para 30 (aprox 6 s).
   - findFirstReelBubble descarta bubbles com altura inferior a 200 px (MIN_REEL_BUBBLE_HEIGHT_PX).
 - **Próximo passo do utilizador:** repetir os testes pela notificação. Logs esperados: window settled + bounds do bubble dentro de 0..1080 em X.
+
+### 2025-08-28 — Sessão 11 (Ricardo + Copilot CLI) — PoC-5 CONCLUÍDO ✅
+
+- **Resultado do teste do utilizador:** os três botões (❤, 😂, long-press) **funcionaram os três** no OnePlus Nord 5. Reação aplicada visualmente no Instagram e persiste após fechar/reabrir a conversa.
+- **Feedback do utilizador (registado para futuras iterações):**
+  1. O fluxo está "um pouco lento". Latência actual: até 6 s de espera pela janela do IG a assentar + 600 ms de long-press + 1500 ms de settle antes de tocar no emoji. Tuning fica para mais tarde — provavelmente conseguimos reduzir o settle para 800-1000 ms.
+  2. **A reação também acontece em Reels/posts que o próprio utilizador enviou.** Isto é comportamento aceite pelo Instagram (o IG permite reagir a media partilhado por nós próprios, ao contrário de mensagens de texto onde não permite). Como o código actual não filtra a direção da mensagem, reage a qualquer Reel visível — **este ponto reforça a necessidade do PoC-4 (identificação do remetente)** para o MVP não incluir Reels que o próprio utilizador enviou.
+  3. Uma segunda reação com o mesmo emoji **remove** a reação; uma segunda reação com emoji diferente **substitui**. Comportamento nativo do IG, coerente com o que precisamos.
+  4. A reação vai sempre para o Reel mais próximo do topo do ecrã — é o nosso `findFirstReelBubble` a ordenar por `top` ascendente. No MVP final o utilizador vai escolher no feed qual Reel receber a reação; para o PoC serve.
+- **Estado dos PoCs:** ✅ PoC-1 (skeleton), ✅ PoC-2 (dump), ✅ PoC-3 (long-press), ✅ PoC-5 (reagir com ❤ e 😂).
+- **Próximo passo prioritário:** **PoC-4 — identificação do remetente** (`sender_avatar` presente = recebida; ausente = enviada por nós). Com isto podemos:
+  - Filtrar as próprias mensagens do feed futuro.
+  - Devolver ao PoC-5 uma opção para ignorar mensagens enviadas por nós na hora de escolher o alvo.
+- **A seguir:** PoC-6 (responder ao Reel via `context_menu_item` "Responder" + composer), PoC-7 (extrair URL do Reel).
