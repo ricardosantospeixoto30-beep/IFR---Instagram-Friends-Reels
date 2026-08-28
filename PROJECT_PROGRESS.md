@@ -11,6 +11,24 @@
 **Última atualização:** 2025-08-28 (sessão 11)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
+### Como continuar na próxima sessão (quick start)
+
+1. **Pull** do repo. Estado a partir do commit `c09b3bb` (PoC-5 concluído).
+2. **Ler primeiro:**
+    - Esta secção "Estado atual".
+    - §6 "Próximos passos concretos" → **6.1 PoC-4** tem o plano detalhado.
+    - Último log de sessão em §7 (sessão 11) — sucesso e observações do utilizador.
+3. **Ficheiros-chave a rever antes de mexer código:**
+    - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor de a11y, gestos, dumps.
+    - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG.
+    - `docs/screen-dumps/dump-menu.txt` e `docs/screen-dumps/2025-08-28-initial-mapping.txt` — dumps de referência.
+4. **Constraints do desenvolvimento** (importantes, não esquecer):
+    - Todos os testes são feitos pelo utilizador num **OnePlus Nord 5 / Android 16**, num **PC separado com Android Studio**. Cada iteração exige `git commit && git push`. Minimizar rondas.
+    - macOS deste ambiente **não tem Android SDK** — não é possível fazer build local, só validar sintaxe. Utilizador é sempre quem valida em device.
+    - Java do sistema é 25 (parte Gradle 8.10.2). Se precisares mesmo de correr Gradle: `sdk use java 21.0.7-tem`.
+5. **UX de teste actual:** notificação persistente "Friends Reels" no shade com botões ❤ / 😂 / Dump. Não usar os botões dentro da app (podem tirar o IG da conversa por causa da troca de foreground durante animações).
+6. **MVP note:** o utilizador também envia Reels a amigos → o feed final tem de filtrar (via `sender_avatar`) para não mostrar os Reels enviados por ele.
+
 ---
 
 ## 1. Requisitos identificados (resumo da spec)
@@ -163,16 +181,49 @@ Já entregue no primeiro commit:
 
 ## 6. Próximos passos concretos
 
-1. **[Utilizador]** Puxar o repo no PC do Android Studio, abrir o projeto, deixar sincronizar e correr no OnePlus Nord 5. Confirmar os pontos do §3 (skeleton a funcionar).
-2. **[App]** Se o skeleton compilar e correr, avançar para PoC-2: mapear seletores (`view-id`, `content-description`, texto) das seguintes ecrãs no IG oficial:
-   - Home (para chegar a Direct).
-   - Direct/Inbox (lista de conversas).
-   - Conversa individual (mensagens).
-   - Mensagem com Reel (para long-press → "Copy link").
-   - Mensagem com Reel + long-press → identificar item "Reply" para PoC-6.
-   Fazer isto em **inglês e português** e guardar em `IgSelectors.kt`.
-3. **[App]** Escrever o dump-tree utility na service (comando via `adb shell am broadcast`) que despeja a árvore de nodes no logcat quando estamos num ecrã de interesse. Isto acelera brutalmente o mapping.
-4. **[App]** Implementar navegação Home → Direct → primeira conversa e reportar `content-description` do primeiro Reel encontrado. Corresponde a PoC-2 + parte de PoC-3.
+**Estado dos PoCs após sessão 11:**
+
+- ✅ PoC-1 — skeleton (compila, corre, a11y service ativa)
+- ✅ PoC-2 — dump da árvore de acessibilidade (`ACTION_DUMP_TREE`, `ACTION_DUMP_ALL_WINDOWS`)
+- ✅ PoC-3 — long-press dirigido ao bubble do Reel via `dispatchGesture`
+- 🔲 PoC-4 — **PRÓXIMO** — identificar quem enviou cada Reel na DM
+- ✅ PoC-5 — reagir ao 1.º Reel com ❤ e 😂
+- 🔲 PoC-6 — responder ao Reel (via "Responder" no menu popup + composer)
+- 🔲 PoC-7 — extrair URL do Reel (menu não tem sempre "Copiar link"; alternativa: abrir Reel viewer / Reencaminhar)
+- 🔲 PoC-8 — feed vertical, Room DB, MVVM
+
+### 6.1 Próxima sessão — PoC-4 (identificação do remetente)
+
+**Objetivo:** para cada `message_content` visível, determinar se foi enviado **por nós** ou **recebido** de outra pessoa. Base do filtro "não mostrar os meus Reels no feed" e para no futuro identificar quem enviou cada Reel em grupos.
+
+**Sinal já conhecido (dumps 2025-08-28):**
+
+- Presença de `com.instagram.android:id/sender_avatar` como filho directo de `message_content` = **recebida** (o avatar do outro utilizador é desenhado à esquerda do bubble).
+- Ausência de `sender_avatar` = **enviada por nós**.
+- Autor do Reel (não do envio): `message_content_portrait_xma_container` → `title_text`. Este campo é o utilizador do IG que **postou** o Reel, e é o mesmo em ambas as direções.
+
+**Passos concretos:**
+
+1. Adicionar em `IgSelectors.Thread`:
+    - `SENDER_AVATAR = "sender_avatar"` (já existe — verificar).
+2. Criar um data class `DmReelEntry(index, direction: Direction, reelAuthor: String?, bubbleBounds: Rect)` em `com.example.friendsreels.instagram`.
+3. Novo `ACTION_LIST_REELS`:
+    - Localiza `message_list` na janela do IG (via `findIgApplicationWindow()`).
+    - Itera os `message_content` filhos.
+    - Para cada um, resolve `Direction.RECEIVED` se contém `sender_avatar`, `Direction.SENT` caso contrário.
+    - Filtra os que contêm `message_content_portrait_xma_container` ou `_generic_xma_container` (só nos interessa Reels partilhados).
+    - Loga a lista.
+4. Actualizar `findFirstReelBubble` (usado pelo PoC-5) para aceitar um filtro `onlyDirection: Direction? = Direction.RECEIVED` e passar essa filtragem à reação.
+5. Colocar botão na notificação/UI a listar Reels + adicionar switch "Ignorar Reels enviados por mim" (mock, para já só log).
+6. Testar em grupo — verificar se em grupos aparece um label do utilizador dentro do `message_content` para além do `sender_avatar` (útil para identificar quem enviou cada Reel do grupo).
+
+**Estimativa:** 1 commit. Requer verificação no OnePlus (dump de grupo ainda não capturado).
+
+### 6.2 A seguir do PoC-4
+
+- **PoC-6 responder:** clique no `context_menu_item` cujo `contentDescription` está em `IgSelectors.ContextMenu.ACTION_REPLY`, seguido de escrever no `row_thread_composer_edittext` e enviar.
+- **PoC-7 URL:** o menu popup nem sempre tem "Copiar link". Plano: (a) tocar no bubble para abrir o Reel viewer e localizar o botão Share/Copiar link lá; ou (b) usar Reencaminhar → Copiar link do share sheet.
+- **PoC-8 UI:** só depois de termos os primitivos de leitura/ação validados.
 
 ---
 

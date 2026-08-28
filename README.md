@@ -10,6 +10,8 @@ Ver **`Friends_Reels_Inbox_Technical_Spec_v2.md`** para a spec completa e **`PRO
 2. Abrir a pasta no **Android Studio** (File → Open…).
 3. Aguardar a sincronização Gradle (primeira vez demora — descarrega Gradle 8.10.2 e dependências).
 4. Correr no dispositivo (USB debugging ligado).
+5. Ao abrir a app pela primeira vez, aceitar o pedido de permissão de notificações.
+6. Ativar o serviço de acessibilidade **Friends Reels — Instagram Reader** (botão na app ou Definições → Acessibilidade).
 
 ## Requisitos de build
 
@@ -17,9 +19,20 @@ Ver **`Friends_Reels_Inbox_Technical_Spec_v2.md`** para a spec completa e **`PRO
 - JDK 17+ (o AS trás o próprio JBR).
 - Android SDK 35.
 
-## Ferramentas de dump / long-press (PoC-2/PoC-3)
+## Como testar as ações PoC no telemóvel (fluxo recomendado)
 
-Quando o `AccessibilityService` está ativo, é possível pedir um dump da árvore de acessibilidade do ecrã atual ou disparar um long-press automático no primeiro Reel visível da conversa aberta.
+Depois do serviço de acessibilidade estar ativo, aparece uma **notificação persistente "Friends Reels"** com botões `❤`, `😂` e `Dump`.
+
+1. Abrir o Instagram e entrar numa conversa com Reels visíveis.
+2. Baixar a barra de notificações.
+3. Tocar em `❤` ou `😂` na notificação Friends Reels.
+4. O shade fecha, o IG mantém-se na conversa e a reação é aplicada ao Reel mais próximo do topo do ecrã.
+
+Este fluxo evita a troca de foreground (que causava o IG a voltar ao inbox em versões anteriores).
+
+## Ferramentas de dump / long-press via adb (opcional)
+
+Todas as ações também podem ser disparadas por broadcast e há botões equivalentes na `MainActivity` para debug.
 
 ```bash
 # Dump da árvore de acessibilidade da janela ativa.
@@ -39,8 +52,10 @@ adb shell am broadcast -a com.example.friendsreels.ACTION_REACT_HEART
 adb shell am broadcast -a com.example.friendsreels.ACTION_REACT_LAUGH
 ```
 
-As mesmas ações também estão disponíveis como botões na `MainActivity`, para poderes testar sem `adb`.
-
 Ver o resultado em `adb logcat -s IGReaderService` (ou no Logcat do Android Studio com filtro `IGReaderService`).
 
 Todos os dumps de referência estão em `docs/screen-dumps/`.
+
+## Estado atual
+
+Ver `PROJECT_PROGRESS.md` — secção **"Estado atual"** e o último log de sessão. Resumo curto: PoCs 1, 2, 3 e 5 concluídos e verificados no OnePlus Nord 5. Próximo passo: **PoC-4** (identificar remetente).
