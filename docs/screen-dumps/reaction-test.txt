@@ -1,109 +1,20 @@
-2026-08-28 22:33:39.429 24605-24605 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
-2026-08-28 22:33:39.429 24605-24605 IGReaderService         com.example.friendsreels             I  Action receiver registered (dump=com.example.friendsreels.ACTION_DUMP_TREE, dumpAll=com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS, longpress=com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL, heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH)
-2026-08-28 22:33:39.435 24605-24605 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-28 22:33:52.677 24605-24605 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
-2026-08-28 22:33:56.671 24605-24605 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='André Pinto'
-2026-08-28 22:33:58.878 24605-24605 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
-2026-08-28 22:34:04.158 24605-24605 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-28 22:34:04.381 24605-24605 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now in foreground, running action.
-2026-08-28 22:34:04.389 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target kind=portrait author=relatable_sayyz bounds=[1278,388][1723,1187] center=(1500,787) afterLongPress=TapReaction
-2026-08-28 22:34:04.389 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-28 22:34:04.994 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-28 22:34:06.491 24605-24605 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '❤' (desc in [❤Reação, ❤Reaction])
-2026-08-28 22:34:06.650 24605-24605 IGReaderService         com.example.friendsreels             W  REACT: could not find quick-reaction emoji '❤'. Was the context menu open?
-2026-08-28 22:34:11.354 24605-24605 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-28 22:34:11.583 24605-24605 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now in foreground, running action.
-2026-08-28 22:34:11.595 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target kind=portrait author=relatable_sayyz bounds=[1280,387][1725,1187] center=(1502,787) afterLongPress=TapReaction
-2026-08-28 22:34:11.596 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-28 22:34:12.202 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-28 22:34:13.698 24605-24605 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '😂' (desc in [😂Reação, 😂Reaction])
-2026-08-28 22:34:13.843 24605-24605 IGReaderService         com.example.friendsreels             W  REACT: could not find quick-reaction emoji '😂'. Was the context menu open?
-2026-08-28 22:34:23.265 24605-24605 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-28 22:34:23.490 24605-24605 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now in foreground, running action.
-2026-08-28 22:34:23.498 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target kind=portrait author=relatable_sayyz bounds=[1280,387][1725,1187] center=(1502,787) afterLongPress=DumpAllWindows
-2026-08-28 22:34:23.499 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-28 22:34:24.104 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-28 22:34:25.605 24605-24605 IGReaderService         com.example.friendsreels             I  ===== DUMP_ALL START reason=after-longpress windowCount=4 =====
-2026-08-28 22:34:25.612 24605-24605 IGReaderService         com.example.friendsreels             I  ----- WINDOW[0] id=1274 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[953,1024][1080,1151] -----
-2026-08-28 22:34:25.613 24605-24605 IGReaderService         com.example.friendsreels             I    FrameLayout [C---] id=- b=[0,0][1080,2378]
-2026-08-28 22:34:25.621 24605-24605 IGReaderService         com.example.friendsreels             I      RecyclerView [-S--] id=- desc="Toque numa funcionalidade para começar a utilizá-la:" b=[953,1025][1080,1152]
-2026-08-28 22:34:25.633 24605-24605 IGReaderService         com.example.friendsreels             I        ViewGroup [C---] id=- desc="Friends Reels — Instagram Reader" b=[953,1025][1080,1152]
-2026-08-28 22:34:25.638 24605-24605 IGReaderService         com.example.friendsreels             I  ----- WINDOW[1] id=1272 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[185,2262][887,2378] -----
-2026-08-28 22:34:25.639 24605-24605 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=com.android.systemui:id/navigation_bar_frame b=[0,2262][1080,2378]
-2026-08-28 22:34:25.642 24605-24605 IGReaderService         com.example.friendsreels             I      FrameLayout [----] id=com.android.systemui:id/navigation_bar_view b=[0,2262][1080,2378]
-2026-08-28 22:34:25.649 24605-24605 IGReaderService         com.example.friendsreels             I        ImageView [C---] id=com.android.systemui:id/back desc="Anterior" b=[185,2262][395,2378]
-2026-08-28 22:34:25.650 24605-24605 IGReaderService         com.example.friendsreels             I        ImageView [C---] id=com.android.systemui:id/recent_apps desc="Visão geral" b=[677,2262][887,2378]
-2026-08-28 22:34:25.650 24605-24605 IGReaderService         com.example.friendsreels             I        ImageView [C-L-] id=com.android.systemui:id/home desc="Página inicial" b=[432,2262][642,2378]
-2026-08-28 22:34:25.654 24605-24605 IGReaderService         com.example.friendsreels             I  ----- WINDOW[2] id=1271 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[0,0][1080,120] -----
-2026-08-28 22:34:25.654 24605-24605 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=- b=[0,0][1080,120]
-2026-08-28 22:34:25.661 24605-24605 IGReaderService         com.example.friendsreels             I      FrameLayout [----] id=com.android.systemui:id/status_bar b=[0,0][1080,120]
-2026-08-28 22:34:25.666 24605-24605 IGReaderService         com.example.friendsreels             I        FrameLayout [----] id=com.android.systemui:id/status_bar_start_side_content b=[71,30][399,109]
-2026-08-28 22:34:25.666 24605-24605 IGReaderService         com.example.friendsreels             I          TextView [----] id=com.android.systemui:id/clock desc="10:34 da tarde" text="10:34" b=[71,30][189,109]
-2026-08-28 22:34:25.666 24605-24605 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do WhatsApp: " b=[189,30][231,109]
-2026-08-28 22:34:25.666 24605-24605 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Sistema Android: " b=[231,30][273,109]
-2026-08-28 22:34:25.666 24605-24605 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Atualização de software: " b=[273,30][315,109]
-2026-08-28 22:34:25.666 24605-24605 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Ligação de dispositivos: " b=[315,30][357,109]
-2026-08-28 22:34:25.666 24605-24605 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Friends Reels: " b=[357,30][399,109]
-2026-08-28 22:34:25.666 24605-24605 IGReaderService         com.example.friendsreels             I        LinearLayout [----] id=com.android.systemui:id/system_icons b=[751,43][1014,96]
-2026-08-28 22:34:25.667 24605-24605 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Campainha em silêncio." b=[754,43][796,96]
-2026-08-28 22:34:25.667 24605-24605 IGReaderService         com.example.friendsreels             I          ImageView [----] id=com.android.systemui:id/wifi_signal desc="Sinal de Wi-Fi completo." b=[796,48][854,90]
-2026-08-28 22:34:25.667 24605-24605 IGReaderService         com.example.friendsreels             I          FrameLayout [----] id=com.android.systemui:id/mobile_combo desc="vodafone P, 2 barras." b=[854,43][907,96]
-2026-08-28 22:34:25.667 24605-24605 IGReaderService         com.example.friendsreels             I          LinearLayout [----] id=com.android.systemui:id/battery desc="Bateria Elemento da barra de estado Bateria restante 52 porcento" b=[907,43][1014,96]
-2026-08-28 22:34:25.673 24605-24605 IGReaderService         com.example.friendsreels             I            TextView [----] id=com.android.systemui:id/battery_percentage_view text="52%" b=[943,43][1014,96]
-2026-08-28 22:34:25.679 24605-24605 IGReaderService         com.example.friendsreels             I  ----- WINDOW[3] id=1282 type=APPLICATION pkg=com.instagram.android active=true focused=true bounds=[0,0][1080,2378] -----
-2026-08-28 22:34:25.679 24605-24605 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=- b=[0,0][1080,2378]
-2026-08-28 22:34:25.684 24605-24605 IGReaderService         com.example.friendsreels             I      ViewGroup [----] id=com.instagram.android:id/layout_container_parent b=[0,0][1080,2378]
-2026-08-28 22:34:25.686 24605-24605 IGReaderService         com.example.friendsreels             I        FrameLayout [----] id=com.instagram.android:id/thread_fragment_container b=[0,120][1080,2262]
-2026-08-28 22:34:25.687 24605-24605 IGReaderService         com.example.friendsreels             I          ImageView [C---] id=com.instagram.android:id/header_left_button desc="Retroceder" b=[0,120][147,267]
-2026-08-28 22:34:25.687 24605-24605 IGReaderService         com.example.friendsreels             I          Button [C---] id=com.instagram.android:id/header_title_subtitle_container b=[304,148][776,238]
-2026-08-28 22:34:25.689 24605-24605 IGReaderService         com.example.friendsreels             I            Button [C---] id=com.instagram.android:id/header_title desc="Pedro Sardoeira" text="Pedro Sardoeira" b=[304,148][613,196]
-2026-08-28 22:34:25.691 24605-24605 IGReaderService         com.example.friendsreels             I            Button [C---] id=com.instagram.android:id/header_subtitle desc="pedro_sardoeira86" b=[304,196][776,238]
-2026-08-28 22:34:25.691 24605-24605 IGReaderService         com.example.friendsreels             I          ImageView [C---] id=- desc="Chamada de voz" b=[807,120][933,267]
-2026-08-28 22:34:25.691 24605-24605 IGReaderService         com.example.friendsreels             I          ImageView [C---] id=- desc="Videochamada" b=[933,120][1059,267]
-2026-08-28 22:34:25.691 24605-24605 IGReaderService         com.example.friendsreels             I          ComposeView [----] id=- b=[0,267][1080,267]
-2026-08-28 22:34:25.693 24605-24605 IGReaderService         com.example.friendsreels             I            View [----] id=- b=[0,267][0,267]
-2026-08-28 22:34:25.693 24605-24605 IGReaderService         com.example.friendsreels             I          ComposeView [----] id=- b=[0,267][1080,267]
-2026-08-28 22:34:25.694 24605-24605 IGReaderService         com.example.friendsreels             I            View [----] id=- b=[0,267][0,267]
-2026-08-28 22:34:25.695 24605-24605 IGReaderService         com.example.friendsreels             I          RecyclerView [-S--] id=com.instagram.android:id/message_list b=[0,267][1080,2176]
-2026-08-28 22:34:25.696 24605-24605 IGReaderService         com.example.friendsreels             I            TextView [--L-] id=- text="9:15 DA TARDE" b=[0,275][1080,353]
-2026-08-28 22:34:25.696 24605-24605 IGReaderService         com.example.friendsreels             I            FrameLayout [--L-] id=com.instagram.android:id/message_content b=[0,385][1080,1187]
-2026-08-28 22:34:25.696 24605-24605 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/forwarding_shortcut_button desc="Reencaminhar mensagem" b=[614,744][698,828]
-2026-08-28 22:34:25.698 24605-24605 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/sender_avatar desc="Foto de perfil" b=[47,1113][121,1187]
-2026-08-28 22:34:25.702 24605-24605 IGReaderService         com.example.friendsreels             I              FrameLayout [----] id=com.instagram.android:id/message_content_portrait_xma_container b=[147,385][593,1187]
-2026-08-28 22:34:25.704 24605-24605 IGReaderService         com.example.friendsreels             I                ImageView [----] id=com.instagram.android:id/profile_attribution_picture desc="Imagem de perfil" b=[179,417][242,480]
-2026-08-28 22:34:25.704 24605-24605 IGReaderService         com.example.friendsreels             I                TextView [----] id=com.instagram.android:id/title_text text="relatable_sayyz" b=[263,429][510,468]
-2026-08-28 22:34:25.704 24605-24605 IGReaderService         com.example.friendsreels             I            FrameLayout [--L-] id=com.instagram.android:id/message_content b=[0,1219][1080,2021]
-2026-08-28 22:34:25.707 24605-24605 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/forwarding_shortcut_button desc="Reencaminhar mensagem" b=[614,1578][698,1662]
-2026-08-28 22:34:25.709 24605-24605 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/sender_avatar desc="Foto de perfil" b=[47,1947][121,2021]
-2026-08-28 22:34:25.711 24605-24605 IGReaderService         com.example.friendsreels             I              FrameLayout [----] id=com.instagram.android:id/message_content_portrait_xma_container b=[147,1219][593,2021]
-2026-08-28 22:34:25.713 24605-24605 IGReaderService         com.example.friendsreels             I                ImageView [----] id=com.instagram.android:id/profile_attribution_picture desc="Imagem de perfil" b=[179,1251][242,1314]
-2026-08-28 22:34:25.714 24605-24605 IGReaderService         com.example.friendsreels             I                TextView [----] id=com.instagram.android:id/title_text text="rust.pro.me" b=[263,1263][448,1302]
-2026-08-28 22:34:25.714 24605-24605 IGReaderService         com.example.friendsreels             I            FrameLayout [--L-] id=com.instagram.android:id/message_content b=[0,2053][1080,2176]
-2026-08-28 22:34:25.716 24605-24605 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/forwarding_shortcut_button desc="Reencaminhar mensagem" b=[508,2412][592,2176]
-2026-08-28 22:34:25.719 24605-24605 IGReaderService         com.example.friendsreels             I              FrameLayout [----] id=com.instagram.android:id/message_content_portrait_xma_container b=[613,2053][1059,2176]
-2026-08-28 22:34:25.722 24605-24605 IGReaderService         com.example.friendsreels             I                ImageView [----] id=com.instagram.android:id/profile_attribution_picture desc="Imagem de perfil" b=[645,2085][708,2148]
-2026-08-28 22:34:25.722 24605-24605 IGReaderService         com.example.friendsreels             I                TextView [----] id=com.instagram.android:id/title_text text="iconic_cs2" b=[729,2097][896,2136]
-2026-08-28 22:34:25.726 24605-24605 IGReaderService         com.example.friendsreels             I          RecyclerView [----] id=com.instagram.android:id/commands_list b=[21,2089][1059,2089]
-2026-08-28 22:34:25.729 24605-24605 IGReaderService         com.example.friendsreels             I          FrameLayout [----] id=com.instagram.android:id/message_composer_bar b=[0,2089][1080,2262]
-2026-08-28 22:34:25.733 24605-24605 IGReaderService         com.example.friendsreels             I            LinearLayout [----] id=com.instagram.android:id/message_composer_reply_bar_container b=[0,2089][1080,2262]
-2026-08-28 22:34:25.733 24605-24605 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_camera desc="Câmara" b=[37,2125][137,2225]
-2026-08-28 22:34:25.733 24605-24605 IGReaderService         com.example.friendsreels             I              EditText [C-LE] id=com.instagram.android:id/row_thread_composer_edittext text="Enviar mensagem…" b=[158,2110][621,2241]
-2026-08-28 22:34:25.733 24605-24605 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_voice desc="Mensagem de voz, pressiona para gravar" b=[621,2146][726,2209]
-2026-08-28 22:34:25.733 24605-24605 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_gallery desc="Galeria" b=[726,2146][831,2209]
-2026-08-28 22:34:25.734 24605-24605 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_sticker desc="Stickers" b=[831,2146][936,2209]
-2026-08-28 22:34:25.734 24605-24605 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_overflow desc="Mais" b=[936,2146][1041,2209]
-2026-08-28 22:34:25.734 24605-24605 IGReaderService         com.example.friendsreels             I  ===== DUMP_ALL END reason=after-longpress =====
-2026-08-28 22:34:31.980 24605-24605 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-28 22:34:32.202 24605-24605 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now in foreground, running action.
-2026-08-28 22:34:32.213 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target kind=portrait author=relatable_sayyz bounds=[1280,269][1725,772] center=(1502,520) afterLongPress=TapReaction
-2026-08-28 22:34:32.214 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-28 22:34:32.819 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-28 22:34:34.316 24605-24605 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '❤' (desc in [❤Reação, ❤Reaction])
-2026-08-28 22:34:34.453 24605-24605 IGReaderService         com.example.friendsreels             W  REACT: could not find quick-reaction emoji '❤'. Was the context menu open?
-2026-08-28 22:34:47.565 24605-24605 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-28 22:34:47.790 24605-24605 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now in foreground, running action.
-2026-08-28 22:34:47.796 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target kind=portrait author=catherinee.md bounds=[1280,391][1725,1192] center=(1502,791) afterLongPress=TapReaction
-2026-08-28 22:34:47.797 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-28 22:34:48.400 24605-24605 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-28 22:34:49.898 24605-24605 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '❤' (desc in [❤Reação, ❤Reaction])
-2026-08-28 22:34:50.037 24605-24605 IGReaderService         com.example.friendsreels             W  REACT: could not find quick-reaction emoji '❤'. Was the context menu open?
+2026-08-28 22:43:28.678 32540-32540 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
+2026-08-28 22:43:28.679 32540-32540 IGReaderService         com.example.friendsreels             I  Action receiver registered (dump=com.example.friendsreels.ACTION_DUMP_TREE, dumpAll=com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS, longpress=com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL, heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH)
+2026-08-28 22:43:28.688 32540-32540 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-08-28 22:43:32.483 32540-32540 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
+2026-08-28 22:43:38.601 32540-32540 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-28 22:43:38.836 32540-32540 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now in foreground, running action.
+2026-08-28 22:43:38.848 32540-32540 IGReaderService         com.example.friendsreels             I  LONG_PRESS: sourcing tree from windows[APPLICATION] windowBounds=[1128,7][2201,2370]
+2026-08-28 22:43:38.854 32540-32540 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target kind=portrait author=pure_hu_yaarrr bounds=[1275,273][1718,302] center=(1496,287) afterLongPress=TapReaction
+2026-08-28 22:43:38.856 32540-32540 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
+2026-08-28 22:43:39.458 32540-32540 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
+2026-08-28 22:43:40.959 32540-32540 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '❤' (desc in [❤Reação, ❤Reaction])
+2026-08-28 22:43:41.112 32540-32540 IGReaderService         com.example.friendsreels             W  REACT: could not find quick-reaction emoji '❤'. Was the context menu open?
+2026-08-28 22:43:49.596 32540-32540 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-28 22:43:49.816 32540-32540 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now in foreground, running action.
+2026-08-28 22:43:49.826 32540-32540 IGReaderService         com.example.friendsreels             I  LONG_PRESS: sourcing tree from windows[APPLICATION] windowBounds=[1052,17][2116,2360]
+2026-08-28 22:43:49.833 32540-32540 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target kind=portrait author=pure_hu_yaarrr bounds=[1197,281][1636,310] center=(1416,295) afterLongPress=TapReaction
+2026-08-28 22:43:49.835 32540-32540 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
+2026-08-28 22:43:50.438 32540-32540 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
+2026-08-28 22:43:51.938 32540-32540 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '😂' (desc in [😂Reação, 😂Reaction])
+2026-08-28 22:43:52.092 32540-32540 IGReaderService         com.example.friendsreels             W  REACT: could not find quick-reaction emoji '😂'. Was the context menu open?
