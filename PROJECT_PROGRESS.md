@@ -7,17 +7,17 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-4 (identificar remetente) ✅ código implementado, aguarda validação no OnePlus.
-**Última atualização:** 2025-08-28 (sessão 12)
+**Fase atual:** Fase 1 (PoC) — PoC-4 (identificar remetente) ✅ direção RECEIVED/SENT validada no OnePlus (sessão 13). Falta apenas identificar o **remetente humano em grupo** (sub-tarefa: precisa de dump da árvore de um bubble de grupo).
+**Última atualização:** 2025-08-28 (sessão 13)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Estado a partir da sessão 12 (PoC-4 implementado, por testar).
+1. **Pull** do repo. Estado a partir da sessão 13 (PoC-4 validado; sub-task de grupo em aberto).
 2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" → **6.1** tem o que falta testar no PoC-4 e o plano do PoC-6.
-    - Últimos logs de sessão em §7 (sessões 11 e 12).
+    - §6 "Próximos passos concretos" → **6.1** para a sub-tarefa de "nome do remetente em grupo" + plano do PoC-6.
+    - Últimos logs de sessão em §7 (sessões 12 e 13).
 3. **Ficheiros-chave a rever antes de mexer código:**
     - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor de a11y, gestos, dumps.
     - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG.
@@ -186,30 +186,36 @@ Já entregue no primeiro commit:
 - ✅ PoC-1 — skeleton (compila, corre, a11y service ativa)
 - ✅ PoC-2 — dump da árvore de acessibilidade (`ACTION_DUMP_TREE`, `ACTION_DUMP_ALL_WINDOWS`)
 - ✅ PoC-3 — long-press dirigido ao bubble do Reel via `dispatchGesture`
-- 🟡 PoC-4 — **CÓDIGO IMPLEMENTADO (sessão 12), aguarda teste no OnePlus** — identificar quem enviou cada Reel na DM
-- ✅ PoC-5 — reagir ao 1.º Reel com ❤ e 😂 (agora filtra por RECEIVED por defeito)
+- ✅ PoC-4 — direção RECEIVED/SENT validada em DM e em grupo (sessão 13). Sub-tarefa em aberto: identificar o **nome do membro humano** que partilhou cada Reel dentro de um grupo — precisa de dump da árvore de um bubble de grupo para encontrar o selector.
+- ✅ PoC-5 — reagir ao 1.º Reel com ❤ e 😂 (filtra por RECEIVED por defeito)
 - 🔲 PoC-6 — responder ao Reel (via "Responder" no menu popup + composer)
 - 🔲 PoC-7 — extrair URL do Reel (menu não tem sempre "Copiar link"; alternativa: abrir Reel viewer / Reencaminhar)
 - 🔲 PoC-8 — feed vertical, Room DB, MVVM
 
-### 6.1 Próxima sessão — validar PoC-4 + preparar PoC-6
+### 6.1 Próxima sessão — sub-task "remetente humano em grupo" + PoC-6
 
-**PoC-4 — o que falta testar no OnePlus:**
+**Sub-task PoC-4 (grupos):**
 
-1. Numa conversa 1-a-1 com Reels enviados e recebidos misturados, tocar em "Listar Reels" (no shade ou UI) e confirmar no Logcat (`IGReaderService`) que:
-    - Cada bubble aparece com `dir=RECEIVED` ou `dir=SENT`, `kind`, `author` e `bounds` corretos.
-    - O sumário `LIST_REELS: found N Reel bubble(s) — received=X sent=Y` bate certo com o que se vê no ecrã.
-2. Com o toggle "Ignorar Reels enviados por mim" **ligado** (default), tocar ❤ num ecrã onde o Reel de topo é enviado por nós:
-    - Verificar que a reação vai para o próximo Reel recebido, não para o nosso.
-    - Log esperado: `LONG_PRESS: target ... direction=RECEIVED`.
-3. Desligar o toggle e repetir: reação deve aplicar-se ao 1.º Reel independentemente da direção (log com `direction=SENT`).
-4. Repetir 1-3 num **grupo**: capturar dump da estrutura do bubble (o `sender_avatar` deve continuar presente em mensagens recebidas de qualquer membro; se não estiver, precisamos de outro sinal para o nome do remetente humano em grupos).
+Contexto: em DM 1-a-1 o remetente humano é o próprio título do header (`lastKnownConversationTitle`, ex. `'Pedro Sardoeira'`). Em grupo isto não chega — o header dá o nome do grupo (`'O Burro a Vaca e os Reis Magos'`) e precisamos de saber **qual dos membros partilhou cada Reel específico**. O `title_text` do container XMA continua a ser o autor do Reel *na plataforma IG* (não o remetente na DM), por isso essa via não serve.
 
-**Se algo falhar, o Logcat vai mostrar:**
-- `LIST_REELS: no message_list found.` → não estás numa conversa.
-- `LONG_PRESS: no eligible Reel bubble found (ignoreSent=true)` → não há Reels recebidos visíveis. Fazer scroll ou desligar o toggle.
+Plano concreto:
 
-### 6.2 A seguir do PoC-4
+1. Utilizador entra num grupo com pelo menos um Reel recebido visível.
+2. Baixar shade → tocar "Dump" (`ACTION_DUMP_ALL_WINDOWS`).
+3. Enviar o log completo entre `===== DUMP_ALL START =====` e `===== DUMP_ALL END =====` — precisamos ver o subtree de um `message_content` recebido: junto do `sender_avatar` costuma haver um `TextView` com o nome ou username do membro (candidatos prováveis a IDs: `direct_message_sender_name`, `message_content_sender_name`, `attribution_username`, ou o `header_title` como filho do bubble).
+4. Assim que tivermos o ID, adicionar `IgSelectors.Thread.SENDER_NAME = "<id_real>"` e incluir `dmSender: String?` em `DmReelEntry`, populado durante `enumerateReels`.
+5. Actualizar `LIST_REELS[i]` para logar também `dmSender=`.
+
+Se o membro humano não aparecer como texto dentro do próprio bubble, plano B: usar o `contentDescription` do `sender_avatar` (algumas versões do IG expõem o nome aí, ex. `"Pedro Sardoeira"`) — capturar isso no mesmo dump.
+
+**PoC-6 (responder):**
+
+- Após long-press, o menu popup expõe `context_menu_item` com `contentDescription`/`text` correspondente a `IgSelectors.ContextMenu.ACTION_REPLY`.
+- Fazer `performAction(ACTION_CLICK)` nesse item.
+- Aguardar o composer (`row_thread_composer_edittext`) ganhar foco → `performAction(ACTION_SET_TEXT)` com o texto → localizar o botão de envio (`row_thread_composer_send_button` ou equivalente, a confirmar via dump) → click.
+- Adicionar `ACTION_REPLY_FIRST_REEL` com filtro `Direction.RECEIVED` reutilizando o `findFirstReelBubble` do PoC-4.
+
+### 6.2 A seguir
 
 - **PoC-6 responder:** clique no `context_menu_item` cujo `contentDescription` está em `IgSelectors.ContextMenu.ACTION_REPLY`, seguido de escrever no `row_thread_composer_edittext` e enviar.
 - **PoC-7 URL:** o menu popup nem sempre tem "Copiar link". Plano: (a) tocar no bubble para abrir o Reel viewer e localizar o botão Share/Copiar link lá; ou (b) usar Reencaminhar → Copiar link do share sheet.
@@ -374,3 +380,18 @@ Já entregue no primeiro commit:
   3. Baixar o shade → tocar "Listar" → confirmar Logcat (`adb logcat -s IGReaderService:I`) com as linhas `LIST_REELS[i]: dir=...`.
   4. Testar ❤ com o switch ligado (default) e depois desligado; reportar se o alvo bate certo.
   5. Repetir 3 num grupo e capturar o dump (`Dump`) para vermos que labels adicionais existem por bubble.
+
+### 2025-08-28 — Sessão 13 (Ricardo + Copilot CLI) — PoC-4 validado no OnePlus
+
+- **Utilizador testou no OnePlus Nord 5** e enviou o log em `docs/screen-dumps/ignore sent and group.txt`.
+- **DM 1-a-1 `Pedro Sardoeira`** (3 Reels na visível: 1 recebido + 2 enviados):
+  - `LIST_REELS: found 3 Reel bubble(s) — received=1 sent=2 ignoreSent=true`
+  - Autores originais no IG (não confundir com o remetente da DM): `melqdy_1`, `iconic_cs2`, `rust.pro.me`. Foi este ponto que o utilizador levantou — confirmado que **é o autor do Reel na plataforma** (`title_text` do XMA container), útil para deduplicação e futuro feed. O **remetente humano na DM** em 1-a-1 é o próprio header (`lastKnownConversationTitle`, `'Pedro Sardoeira'`).
+  - Só existiam Reels SENT no ecrã visível de uma tentativa → serviço recusou correctamente: `LONG_PRESS: no eligible Reel bubble found (ignoreSent=true)` (duas ocorrências consecutivas, comportamento esperado).
+  - Depois de aparecer um recebido visível, ❤ funcionou: `target index=1 kind=portrait direction=RECEIVED author=pure_hu_yaarrr` seguido de `REACT: performAction(ACTION_CLICK) on emoji '❤' returned true`.
+- **Grupo `O Burro a Vaca e os Reis Magos`**:
+  - Primeiro scroll: só SENT visíveis (3), listagem devolveu `received=0 sent=3` com autores `yuiki.hanegawa`, `wascemal` e um `generic` sem `title_text` (`author=?`) — isso é normal: em containers `generic` o `title_text` nem sempre está presente. Não é bug — o fallback já regista `author=?` no log.
+  - Segundo scroll: 3 recebidos consecutivos (`ryankellycomedy`, `adamraqeem`, `urokowatch`). Direção correcta.
+- **Conclusão do PoC-4:** direção `RECEIVED`/`SENT` está **validada** em DM 1-a-1 e em grupo. Toggle "Ignorar Reels enviados por mim" respeita a filtragem tanto na listagem (implicitamente) como no target das reações.
+- **Ponto em aberto (sub-task 6.1):** identificar o **membro humano** que partilhou cada Reel dentro de um grupo. Ainda não temos o dump da árvore de um bubble de grupo, por isso desconhecemos qual `resource-id` (ou `contentDescription` do `sender_avatar`) expõe o nome do membro. Fica para a próxima sessão de testes — dump completo de um grupo com pelo menos um Reel recebido.
+- **Nenhum código alterado nesta sessão** — só documentação (`Estado atual`, §6 e este log). O flag do PoC-4 muda para ✅ com nota de sub-task.
