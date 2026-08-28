@@ -213,15 +213,34 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     private fun longPressFirstReel(afterLongPress: AfterLongPress) {
-        val root = rootInActiveWindow
+        // IMPORTANT: on some devices `rootInActiveWindow` returns a tree whose
+        // `getBoundsInScreen` values are offset from the actually rendered
+        // Instagram window (observed on OnePlus Nord 5 / Android 16: the
+        // same node reported x=1278..1723 via rootInActiveWindow while
+        // walking `windows` reported x=147..593 — the second one matches the
+        // real pixels visible on screen). Because dispatchGesture uses
+        // absolute screen coordinates, using the wrong tree makes the
+        // gesture land off-screen and IG never sees it. To avoid that we
+        // always source the tree from the current Instagram APPLICATION
+        // window in getWindows().
+        val igWindow = findIgApplicationWindow()
+        val root = igWindow?.root ?: rootInActiveWindow
         if (root == null) {
-            Log.w(TAG, "LONG_PRESS requested but rootInActiveWindow is null.")
+            Log.w(TAG, "LONG_PRESS requested but no Instagram root node available.")
             return
         }
         if (root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
             Log.w(TAG, "LONG_PRESS ignored: foreground is ${root.packageName}, expected ${IgSelectors.IG_PACKAGE}.")
             return
         }
+        val windowBounds = igWindow?.let { w ->
+            Rect().also { w.getBoundsInScreen(it) }
+        }
+        Log.i(
+            TAG,
+            "LONG_PRESS: sourcing tree from ${if (igWindow != null) "windows[APPLICATION]" else "rootInActiveWindow"} " +
+                "windowBounds=${windowBounds?.toShortString() ?: "?"}"
+        )
 
         val messageList = root
             .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
@@ -247,6 +266,15 @@ class InstagramReaderService : AccessibilityService() {
 
         if (bounds.width() <= 0 || bounds.height() <= 0) {
             Log.w(TAG, "LONG_PRESS: bubble has empty bounds; refusing to dispatch gesture.")
+            return
+        }
+
+        if (windowBounds != null && !windowBounds.contains(bounds.centerX(), bounds.centerY())) {
+            Log.w(
+                TAG,
+                "LONG_PRESS: center (${bounds.centerX()},${bounds.centerY()}) is OUTSIDE Instagram " +
+                    "window bounds ${windowBounds.toShortString()}. Refusing to dispatch off-screen gesture."
+            )
             return
         }
 
@@ -321,6 +349,34 @@ class InstagramReaderService : AccessibilityService() {
             if (hit != null) return hit
         }
         return null
+    }
+
+    /**
+     * Find the AccessibilityWindowInfo hosting the Instagram foreground UI.
+     * Prefers the active/focused APPLICATION window; falls back to any
+     * APPLICATION window whose root's packageName is Instagram; finally
+     * accepts any window rooted in Instagram.
+     *
+     * Using this window (instead of rootInActiveWindow) is important because
+     * on some devices/OS builds `rootInActiveWindow` exposes an alternate
+     * tree whose `getBoundsInScreen` values do not match the pixels actually
+     * rendered on-screen — which breaks dispatchGesture targeting.
+     */
+    private fun findIgApplicationWindow(): android.view.accessibility.AccessibilityWindowInfo? {
+        val all = try { windows } catch (_: Exception) { null } ?: return null
+        val igWindows = all.filter { w ->
+            val pkg = w.root?.packageName?.toString()
+            pkg == IgSelectors.IG_PACKAGE
+        }
+        if (igWindows.isEmpty()) return null
+        return igWindows.firstOrNull {
+            it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION &&
+                (it.isActive || it.isFocused)
+        }
+            ?: igWindows.firstOrNull {
+                it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION
+            }
+            ?: igWindows.first()
     }
 
     private fun findFirstNodeInSubtree(

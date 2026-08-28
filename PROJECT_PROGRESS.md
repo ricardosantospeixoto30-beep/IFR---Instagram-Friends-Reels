@@ -265,3 +265,16 @@ Já entregue no primeiro commit:
   3. Abrir uma conversa no IG com um Reel visível.
   4. Baixar a barra de notificações → tocar em ❤ ou 😂 na notificação **Friends Reels**. Não abrir a nossa app.
   5. Reportar: (a) se o IG mantém a conversa aberta, (b) se a reação aparece na bolha do Reel, (c) o Logcat do `IGReaderService` se algo falhar.
+
+### 2025-08-28 — Sessão 9 (Ricardo + Copilot CLI)
+
+- **Bug crítico encontrado no PoC-5:** o long-press estava a ser disparado **fora do ecrã**. Log do teste:
+  - Bubble do `relatable_sayyz` reportada pelo `rootInActiveWindow`: `bounds=[1278,388][1723,1187] center=(1500,787)`.
+  - Mesma bubble reportada pelo `windows[APPLICATION].root` (usado no dump): `b=[147,385][593,1187]`.
+  - Ecrã tem 1080 pixels de largura. `x=1500` está a **420 pixels fora do ecrã** — o `dispatchGesture` era enviado mas o sistema descartava, portanto o menu de reações nunca abria e nada acontecia visualmente.
+- **Diagnóstico:** no OnePlus Nord 5 / Android 16, o `rootInActiveWindow` está a devolver uma árvore alternativa em que `getBoundsInScreen` reporta coordenadas com offset em X de ~1131 pixels em relação aos pixels realmente renderizados. Não é claro se é bug do OxygenOS ou comportamento normal do Android 16, mas os dois caminhos (rootInActiveWindow vs windows[APPLICATION].root) devolvem valores diferentes para o **mesmo nó**. O caminho `windows[...]` bate certo com os pixels visíveis.
+- **Fix:** o `longPressFirstReel` agora usa `findIgApplicationWindow()` (nova helper) para obter a janela de aplicação do IG a partir de `getWindows()`, e trabalha só com essa árvore. Cai de volta para `rootInActiveWindow` apenas se por algum motivo não conseguir encontrar a janela.
+- **Guarda extra:** se o centro do bubble cair **fora dos bounds da janela do IG**, o service loga um WARNING e recusa disparar o gesto. Serve para termos evidência imediata no Logcat em vez de "nada aconteceu".
+- **Confirmação do dump:** o dump `after-longpress` da sessão anterior mostra a thread no **estado normal** (sem `message_actions_container`, sem `creation_row_container`) — prova de que o long-press nunca chegou ao IG.
+- **Nota sobre o double-tap do IG:** o utilizador lembrou que double-tap num Reel na DM aplica ❤ automaticamente. Guardamos essa informação como plano B para reações de coração: se a via do long-press+quick-reaction alguma vez falhar de novo, podemos dispatched um double-tap gesture sobre o bubble. Fica na back-pocket, para já mantemos o long-press porque é o único caminho que também suporta 😂 (e outros emojis).
+- **Próximo passo do utilizador:** puxar o repo, correr, testar de novo os botões da notificação para ❤ e 😂. Os logs devem agora mostrar bounds dentro de 0..1080 em X. Se o menu abrir mas o emoji não for tocado, é problema seguinte a resolver.
