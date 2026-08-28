@@ -588,13 +588,47 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
         val bounds = Rect().also { copyNode.getBoundsInScreen(it) }
-        val target = if (copyNode.isClickable) copyNode else findClickableAncestor(copyNode) ?: copyNode
-        val ok = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-        Log.i(
-            TAG,
-            "COPY_LINK: performAction(ACTION_CLICK) on 'Copiar ligação' returned $ok bounds=${bounds.toShortString()}"
-        )
+        val ok = clickWithGestureFallback(copyNode, bounds, "COPY_LINK")
+        if (!ok) {
+            Log.w(TAG, "COPY_LINK: click on 'Copiar ligação' failed via both performAction and dispatchGesture.")
+            return
+        }
         mainHandler.postDelayed({ readReelUrlFromClipboard() }, CLIPBOARD_READ_DELAY_MS)
+    }
+
+    /**
+     * Try `performAction(ACTION_CLICK)` on the closest clickable ancestor of
+     * [node]; if that returns false (some Compose widgets in Instagram expose
+     * isClickable=true but reject the a11y click action) fall back to a real
+     * tap gesture at the centre of [bounds]. Returns true iff either path
+     * succeeded to schedule the touch.
+     */
+    private fun clickWithGestureFallback(
+        node: AccessibilityNodeInfo,
+        bounds: Rect,
+        tag: String,
+    ): Boolean {
+        val target = if (node.isClickable) node else findClickableAncestor(node) ?: node
+        val performed = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        Log.i(TAG, "$tag: performAction(ACTION_CLICK) returned $performed bounds=${bounds.toShortString()}")
+        if (performed) return true
+        if (bounds.width() <= 0 || bounds.height() <= 0) {
+            Log.w(TAG, "$tag: cannot fall back to gesture, empty bounds.")
+            return false
+        }
+        val path = Path().apply { moveTo(bounds.exactCenterX(), bounds.exactCenterY()) }
+        val stroke = GestureDescription.StrokeDescription(path, 0L, TAP_DURATION_MS)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+        val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                Log.i(TAG, "$tag: dispatchGesture fallback completed")
+            }
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                Log.w(TAG, "$tag: dispatchGesture fallback cancelled")
+            }
+        }, mainHandler)
+        Log.i(TAG, "$tag: dispatchGesture fallback accepted=$dispatched")
+        return dispatched
     }
 
     /**
