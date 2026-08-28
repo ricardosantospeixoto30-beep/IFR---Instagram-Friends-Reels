@@ -4,11 +4,19 @@
     <string name="accessibility_service_description">Reads Instagram DM conversations to discover Reels shared by your friends. Runs only when you tap Sync.</string>
 
     <string name="home_title">Friends Reels</string>
-    <string name="home_empty">Ainda não importaste nenhum Reel.</string>
+    <string name="home_empty">Ainda não importaste nenhum Reel. Esta é a área de PoC — usa os botões abaixo para testar a integração com o Instagram.</string>
     <string name="btn_enable_accessibility">Ativar serviço de acessibilidade</string>
+    <string name="btn_open_instagram">Abrir Instagram</string>
     <string name="btn_open_feed">Abrir feed</string>
     <string name="btn_open_settings">Definições</string>
     <string name="btn_sync">Sincronizar Reels</string>
+
+    <string name="poc_tools_title">Ferramentas de PoC</string>
+    <string name="poc_tools_help">Abre o Instagram, entra numa conversa com um Reel visível, volta a esta app e usa os botões abaixo.</string>
+    <string name="btn_long_press_reel">Long-press no 1.º Reel (+ dump de janelas)</string>
+    <string name="btn_dump_all_windows">Dump de todas as janelas</string>
+    <string name="btn_react_heart">Reagir com ❤ ao 1.º Reel</string>
+    <string name="btn_react_laugh">Reagir com 😂 ao 1.º Reel</string>
 
     <string name="settings_title">Definições</string>
     <string name="settings_selection_mode">Modo de seleção</string>

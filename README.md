@@ -33,7 +33,13 @@ adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS
 # Long-press no primeiro Reel da conversa aberta + dump de todas as janelas
 # 2.1 s depois. Requer estar dentro de uma conversa com um Reel visível.
 adb shell am broadcast -a com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL
+
+# Reagir com ❤ ou 😂 ao primeiro Reel da conversa aberta.
+adb shell am broadcast -a com.example.friendsreels.ACTION_REACT_HEART
+adb shell am broadcast -a com.example.friendsreels.ACTION_REACT_LAUGH
 ```
+
+As mesmas ações também estão disponíveis como botões na `MainActivity`, para poderes testar sem `adb`.
 
 Ver o resultado em `adb logcat -s IGReaderService` (ou no Logcat do Android Studio com filtro `IGReaderService`).
 

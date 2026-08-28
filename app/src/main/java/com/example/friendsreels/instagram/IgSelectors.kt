@@ -104,17 +104,17 @@ object IgSelectors {
     // Context menu (opened after long-press on a message)
     // ---------------------------------------------------------------------
     object ContextMenu {
-        // Whole container that wraps the highlighted message + reactions row +
-        // the pop-up menu.
+        // Whole container that wraps the highlighted message + reactions row
+        // on the main window.
         const val MESSAGE_ACTIONS_CONTAINER = "message_actions_container"
 
-        // Compose-based menu with actions (Reply, Copy, Forward, Delete, ...).
-        // Its rows do NOT expose resource-ids; they surface as Compose nodes
-        // with just `text`. We match by the localized label sets below.
+        // Compose-based menu stub visible on the MAIN window. Its actual
+        // children are laid out with 0 height because the real menu is
+        // rendered in a SEPARATE popup window (see CONTEXT_MENU_LIST).
         const val COMPOSE_MENU_CONTAINER = "compose_context_menu"
 
         // Quick-reaction row that shows the 6 preset emojis right above the
-        // highlighted message.
+        // highlighted message. Lives on the MAIN window.
         const val QUICK_REACTION_ROW = "creation_row_container"
 
         // Each emoji is an ImageView with resource-id `id/image` and a
@@ -123,6 +123,14 @@ object IgSelectors {
         const val QUICK_REACTION_IMAGE = "image"
         const val QUICK_REACTION_ALL_EMOJIS_BUTTON = "customize_icon"
 
+        // Popup window with the full action list (Reply, Add sticker,
+        // Forward, Pin, Delete, ...). AccessibilityService.getWindows() must
+        // be used to reach it - it is NOT part of rootInActiveWindow.
+        const val CONTEXT_MENU_LIST = "context_menu_options_list"
+        const val CONTEXT_MENU_ITEM = "context_menu_item"
+        const val CONTEXT_MENU_ITEM_LABEL = "context_menu_item_label"
+        const val CONTEXT_MENU_ITEM_SUB_LABEL = "context_menu_item_sub_label"
+
         /** All the emojis exposed on the quick-reaction row. */
         val REACTION_EMOJIS = listOf("❤", "😂", "😮", "😢", "😡", "👍")
 
@@ -130,18 +138,34 @@ object IgSelectors {
         val REACTION_DESC_SUFFIX = setOf("Reação", "Reaction")
 
         /**
-         * Localized labels for the "Reply" action in the pop-up menu.
-         * Fill in more variants as we observe them (e.g. brazilian PT).
+         * Build the exact contentDescription used by the quick-reaction row
+         * for a given emoji (e.g. "❤Reação" in Portuguese).
          */
+        fun quickReactionDescriptions(emoji: String): Set<String> =
+            REACTION_DESC_SUFFIX.map { emoji + it }.toSet()
+
+        // -----------------------------------------------------------------
+        // Localized labels observed on the context_menu_item entries.
+        // The list order below matches what shows up in a DM with a shared
+        // Reel; more entries may appear for other message types.
+        // -----------------------------------------------------------------
+
+        /** Labels for the "Reply" action. */
         val ACTION_REPLY = setOf("Responder", "Reply")
 
-        /** Localized labels for the "Copy link" action. */
-        val ACTION_COPY_LINK = setOf("Copiar link", "Copiar ligação", "Copy link")
+        /** Labels for the "Add sticker" action. */
+        val ACTION_ADD_STICKER = setOf("Adicionar sticker", "Add sticker")
 
-        /** Localized labels for the "Forward" action. */
+        /** Labels for the "Forward" action. */
         val ACTION_FORWARD = setOf("Reencaminhar", "Forward")
 
-        /** Localized labels for the "Delete" action. */
-        val ACTION_DELETE = setOf("Eliminar", "Anular envio", "Unsend", "Delete")
+        /** Labels for the "Pin" action. */
+        val ACTION_PIN = setOf("Afixar", "Pin")
+
+        /** Labels for the "Delete for you" action. */
+        val ACTION_DELETE_FOR_YOU = setOf("Eliminar para ti", "Delete for you")
+
+        /** Labels for the "Copy link" action (may not appear for every Reel share). */
+        val ACTION_COPY_LINK = setOf("Copiar link", "Copiar ligação", "Copy link")
     }
 }

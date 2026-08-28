@@ -7,8 +7,8 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-3 concluído (visualmente); a capturar labels do menu para PoC-5/6.
-**Última atualização:** 2025-08-28 (sessão 5)
+**Fase atual:** Fase 1 (PoC) — PoC-5 (reagir com ❤️/😂) implementado; pronto para teste.
+**Última atualização:** 2025-08-28 (sessão 6)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ---
@@ -219,3 +219,16 @@ Já entregue no primeiro commit:
 - **Descoberta importante:** o dump da janela ativa mostra `compose_context_menu` com altura 0 — isto significa que o menu **não está na janela principal do IG**. Está numa **janela popup separada** que o `rootInActiveWindow` não vê.
 - **Solução implementada:** nova ação `ACTION_DUMP_ALL_WINDOWS` que usa `AccessibilityService.getWindows()` para enumerar todas as janelas visíveis (aplicação, IME, sistema, overlays) e dumpa cada uma. O dump automático após long-press passou a usar esta função.
 - **Próximo passo do utilizador:** correr `ACTION_LONG_PRESS_FIRST_REEL` de novo dentro da conversa com Reel; enviar o `DUMP_ALL` completo. Com esses labels vamos poder fazer PoC-5 (clicar em ❤️/😂) e PoC-6 (clicar em "Responder").
+
+### 2025-08-28 — Sessão 6 (Ricardo + Copilot CLI)
+
+- **Menu de contexto totalmente capturado.** O `DUMP_ALL` mostrou 5 janelas; a WINDOW[3] é a popup do menu, com `context_menu_options_list` a envolver botões `context_menu_item` para: Responder, Adicionar sticker, Reencaminhar, Afixar, Eliminar para ti. **Nota:** para este Reel específico não apareceu "Copiar link" — vamos ter de descobrir o URL por outra via (abrir o Reel no viewer, ou "Reencaminhar" e cancelar). Fica para o PoC-7 (URL extraction).
+- **`IgSelectors.ContextMenu` atualizado** com IDs reais do menu (`context_menu_options_list`, `context_menu_item`, `context_menu_item_label`, `context_menu_item_sub_label`) e labels PT+EN observados.
+- **PoC-5 implementado (reagir com ❤️/😂):** duas novas ações broadcast na service:
+  - `ACTION_REACT_HEART` — long-press no 1.º Reel, espera 2.1 s, procura o ImageView com `desc="❤Reação"` (ou variantes) em **todas** as janelas via `getWindows()`, e faz `performAction(ACTION_CLICK)`.
+  - `ACTION_REACT_LAUGH` — igual para 😂.
+- **UI de PoC na MainActivity:** botões para "Ativar acessibilidade", "Abrir Instagram", "Long-press no 1.º Reel + dump", "Dump de todas as janelas", "Reagir com ❤", "Reagir com 😂". Assim já se consegue testar sem `adb`.
+- **Próximo passo do utilizador:**
+  1. Testar visualmente as reações (❤️ e 😂) num Reel de uma conversa. Confirmar que a reação **aparece de facto** no IG (na bolha do Reel, canto inferior esquerdo) e sobrevive a fechar e reabrir a conversa.
+  2. Reportar qual dos dois emojis funciona e qual não (para eu ajustar se necessário).
+- **Aviso:** as reações **vão ficar mesmo enviadas** na conversa real do IG. Testar num Reel onde uma reação nossa não seja embaraçosa. Podes remover a reação depois no próprio IG (long-press na tua pill de reação → remover).

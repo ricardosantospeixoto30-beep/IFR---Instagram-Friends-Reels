@@ -17,18 +17,26 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.example.friendsreels.instagram.IgSelectors
 
 /**
- * Accessibility service used to read Instagram screens.
+ * Accessibility service used to read and drive Instagram screens.
  *
- * PoC-2 (dump): on-demand dump of the currently active window's accessibility
- * tree to logcat. Triggered by ACTION_DUMP_TREE from adb.
+ * All operations are broadcast-triggered so we can invoke them from `adb` or
+ * from a button inside the app. The public actions are declared in the
+ * companion object at the bottom of this file.
+ *
+ * PoC-2 (dump): dumps the currently active window (or every window) to
+ * logcat. Actions: ACTION_DUMP_TREE, ACTION_DUMP_ALL_WINDOWS.
  *
  * PoC-3 (long-press): finds the visible Reel bubble in the currently open
  * Instagram conversation and dispatches a long-press gesture centered on the
- * bubble. The gesture uses AccessibilityService.dispatchGesture so we can
- * control both the location and the duration (short enough to open the IG
- * context menu while staying under the OxygenOS "Portal de conteúdo"
- * threshold). Triggered by ACTION_LONG_PRESS_FIRST_REEL. A follow-up dump is
- * scheduled once the gesture completes so we can inspect the resulting menu.
+ * bubble. Uses AccessibilityService.dispatchGesture so we can control both
+ * the location and the duration (short enough to open the IG context menu
+ * while staying under the OxygenOS "Portal de conteúdo" threshold).
+ * Action: ACTION_LONG_PRESS_FIRST_REEL.
+ *
+ * PoC-5 (react): after the long-press opens the reaction row, clicks the
+ * requested emoji ImageView. The reaction is applied to the underlying DM
+ * message on Instagram's side and persists after we close the conversation.
+ * Actions: ACTION_REACT_HEART, ACTION_REACT_LAUGH.
  */
 class InstagramReaderService : AccessibilityService() {
 
@@ -66,7 +74,9 @@ class InstagramReaderService : AccessibilityService() {
                 when (intent?.action) {
                     ACTION_DUMP_TREE -> dumpActiveWindow("adb")
                     ACTION_DUMP_ALL_WINDOWS -> dumpAllWindows("adb")
-                    ACTION_LONG_PRESS_FIRST_REEL -> longPressFirstReel()
+                    ACTION_LONG_PRESS_FIRST_REEL -> longPressFirstReel(afterLongPress = AfterLongPress.DumpAllWindows)
+                    ACTION_REACT_HEART -> longPressFirstReel(afterLongPress = AfterLongPress.TapReaction("❤"))
+                    ACTION_REACT_LAUGH -> longPressFirstReel(afterLongPress = AfterLongPress.TapReaction("😂"))
                 }
             }
         }
@@ -74,6 +84,8 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_DUMP_TREE)
             addAction(ACTION_DUMP_ALL_WINDOWS)
             addAction(ACTION_LONG_PRESS_FIRST_REEL)
+            addAction(ACTION_REACT_HEART)
+            addAction(ACTION_REACT_LAUGH)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -85,7 +97,7 @@ class InstagramReaderService : AccessibilityService() {
         Log.i(
             TAG,
             "Action receiver registered (dump=$ACTION_DUMP_TREE, dumpAll=$ACTION_DUMP_ALL_WINDOWS, " +
-                "longpress=$ACTION_LONG_PRESS_FIRST_REEL)"
+                "longpress=$ACTION_LONG_PRESS_FIRST_REEL, heart=$ACTION_REACT_HEART, laugh=$ACTION_REACT_LAUGH)"
         )
     }
 
@@ -97,10 +109,16 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     // ---------------------------------------------------------------------
-    // PoC-3 — auto long-press on the first Reel in the open conversation
+    // PoC-3 / PoC-5 — long-press on the first Reel + optional follow-up
     // ---------------------------------------------------------------------
 
-    private fun longPressFirstReel() {
+    /** What to do once the long-press gesture has (probably) opened the menu. */
+    private sealed class AfterLongPress {
+        object DumpAllWindows : AfterLongPress()
+        data class TapReaction(val emoji: String) : AfterLongPress()
+    }
+
+    private fun longPressFirstReel(afterLongPress: AfterLongPress) {
         val root = rootInActiveWindow
         if (root == null) {
             Log.w(TAG, "LONG_PRESS requested but rootInActiveWindow is null.")
@@ -129,7 +147,8 @@ class InstagramReaderService : AccessibilityService() {
         Log.i(
             TAG,
             "LONG_PRESS: target kind=${target.kind} author=${target.authorUsername} " +
-                "bounds=${bounds.toShortString()} center=(${bounds.centerX()},${bounds.centerY()})"
+                "bounds=${bounds.toShortString()} center=(${bounds.centerX()},${bounds.centerY()}) " +
+                "afterLongPress=${afterLongPress::class.simpleName}"
         )
 
         if (bounds.width() <= 0 || bounds.height() <= 0) {
@@ -152,11 +171,78 @@ class InstagramReaderService : AccessibilityService() {
         }, mainHandler)
         Log.i(TAG, "LONG_PRESS: dispatchGesture accepted=$dispatched duration=${LONG_PRESS_DURATION_MS}ms")
 
-        // Give the context menu animation enough time to settle, then dump.
-        // The IG context menu (Reply / Copy link / Forward / Delete) is rendered
-        // in a separate popup window on top of the main IG window, so we must
-        // enumerate all windows via getWindows() to see it.
-        mainHandler.postDelayed({ dumpAllWindows("after-longpress") }, LONG_PRESS_DURATION_MS + 1500L)
+        val settleMs = LONG_PRESS_DURATION_MS + POST_LONG_PRESS_SETTLE_MS
+        when (afterLongPress) {
+            AfterLongPress.DumpAllWindows -> {
+                mainHandler.postDelayed({ dumpAllWindows("after-longpress") }, settleMs)
+            }
+            is AfterLongPress.TapReaction -> {
+                mainHandler.postDelayed({ tapQuickReaction(afterLongPress.emoji) }, settleMs)
+            }
+        }
+    }
+
+    /**
+     * After the long-press has opened the reaction row, find the ImageView
+     * corresponding to [emoji] (e.g. "❤" or "😂") and click it. The reaction
+     * row lives on the MAIN IG window (not on the context menu popup), so
+     * rootInActiveWindow is sufficient here, but for robustness we search
+     * across every currently visible window.
+     */
+    private fun tapQuickReaction(emoji: String) {
+        val expectedDescriptions = IgSelectors.ContextMenu.quickReactionDescriptions(emoji)
+        Log.i(TAG, "REACT: looking for quick-reaction emoji '$emoji' (desc in $expectedDescriptions)")
+
+        val emojiNode = findFirstNodeAcrossWindows { node ->
+            val desc = node.contentDescription?.toString() ?: return@findFirstNodeAcrossWindows false
+            expectedDescriptions.contains(desc)
+        }
+        if (emojiNode == null) {
+            Log.w(TAG, "REACT: could not find quick-reaction emoji '$emoji'. Was the context menu open?")
+            return
+        }
+
+        val clicked = emojiNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        val emojiBounds = Rect().also { emojiNode.getBoundsInScreen(it) }
+        Log.i(
+            TAG,
+            "REACT: performAction(ACTION_CLICK) on emoji '$emoji' returned $clicked " +
+                "bounds=${emojiBounds.toShortString()}"
+        )
+    }
+
+    /**
+     * Depth-first search across every window currently reported by the
+     * accessibility framework, returning the first node that satisfies
+     * [predicate].
+     */
+    private fun findFirstNodeAcrossWindows(predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        val allWindows = try { windows } catch (_: Exception) { emptyList() }
+        val roots = allWindows.orEmpty().mapNotNull { it.root } +
+            listOfNotNull(rootInActiveWindow)
+        val seen = HashSet<AccessibilityNodeInfo>()
+        for (root in roots) {
+            if (!seen.add(root)) continue
+            val hit = findFirstNodeInSubtree(root, predicate)
+            if (hit != null) return hit
+        }
+        return null
+    }
+
+    private fun findFirstNodeInSubtree(
+        root: AccessibilityNodeInfo,
+        predicate: (AccessibilityNodeInfo) -> Boolean
+    ): AccessibilityNodeInfo? {
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.addLast(root)
+        while (queue.isNotEmpty()) {
+            val node = queue.removeFirst()
+            if (predicate(node)) return node
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { queue.addLast(it) }
+            }
+        }
+        return null
     }
 
     private data class ReelTarget(
@@ -291,8 +377,12 @@ class InstagramReaderService : AccessibilityService() {
     companion object {
         private const val TAG = "IGReaderService"
         private const val LONG_PRESS_DURATION_MS = 600L
+        private const val POST_LONG_PRESS_SETTLE_MS = 1500L
+
         const val ACTION_DUMP_TREE = "com.example.friendsreels.ACTION_DUMP_TREE"
         const val ACTION_DUMP_ALL_WINDOWS = "com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS"
         const val ACTION_LONG_PRESS_FIRST_REEL = "com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL"
+        const val ACTION_REACT_HEART = "com.example.friendsreels.ACTION_REACT_HEART"
+        const val ACTION_REACT_LAUGH = "com.example.friendsreels.ACTION_REACT_LAUGH"
     }
 }
