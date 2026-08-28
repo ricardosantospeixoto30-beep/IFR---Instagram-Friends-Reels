@@ -16,3 +16,13 @@ Ver **`Friends_Reels_Inbox_Technical_Spec_v2.md`** para a spec completa e **`PRO
 - Android Studio Ladybug (2024.2) ou mais recente.
 - JDK 17+ (o AS trás o próprio JBR).
 - Android SDK 35.
+
+## Ferramenta de dump (PoC-2)
+
+Quando o `AccessibilityService` está ativo, é possível pedir um dump da árvore de acessibilidade do ecrã atual. Útil para mapear os seletores de Instagram usados pela app.
+
+```bash
+adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_TREE
+```
+
+Ver o resultado em `adb logcat -s IGReaderService` (ou no Logcat do Android Studio com filtro `IGReaderService`).

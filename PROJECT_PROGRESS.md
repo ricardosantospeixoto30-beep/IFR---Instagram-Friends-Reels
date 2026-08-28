@@ -7,8 +7,8 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 0 concluída (documentada) + Fase 1 (PoC) a arrancar.
-**Última atualização:** 2025-08-28
+**Fase atual:** Fase 1 (PoC) — PoC-2 em curso (mapeamento de seletores do IG).
+**Última atualização:** 2025-08-28 (sessão 2)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ---
@@ -184,3 +184,14 @@ Já entregue no primeiro commit:
 - Recriação do projeto Android do zero: Kotlin, Compose, Gradle 8.10.2 + wrapper, AGP 8.7.3, Kotlin 2.0.21, Compose BOM 2024.10.01, Room 2.6.1, Media3 1.4.1.
 - Criação deste ficheiro `PROJECT_PROGRESS.md` com a documentação da Fase 0.
 - Primeiro commit contém apenas o skeleton que abre no Android Studio e permite ativar a AccessibilityService — objetivo é validar o pipeline no PC do utilizador antes de avançar.
+
+### 2025-08-28 — Sessão 2 (Ricardo + Copilot CLI)
+
+- **Skeleton validado no dispositivo real (OnePlus Nord 5, Android 16):** app abre, botão para "Ativar serviço de acessibilidade" funciona, e o `Logcat` mostra `InstagramReaderService connected` quando o serviço é ativado. ✅
+- **Confirmado idioma do IG do utilizador:** Português (Portugal). Adicionar também suporte para Inglês porque é praticamente de graça.
+- **PoC-2 iniciado:** foi adicionada ao `InstagramReaderService` a capacidade de despejar a árvore de acessibilidade do ecrã atual para o Logcat, mediante broadcast:
+  - Ação: `com.example.friendsreels.ACTION_DUMP_TREE`
+  - Comando adb: `adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_TREE`
+  - Cada nó imprime `className`, flags de comportamento (`C`=clickable, `S`=scrollable, `L`=long-clickable, `E`=editable), `viewId`, `contentDescription`, `text`, e bounds.
+- **Ajuste ao `accessibility_service_config.xml`:** removido `android:packageNames` para o dump funcionar em qualquer app (útil durante o mapping). Vai ser restringido de novo a `com.instagram.android` mais tarde, quando entrar em modo "produção".
+- **Próximo passo do utilizador:** correr o dump nos ecrãs de interesse do IG (Home, Direct/Inbox, Conversa individual, mensagem com Reel, long-press num Reel) e enviar os outputs para eu construir o `IgSelectors.kt`.
