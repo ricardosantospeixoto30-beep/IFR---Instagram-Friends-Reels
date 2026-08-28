@@ -8,7 +8,7 @@
 ## Estado atual
 
 **Fase atual:** Fase 1 (PoC) — PoC-7 🟡 iteração 2 implementada (open + tap ⋮ + dump). Aguarda dump do bottom sheet para completar copy-link.
-**Última atualização:** 2025-08-28 (sessão 17)
+**Última atualização:** 2025-08-28 (sessão 18)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
@@ -196,28 +196,26 @@ Já entregue no primeiro commit:
 - 🟡 PoC-7 — **em curso** — exploração do Reel viewer implementada (sessão 16). Aguarda dump para saber onde está o "Copiar link".
 - 🔲 PoC-8 — feed vertical, Room DB, MVVM (+ **batching** de acções — ver §5)
 
-### 6.1 Próxima sessão — completar PoC-7 (copy link)
+### 6.1 Próxima sessão — completar PoC-7 (copy link via share sheet)
 
-**Progresso desta sessão (17):**
-- Reel viewer mapeado (dump `reel dump.txt` → `IgSelectors.ReelViewer.*`).
-- Descoberta bónus: `sender_username_or_fullname` no viewer expõe o **nome do remetente humano** ("Pedro Sardoeira" em 1-a-1). Isto pode servir de fallback para identificar o membro em grupos (backlog do PoC-4 §5, ponto (a) — abrir o Reel para ler o remetente).
-- Nova ação `ACTION_OPEN_REEL_AND_MORE` que abre o Reel viewer → aguarda 2 s → clica no `clips_ufi_more_button_component` (⋮) → aguarda 1 s → `dumpAllWindows("after-viewer-more")` automaticamente.
+**Estado após sessão 18:**
+- ⋮ bottom sheet **descartado** como fonte do URL: só contém "Guardar", "Reproduzir", "Porque estás a ver isto", "Com interesse", "Não tenho interesse", "Denunciar" (dump `reel view more.txt`). Documentado em `IgSelectors.ReelViewer.COPY_LINK_LABELS`.
+- Plano B implementado: nova ação `ACTION_OPEN_REEL_AND_SHARE` que abre o Reel viewer → clica no `direct_share_button` (desc="Partilhar") → aguarda 1.8 s pela sheet de partilha do IG (loads friends grid) → dump automático `after-viewer-share`.
 
 **O que precisas de fazer no OnePlus:**
 
 1. Abrir uma conversa com um Reel recebido visível.
-2. Baixar shade → tocar **⋮** na notificação Friends Reels (ou "Abrir 1.º Reel + tocar Mais" no ecrã da app).
-3. Deixar o viewer abrir e o bottom sheet aparecer (aguardar ~4 s no total).
-4. **Enviar o log completo entre `===== DUMP_ALL START reason=after-viewer-more =====` e `===== DUMP_ALL END =====`** — precisamos ver que itens tem o bottom sheet (Copiar link, Guardar, Denunciar, Não gosto, etc.) e com que ids/labels.
+2. Baixar shade → tocar **↗** na notificação Friends Reels (ou "Abrir 1.º Reel + tocar Partilhar" no ecrã da app).
+3. Aguardar ~4 s (viewer + share sheet).
+4. **Enviar o log completo entre `===== DUMP_ALL START reason=after-viewer-share =====` e `===== DUMP_ALL END =====`** — precisamos ver a sheet de partilha do IG (grid de amigos + row de acções como "Copiar link", "Enviar como mensagem", etc.).
 
-**Passo 2 (próxima sessão, depois do dump):**
+**Passo seguinte (depois do dump):**
 
-Implementar `ACTION_COPY_REEL_URL` que:
-- Reaproveita o fluxo `openFirstReelViewer(TapMoreAndDump)`.
-- Substitui o dump final por: procurar item do bottom sheet cujo `contentDescription`/`text` está em `ReelViewer.COPY_LINK_LABELS` → `performAction(ACTION_CLICK)` → ler o `ClipboardManager.primaryClip` (após ~500 ms) → registar URL.
-- Fechar o viewer (`performGlobalAction(GLOBAL_ACTION_BACK)` × 2).
+Com o dump vou implementar `ACTION_COPY_REEL_URL`:
+- Reaproveitar `openFirstReelViewer(TapShareAndDump)`, mas substituir o dump final por: procurar item cujo `contentDescription`/`text` está em `ReelViewer.COPY_LINK_LABELS` → `performAction(ACTION_CLICK)` → aguardar 500 ms → ler `ClipboardManager.primaryClip` → log do URL.
+- Se depois quisermos fechar a sheet + viewer para o utilizador continuar onde estava: `performGlobalAction(GLOBAL_ACTION_BACK)` 2× (uma para fechar a sheet, outra para sair do viewer).
 
-Fallback: se o bottom sheet **não** tiver "Copiar link", usar o `direct_share_button` (`desc="Partilhar"`) → share sheet Android → localizar "Copiar link" no chooser.
+Fallback se o Copy link **também** não estiver na sheet do share (raro): usar "Reencaminhar" do menu de contexto da DM (long-press) → share sheet do IG a partir dali → mesma caça a "Copiar link".
 
 ### 6.2 A seguir
 
@@ -491,3 +489,23 @@ Fallback: se o bottom sheet **não** tiver "Copiar link", usar o `direct_share_b
   - `strings.xml` — `btn_open_reel_more`, `notif_action_open_more`.
   - `PROJECT_PROGRESS.md` — estado atual, §6.1 reorientada para completar copy-link, este log.
 - **Próximo passo do utilizador:** tocar **⋮** na notificação; esperar ~4 s até o bottom sheet abrir; enviar o log entre `===== DUMP_ALL START reason=after-viewer-more =====` e `===== DUMP_ALL END =====`. Com esse dump implemento `ACTION_COPY_REEL_URL` na sessão 18.
+
+### 2026-08-28 — Sessão 18 (Ricardo + Copilot CLI) — ⋮ do viewer descartado, Plano B (share) implementado
+
+- **Dump `docs/screen-dumps/reel view more.txt` analisado.** O bottom sheet do ⋮ (`bottom_sheet_container`) do IG na versão actual **não tem "Copiar link"**. Apenas expõe:
+  - Acções destacadas: `Guardar`, `Reproduzir`.
+  - RecyclerView de feedback com `control_option_text`: "Porque é que estás a ver esta publicação", "Com interesse", "Não tenho interesse", "Denunciar".
+- **Conclusão:** o ⋮ é feedback/relevância do algoritmo, não partilha. Note permanente adicionada a `IgSelectors.ReelViewer.COPY_LINK_LABELS` para evitar futuras investigações redundantes. Também adicionado `BOTTOM_SHEET_CONTAINER = "bottom_sheet_container"` para referência.
+- **Plano B implementado:** o `direct_share_button` (desc="Partilhar") do strip vertical do viewer deve abrir a **sheet de partilha do IG** (grid de amigos + row de acções tipo "Copiar link", "Enviar como mensagem", "WhatsApp"…). É onde vive quase de certeza o URL.
+- **Nova ação `ACTION_OPEN_REEL_AND_SHARE`:**
+  - Nova entrada `AfterOpenViewer.TapShareAndDump` na sealed class.
+  - `tapShareInReelViewer()` procura `direct_share_button`, faz `performAction(ACTION_CLICK)` (com fallback via `findClickableAncestor`) e agenda `dumpAllWindows("after-viewer-share")` após `SHARE_SHEET_SETTLE_MS = 1800 ms` (mais tempo que o ⋮ porque o IG carrega o grid de amigos).
+  - Se o botão nem aparecer, dump automático `share-not-found`.
+- **UI/Notificação:** novo botão **↗** na notificação (request 8) + "Abrir 1.º Reel + tocar Partilhar (+ dump)" no ecrã da app. Convivem os 3 botões (Abrir, ⋮, ↗) para testes/investigação.
+- **Ficheiros alterados:**
+  - `IgSelectors.kt` — nota permanente em `COPY_LINK_LABELS` a explicar porque não é usado no ⋮, novo `BOTTOM_SHEET_CONTAINER`.
+  - `InstagramReaderService.kt` — `AfterOpenViewer.TapShareAndDump`, `tapShareInReelViewer`, constante `SHARE_SHEET_SETTLE_MS`, broadcast `ACTION_OPEN_REEL_AND_SHARE`, botão na notificação.
+  - `MainActivity.kt` — botão "Abrir 1.º Reel + tocar Partilhar".
+  - `strings.xml` — `btn_open_reel_share`, `notif_action_open_share`.
+  - `PROJECT_PROGRESS.md` — estado, §6.1 reorientada para o share sheet, este log.
+- **Próximo passo do utilizador:** tocar **↗** na notificação; aguardar ~4 s; enviar dump `after-viewer-share`. Com isso implemento `ACTION_COPY_REEL_URL` (click em "Copiar link" na share sheet → ler `ClipboardManager` → registar o URL do Reel) na sessão 19.

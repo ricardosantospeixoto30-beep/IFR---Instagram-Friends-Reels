@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
                         onReplyMock = { sendServiceBroadcast(InstagramReaderService.ACTION_REPLY_FIRST_REEL_MOCK) },
                         onOpenReel = { sendServiceBroadcast(InstagramReaderService.ACTION_OPEN_REEL) },
                         onOpenReelAndMore = { sendServiceBroadcast(InstagramReaderService.ACTION_OPEN_REEL_AND_MORE) },
+                        onOpenReelAndShare = { sendServiceBroadcast(InstagramReaderService.ACTION_OPEN_REEL_AND_SHARE) },
                         initialIgnoreSent = prefs.getBoolean(
                             InstagramReaderService.PREF_IGNORE_SENT,
                             InstagramReaderService.PREF_IGNORE_SENT_DEFAULT,
@@ -116,6 +117,7 @@ private fun HomeScreen(
     onReplyMock: () -> Unit,
     onOpenReel: () -> Unit,
     onOpenReelAndMore: () -> Unit,
+    onOpenReelAndShare: () -> Unit,
     initialIgnoreSent: Boolean,
     onIgnoreSentChange: (Boolean) -> Unit,
 ) {
@@ -205,6 +207,9 @@ private fun HomeScreen(
             }
             OutlinedButton(onClick = onOpenReelAndMore, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.btn_open_reel_more))
+            }
+            OutlinedButton(onClick = onOpenReelAndShare, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.btn_open_reel_share))
             }
         }
     }

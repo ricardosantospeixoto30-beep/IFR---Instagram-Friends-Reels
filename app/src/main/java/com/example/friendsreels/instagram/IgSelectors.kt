@@ -245,9 +245,18 @@ object IgSelectors {
         const val REPLY_BAR_EDITTEXT = "reply_bar_edittext"
 
         /**
-         * Localized labels for the "Copy link" entry inside the ⋮ bottom sheet.
-         * Not yet confirmed in a dump — to be validated in PoC-7 iteration 2.
+         * Localized labels for the "Copy link" entry inside the share sheet.
+         * NOTE: session-17 confirmed the ⋮ bottom sheet (`bottom_sheet_container`)
+         * does NOT contain "Copy link" — it only has Save / Play / feedback
+         * options (Denunciar, Não tenho interesse, ...). "Copy link" lives
+         * inside the share sheet opened by [UFI_SHARE_BUTTON] instead.
          */
         val COPY_LINK_LABELS = setOf("Copiar link", "Copiar ligação", "Copy link")
+
+        /**
+         * Container of the ⋮ bottom sheet. Present when the sheet is up but
+         * NOT a source for copy-link (see COPY_LINK_LABELS note above).
+         */
+        const val BOTTOM_SHEET_CONTAINER = "bottom_sheet_container"
     }
 }
