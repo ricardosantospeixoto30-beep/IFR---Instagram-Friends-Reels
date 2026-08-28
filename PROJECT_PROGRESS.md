@@ -7,8 +7,8 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-5 (reagir com ❤️/😂) implementado; pronto para teste.
-**Última atualização:** 2025-08-28 (sessão 6)
+**Fase atual:** Fase 1 (PoC) — PoC-5 (reagir) revisto para trazer IG à frente automaticamente.
+**Última atualização:** 2025-08-28 (sessão 7)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ---
@@ -231,4 +231,13 @@ Já entregue no primeiro commit:
 - **Próximo passo do utilizador:**
   1. Testar visualmente as reações (❤️ e 😂) num Reel de uma conversa. Confirmar que a reação **aparece de facto** no IG (na bolha do Reel, canto inferior esquerdo) e sobrevive a fechar e reabrir a conversa.
   2. Reportar qual dos dois emojis funciona e qual não (para eu ajustar se necessário).
-- **Aviso:** as reações **vão ficar mesmo enviadas** na conversa real do IG. Testar num Reel onde uma reação nossa não seja embaraçosa. Podes remover a reação depois no próprio IG (long-press na tua pill de reação → remover).
+### 2025-08-28 — Sessão 7 (Ricardo + Copilot CLI)
+
+- **Bug encontrado no primeiro teste de reação:** ao tocar num botão da nossa app, o foreground passa a ser `com.example.friendsreels`. A guarda no início do `longPressFirstReel` rejeitava a ação com "LONG_PRESS ignored: foreground is com.example.friendsreels, expected com.instagram.android".
+- **Correção:** todas as ações broadcast passam agora por `runInInstagram { ... }`, que:
+  1. Verifica se o IG já é a janela ativa; se sim, executa imediatamente.
+  2. Caso contrário, lança `packageManager.getLaunchIntentForPackage("com.instagram.android")` com `FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_REORDER_TO_FRONT` (isto retoma o IG **no último ecrã visitado**, incluindo a conversa aberta).
+  3. Polls a cada 200 ms até 4 s até `rootInActiveWindow.packageName == com.instagram.android`.
+  4. Quando o IG está foreground, corre a ação.
+- **UX resultante:** o utilizador abre a conversa, volta à nossa app, toca em "Reagir com ❤", e a app traz automaticamente o IG à frente antes de fazer o gesto. Não é preciso `adb`.
+- **Próximo passo do utilizador:** retestar. Se falhar, capturar Logcat (`IGReaderService`) — os logs vão mostrar "foreground is 'X', bringing Instagram to front" e depois "Instagram now in foreground" ou "gave up waiting".

@@ -72,11 +72,14 @@ class InstagramReaderService : AccessibilityService() {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 when (intent?.action) {
-                    ACTION_DUMP_TREE -> dumpActiveWindow("adb")
-                    ACTION_DUMP_ALL_WINDOWS -> dumpAllWindows("adb")
-                    ACTION_LONG_PRESS_FIRST_REEL -> longPressFirstReel(afterLongPress = AfterLongPress.DumpAllWindows)
-                    ACTION_REACT_HEART -> longPressFirstReel(afterLongPress = AfterLongPress.TapReaction("❤"))
-                    ACTION_REACT_LAUGH -> longPressFirstReel(afterLongPress = AfterLongPress.TapReaction("😂"))
+                    ACTION_DUMP_TREE -> runInInstagram { dumpActiveWindow("adb") }
+                    ACTION_DUMP_ALL_WINDOWS -> runInInstagram { dumpAllWindows("adb") }
+                    ACTION_LONG_PRESS_FIRST_REEL ->
+                        runInInstagram { longPressFirstReel(afterLongPress = AfterLongPress.DumpAllWindows) }
+                    ACTION_REACT_HEART ->
+                        runInInstagram { longPressFirstReel(afterLongPress = AfterLongPress.TapReaction("❤")) }
+                    ACTION_REACT_LAUGH ->
+                        runInInstagram { longPressFirstReel(afterLongPress = AfterLongPress.TapReaction("😂")) }
                 }
             }
         }
@@ -106,6 +109,58 @@ class InstagramReaderService : AccessibilityService() {
             try { unregisterReceiver(it) } catch (_: Exception) { /* ignore */ }
         }
         actionReceiver = null
+    }
+
+    // ---------------------------------------------------------------------
+    // Foreground helper — bring Instagram in front before acting
+    // ---------------------------------------------------------------------
+
+    /**
+     * Run [action] once the Instagram app is the foreground / active window.
+     *
+     * If Instagram is already in front, [action] runs immediately.
+     * Otherwise the service launches Instagram (retaining the last screen the
+     * user was on, since the standard launch intent resumes the existing
+     * task) and polls until IG becomes the active window or a small timeout
+     * expires.
+     */
+    private fun runInInstagram(action: () -> Unit) {
+        val currentPkg = rootInActiveWindow?.packageName?.toString()
+        if (currentPkg == IgSelectors.IG_PACKAGE) {
+            action()
+            return
+        }
+        Log.i(TAG, "runInInstagram: foreground is '$currentPkg', bringing Instagram to front.")
+        val launch = packageManager.getLaunchIntentForPackage(IgSelectors.IG_PACKAGE)
+        if (launch == null) {
+            Log.e(TAG, "runInInstagram: Instagram is not installed (no launch intent).")
+            return
+        }
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        try {
+            startActivity(launch)
+        } catch (e: Exception) {
+            Log.e(TAG, "runInInstagram: failed to launch Instagram", e)
+            return
+        }
+        pollInstagramForeground(retriesLeft = FOREGROUND_POLL_MAX_RETRIES, action = action)
+    }
+
+    private fun pollInstagramForeground(retriesLeft: Int, action: () -> Unit) {
+        val currentPkg = rootInActiveWindow?.packageName?.toString()
+        if (currentPkg == IgSelectors.IG_PACKAGE) {
+            Log.i(TAG, "runInInstagram: Instagram now in foreground, running action.")
+            action()
+            return
+        }
+        if (retriesLeft <= 0) {
+            Log.w(TAG, "runInInstagram: gave up waiting for Instagram to come to front (last=$currentPkg).")
+            return
+        }
+        mainHandler.postDelayed(
+            { pollInstagramForeground(retriesLeft - 1, action) },
+            FOREGROUND_POLL_INTERVAL_MS
+        )
     }
 
     // ---------------------------------------------------------------------
@@ -378,6 +433,8 @@ class InstagramReaderService : AccessibilityService() {
         private const val TAG = "IGReaderService"
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
+        private const val FOREGROUND_POLL_INTERVAL_MS = 200L
+        private const val FOREGROUND_POLL_MAX_RETRIES = 20 // ~4s total
 
         const val ACTION_DUMP_TREE = "com.example.friendsreels.ACTION_DUMP_TREE"
         const val ACTION_DUMP_ALL_WINDOWS = "com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS"
