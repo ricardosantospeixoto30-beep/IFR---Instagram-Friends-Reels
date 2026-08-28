@@ -86,6 +86,19 @@ object IgSelectors {
 
         // The DM sender is identified by the presence of `sender_avatar` inside
         // the `message_content`. Messages from ourselves do NOT include it.
+        //
+        // GROUP NOTE (validated 2025-08-28 with dump `ignore sent and group.txt`
+        // WINDOW[3] APPLICATION): the `sender_avatar` node has a generic
+        // `contentDescription="Foto de perfil" / "Profile picture"` and there
+        // is NO TextView inside `message_content` carrying the group member's
+        // name/username. The context menu opened via long-press also only
+        // exposes date/time (`context_menu_item_sub_label="29/07, 8:05 DA
+        // TARDE"`). Consequence: on the current IG build we cannot identify
+        // which group member shared a given Reel purely from the DM screen.
+        // Options for a future iteration: (a) tap the `sender_avatar` to open
+        // the member's profile and read the username, or (b) match the avatar
+        // image against the group members list. For the MVP the feed shows
+        // "from <group name>" instead of the individual member.
         const val SENDER_AVATAR = "sender_avatar"
 
         // Reactions pill shown attached to the message (empty when no reaction).

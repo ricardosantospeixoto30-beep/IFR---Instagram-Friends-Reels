@@ -7,17 +7,17 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-4 (identificar remetente) ✅ direção RECEIVED/SENT validada no OnePlus (sessão 13). Falta apenas identificar o **remetente humano em grupo** (sub-tarefa: precisa de dump da árvore de um bubble de grupo).
-**Última atualização:** 2025-08-28 (sessão 13)
+**Fase atual:** Fase 1 (PoC) — PoC-4 ✅ fechado (sessão 14). Próximo: PoC-6 (responder ao Reel).
+**Última atualização:** 2025-08-28 (sessão 14)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Estado a partir da sessão 13 (PoC-4 validado; sub-task de grupo em aberto).
+1. **Pull** do repo. Estado a partir da sessão 14 (PoC-4 fechado; limitação de grupos documentada em §5).
 2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" → **6.1** para a sub-tarefa de "nome do remetente em grupo" + plano do PoC-6.
-    - Últimos logs de sessão em §7 (sessões 12 e 13).
+    - §6 "Próximos passos concretos" → **6.1 PoC-6** tem o plano detalhado.
+    - Últimos logs de sessão em §7 (sessões 12 → 14).
 3. **Ficheiros-chave a rever antes de mexer código:**
     - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor de a11y, gestos, dumps.
     - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG.
@@ -175,7 +175,10 @@ Já entregue no primeiro commit:
 - **Ban risk operacional:** mesmo sem cliente modificado, se a AccessibilityService automatizar demasiado agressivamente pode disparar heurísticas de "comportamento não humano" da Meta. Mitigar com delays humanos entre ações, sync em background em pequenas rajadas, e nunca partilhar login com servidor terceiro.
 - **Notificações push do IG não são intercetáveis** sem `NotificationListenerService`. Se quisermos deteção em tempo real de novos Reels, avaliamos essa via como complemento no PoC-2/3.
 - **Fluxo de disparo das ações (PoC-5+):** usar sempre a **notificação persistente** ("Friends Reels") no shade. Tocar botões dentro da MainActivity funciona (o service traz o IG à frente automaticamente), mas alterna o foreground e algumas builds do IG podem reagir de forma inesperada. A notificação evita totalmente a troca de app.
-- **Mensagens enviadas por nós:** a mesma DM pode conter mensagens que o utilizador enviou. Estas **não** devem entrar no feed nem em ações de reação (o IG não permite reagir às próprias mensagens em muitos casos). O sinal está em `message_content`: se contém o nó `sender_avatar` a mensagem foi recebida; se não, foi enviada por nós. Implementação no PoC-4.
+- **Mensagens enviadas por nós:** a mesma DM pode conter mensagens que o utilizador enviou. Estas **não** devem entrar no feed nem em ações de reação (o IG não permite reagir às próprias mensagens em muitos casos). O sinal está em `message_content`: se contém o nó `sender_avatar` a mensagem foi recebida; se não, foi enviada por nós. Implementado no PoC-4 (sessão 12).
+- **Identificar o membro remetente em grupos (limitação da UI do IG, validada 2025-08-28 sessão 14):** no ecrã da conversa a árvore de acessibilidade **não expõe o nome/username do membro do grupo que partilhou o Reel**. O `sender_avatar` só tem `contentDescription="Foto de perfil"` (constante), não há qualquer `TextView` com o nome dentro do `message_content`, e o menu de contexto pós long-press só expõe data/hora. Consequências:
+    - No feed do MVP, Reels partilhados em grupo aparecem como "de \<nome do grupo\>", não "de \<membro\>".
+    - Se quisermos mais tarde o membro individual, opções: (a) tocar no `sender_avatar` para abrir o perfil e ler o username (troca de ecrã), (b) pixel-hash do avatar contra a lista de membros do grupo. Nenhuma via é trivial; fica em backlog.
 
 ---
 
@@ -186,34 +189,29 @@ Já entregue no primeiro commit:
 - ✅ PoC-1 — skeleton (compila, corre, a11y service ativa)
 - ✅ PoC-2 — dump da árvore de acessibilidade (`ACTION_DUMP_TREE`, `ACTION_DUMP_ALL_WINDOWS`)
 - ✅ PoC-3 — long-press dirigido ao bubble do Reel via `dispatchGesture`
-- ✅ PoC-4 — direção RECEIVED/SENT validada em DM e em grupo (sessão 13). Sub-tarefa em aberto: identificar o **nome do membro humano** que partilhou cada Reel dentro de um grupo — precisa de dump da árvore de um bubble de grupo para encontrar o selector.
+- ✅ PoC-4 — direção RECEIVED/SENT validada em DM 1-a-1 e em grupo (sessões 12→14). Limitação de grupos (nome do membro remetente não é textualizado pela a11y layer) registada em §5.
 - ✅ PoC-5 — reagir ao 1.º Reel com ❤ e 😂 (filtra por RECEIVED por defeito)
-- 🔲 PoC-6 — responder ao Reel (via "Responder" no menu popup + composer)
+- 🔲 PoC-6 — **PRÓXIMO** — responder ao Reel (via "Responder" no menu popup + composer)
 - 🔲 PoC-7 — extrair URL do Reel (menu não tem sempre "Copiar link"; alternativa: abrir Reel viewer / Reencaminhar)
 - 🔲 PoC-8 — feed vertical, Room DB, MVVM
 
-### 6.1 Próxima sessão — sub-task "remetente humano em grupo" + PoC-6
+### 6.1 Próxima sessão — PoC-6 (responder ao Reel)
 
-**Sub-task PoC-4 (grupos):**
+**Objetivo:** enviar uma resposta ligada a uma mensagem específica (mesmo comportamento do "Responder" nativo do IG). Base para o botão "Responder" no futuro feed.
 
-Contexto: em DM 1-a-1 o remetente humano é o próprio título do header (`lastKnownConversationTitle`, ex. `'Pedro Sardoeira'`). Em grupo isto não chega — o header dá o nome do grupo (`'O Burro a Vaca e os Reis Magos'`) e precisamos de saber **qual dos membros partilhou cada Reel específico**. O `title_text` do container XMA continua a ser o autor do Reel *na plataforma IG* (não o remetente na DM), por isso essa via não serve.
+**Fluxo (validado no dump da sessão 14 WINDOW[3]):**
 
-Plano concreto:
+1. Reutilizar `findFirstReelBubble(messageList, onlyDirection = Direction.RECEIVED)` do PoC-4 para escolher o alvo.
+2. Long-press com `dispatchGesture` (mesmo path do PoC-5).
+3. Após settle, procurar em `getWindows()` a janela popup (`context_menu_options_list`) e localizar o `context_menu_item` cujo `contentDescription` está em `IgSelectors.ContextMenu.ACTION_REPLY` (`"Responder"` / `"Reply"`). Clicar com `performAction(ACTION_CLICK)`.
+4. Aguardar o composer (`row_thread_composer_edittext`, id validado no dump) receber o "reply preview" (parece um `LinearLayout` com id `message_composer_reply_bar_container`, também presente na árvore capturada).
+5. Injetar texto via `AccessibilityNodeInfo.performAction(ACTION_SET_TEXT, Bundle{EXTRA_TEXT})` no `row_thread_composer_edittext`.
+6. Localizar o botão de envio (aparece no lugar de `row_thread_composer_voice` assim que o composer tem texto; a confirmar via dump com texto escrito — pedir ao utilizador para tirar). Provável id: `row_thread_composer_send_button` (a validar). Fallback: dispatchGesture com toque nas bounds retornadas.
+7. Nova ação broadcast `ACTION_REPLY_FIRST_REEL_MOCK` com texto fixo (ex. `"👀"`) para testar sem UI de input; depois adicionar UI de input.
 
-1. Utilizador entra num grupo com pelo menos um Reel recebido visível.
-2. Baixar shade → tocar "Dump" (`ACTION_DUMP_ALL_WINDOWS`).
-3. Enviar o log completo entre `===== DUMP_ALL START =====` e `===== DUMP_ALL END =====` — precisamos ver o subtree de um `message_content` recebido: junto do `sender_avatar` costuma haver um `TextView` com o nome ou username do membro (candidatos prováveis a IDs: `direct_message_sender_name`, `message_content_sender_name`, `attribution_username`, ou o `header_title` como filho do bubble).
-4. Assim que tivermos o ID, adicionar `IgSelectors.Thread.SENDER_NAME = "<id_real>"` e incluir `dmSender: String?` em `DmReelEntry`, populado durante `enumerateReels`.
-5. Actualizar `LIST_REELS[i]` para logar também `dmSender=`.
-
-Se o membro humano não aparecer como texto dentro do próprio bubble, plano B: usar o `contentDescription` do `sender_avatar` (algumas versões do IG expõem o nome aí, ex. `"Pedro Sardoeira"`) — capturar isso no mesmo dump.
-
-**PoC-6 (responder):**
-
-- Após long-press, o menu popup expõe `context_menu_item` com `contentDescription`/`text` correspondente a `IgSelectors.ContextMenu.ACTION_REPLY`.
-- Fazer `performAction(ACTION_CLICK)` nesse item.
-- Aguardar o composer (`row_thread_composer_edittext`) ganhar foco → `performAction(ACTION_SET_TEXT)` com o texto → localizar o botão de envio (`row_thread_composer_send_button` ou equivalente, a confirmar via dump) → click.
-- Adicionar `ACTION_REPLY_FIRST_REEL` com filtro `Direction.RECEIVED` reutilizando o `findFirstReelBubble` do PoC-4.
+**Riscos conhecidos:**
+- Janelas popup fecham em animação — aumentar o `POST_LONG_PRESS_SETTLE_MS` só para este fluxo pode ser necessário.
+- Se `ACTION_SET_TEXT` não funcionar no EditText do Compose IG, fallback é `dispatchGesture` para focar + `AccessibilityService.performGlobalAction(...)` com paste, ou copiar texto para clipboard e usar `ACTION_PASTE`. Deixar como plano B.
 
 ### 6.2 A seguir
 
@@ -395,3 +393,24 @@ Se o membro humano não aparecer como texto dentro do próprio bubble, plano B: 
 - **Conclusão do PoC-4:** direção `RECEIVED`/`SENT` está **validada** em DM 1-a-1 e em grupo. Toggle "Ignorar Reels enviados por mim" respeita a filtragem tanto na listagem (implicitamente) como no target das reações.
 - **Ponto em aberto (sub-task 6.1):** identificar o **membro humano** que partilhou cada Reel dentro de um grupo. Ainda não temos o dump da árvore de um bubble de grupo, por isso desconhecemos qual `resource-id` (ou `contentDescription` do `sender_avatar`) expõe o nome do membro. Fica para a próxima sessão de testes — dump completo de um grupo com pelo menos um Reel recebido.
 - **Nenhum código alterado nesta sessão** — só documentação (`Estado atual`, §6 e este log). O flag do PoC-4 muda para ✅ com nota de sub-task.
+
+### 2026-08-28 — Sessão 14 (Ricardo + Copilot CLI) — PoC-4 fechado, limitação de grupos confirmada
+
+- **Dump completo do grupo capturado** (`docs/screen-dumps/ignore sent and group.txt`, linhas 60→251 — DUMP_ALL antes e depois do long-press).
+- **Long-press num Reel recebido do grupo funcionou:** `target index=2 kind=portrait direction=RECEIVED author=urokowatch bounds=[147,267][593,776]` → menu de contexto abriu na WINDOW[3] popup normalmente.
+- **Análise da árvore do bubble em grupo (WINDOW[3] APPLICATION, id=1436):** cada `message_content` recebido tem exactamente estes filhos:
+  - `forwarding_shortcut_button` (desc="Reencaminhar mensagem")
+  - `save_to_collection_shortcut_button` (desc="Guardar numa coleção")
+  - `sender_avatar` (**desc="Foto de perfil"** — constante, não personalizada com nome do membro)
+  - `message_content_portrait_xma_container`
+    - `profile_attribution_picture` (imagem do autor original do Reel no IG)
+    - `title_text` (username do autor original do Reel no IG — não o membro do grupo)
+  - `message_reactions_pill_container` (opcional)
+- **Conclusão:** na versão actual do IG a a11y layer **não expõe** o nome/username do membro que partilhou um Reel específico dentro de um grupo. O menu de contexto pós long-press também só tem data/hora (`sub_label="29/07, 8:05 DA TARDE"`), sem nome. Registei esta limitação em §5 e uma nota permanente em `IgSelectors.Thread.SENDER_AVATAR`.
+- **Alternativas futuras (backlog, não urgentes):**
+  - Tocar no `sender_avatar` para abrir o perfil do membro e ler o username (troca de ecrã).
+  - Pixel-hash do avatar visível contra a lista de membros do grupo (obtida uma vez ao entrar).
+- **Implicação no MVP:** no feed, Reels partilhados em grupo apresentam-se como "de \<nome do grupo\>" (`lastKnownConversationTitle`). Reels de DM 1-a-1 continuam a mostrar o remetente humano (que também vem do `lastKnownConversationTitle`, sendo o próprio interlocutor).
+- **Decisão:** PoC-4 fica **fechado**. Próximo passo prioritário: **PoC-6 (responder ao Reel)** — plano em §6.1. Ainda precisamos de um dump extra do composer com texto escrito (a captar na próxima sessão de testes) para confirmar o id/bounds do botão de envio.
+- **Nenhum código alterado nesta sessão** — apenas documentação (`Estado atual`, §5, §6.1, este log) + comentário permanente em `IgSelectors.Thread.SENDER_AVATAR`.
+- **Melhoria de workflow acordada:** o utilizador vai enviar o dump completo logo à primeira em vez de o partilhar por partes.
