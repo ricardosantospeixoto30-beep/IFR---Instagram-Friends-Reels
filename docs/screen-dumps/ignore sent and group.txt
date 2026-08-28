@@ -1,0 +1,45 @@
+2026-08-28 23:10:53.218 18969-18969 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
+2026-08-28 23:10:53.219 18969-18969 IGReaderService         com.example.friendsreels             I  Action receiver registered (dump=com.example.friendsreels.ACTION_DUMP_TREE, dumpAll=com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS, list=com.example.friendsreels.ACTION_LIST_REELS, longpress=com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL, heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH)
+2026-08-28 23:10:53.229 18969-18969 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-08-28 23:10:55.906 18969-18969 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
+2026-08-28 23:11:24.055 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-28 23:11:24.930 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-28 23:11:24.972 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS: found 3 Reel bubble(s) — received=1 sent=2 conversation='Pedro Sardoeira' ignoreSent=true
+2026-08-28 23:11:24.972 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[0]: dir=SENT kind=portrait author=melqdy_1 bounds=[613,1654][1059,2176]
+2026-08-28 23:11:24.972 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[1]: dir=SENT kind=portrait author=iconic_cs2 bounds=[613,820][1059,1622]
+2026-08-28 23:11:24.972 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[2]: dir=RECEIVED kind=portrait author=rust.pro.me bounds=[147,267][593,726]
+2026-08-28 23:11:53.624 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-28 23:11:54.503 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-28 23:11:54.601 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS: found 3 Reel bubble(s) — received=1 sent=2 conversation='Pedro Sardoeira' ignoreSent=false
+2026-08-28 23:11:54.601 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[0]: dir=SENT kind=portrait author=melqdy_1 bounds=[613,1654][1059,2176]
+2026-08-28 23:11:54.601 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[1]: dir=SENT kind=portrait author=iconic_cs2 bounds=[613,820][1059,1622]
+2026-08-28 23:11:54.601 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[2]: dir=RECEIVED kind=portrait author=rust.pro.me bounds=[147,267][593,726]
+2026-08-28 23:12:24.524 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-28 23:12:25.406 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-28 23:12:25.417 18969-18969 IGReaderService         com.example.friendsreels             I  LONG_PRESS: sourcing tree from windows[APPLICATION] windowBounds=[0,0][1080,2378]
+2026-08-28 23:12:25.462 18969-18969 IGReaderService         com.example.friendsreels             W  LONG_PRESS: no eligible Reel bubble found (ignoreSent=true). Are you on a conversation with a received Reel visible?
+2026-08-28 23:12:35.176 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-28 23:12:36.051 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-28 23:12:36.061 18969-18969 IGReaderService         com.example.friendsreels             I  LONG_PRESS: sourcing tree from windows[APPLICATION] windowBounds=[0,0][1080,2378]
+2026-08-28 23:12:36.091 18969-18969 IGReaderService         com.example.friendsreels             W  LONG_PRESS: no eligible Reel bubble found (ignoreSent=true). Are you on a conversation with a received Reel visible?
+2026-08-28 23:12:44.307 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-28 23:12:45.202 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-28 23:12:45.217 18969-18969 IGReaderService         com.example.friendsreels             I  LONG_PRESS: sourcing tree from windows[APPLICATION] windowBounds=[0,0][1080,2378]
+2026-08-28 23:12:45.287 18969-18969 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target index=1 kind=portrait direction=RECEIVED author=pure_hu_yaarrr bounds=[147,865][593,1667] center=(370,1266) afterLongPress=TapReaction
+2026-08-28 23:12:45.303 18969-18969 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
+2026-08-28 23:12:45.924 18969-18969 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
+2026-08-28 23:12:47.407 18969-18969 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '❤' (desc in [❤Reação, ❤Reaction])
+2026-08-28 23:12:47.587 18969-18969 IGReaderService         com.example.friendsreels             I  REACT: performAction(ACTION_CLICK) on emoji '❤' returned true bounds=[113,1054][229,1170]
+2026-08-28 23:12:56.664 18969-18969 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='O Burro a Vaca e os Reis Magos'
+2026-08-28 23:13:25.040 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-28 23:13:25.922 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-28 23:13:25.971 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS: found 3 Reel bubble(s) — received=0 sent=3 conversation='O Burro a Vaca e os Reis Magos' ignoreSent=true
+2026-08-28 23:13:25.972 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[0]: dir=SENT kind=generic author=? bounds=[147,1764][777,2176]
+2026-08-28 23:13:25.972 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[1]: dir=SENT kind=portrait author=yuiki.hanegawa bounds=[613,766][1059,1568]
+2026-08-28 23:13:25.972 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[2]: dir=SENT kind=portrait author=wascemal bounds=[147,267][593,478]
+2026-08-28 23:14:00.191 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-28 23:14:01.078 18969-18969 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-28 23:14:01.163 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS: found 3 Reel bubble(s) — received=3 sent=0 conversation='O Burro a Vaca e os Reis Magos' ignoreSent=true
+2026-08-28 23:14:01.163 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[0]: dir=RECEIVED kind=portrait author=ryankellycomedy bounds=[147,2164][593,2176]
+2026-08-28 23:14:01.163 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[1]: dir=RECEIVED kind=portrait author=adamraqeem bounds=[147,1220][593,2022]
+2026-08-28 23:14:01.163 18969-18969 IGReaderService         com.example.friendsreels             I  LIST_REELS[2]: dir=RECEIVED kind=portrait author=urokowatch bounds=[147,276][593,1078]
