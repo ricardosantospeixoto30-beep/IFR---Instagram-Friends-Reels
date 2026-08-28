@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="ig_pink">#E1306C</color>
+    <color name="ig_purple">#833AB4</color>
+    <color name="ig_orange">#F77737</color>
+</resources>

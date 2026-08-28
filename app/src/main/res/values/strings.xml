@@ -1,9 +1,20 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Friends Reels Inbox</string>
-    <string name="acc_service_desc">Reads Instagram UI to import Reels and send reactions/replies.</string>
-    <string name="btn_sync">Sync selected conversations</string>
-    <string name="btn_enable_service">Enable Accessibility Service</string>
-    <string name="msg_service_enabled">Accessibility service is enabled.</string>
-    <string name="msg_service_disabled">Accessibility service is NOT enabled.</string>
+    <string name="app_name">Friends Reels</string>
+    <string name="accessibility_service_label">Friends Reels — Instagram Reader</string>
+    <string name="accessibility_service_description">Reads Instagram DM conversations to discover Reels shared by your friends. Runs only when you tap Sync.</string>
+
+    <string name="home_title">Friends Reels</string>
+    <string name="home_empty">Ainda não importaste nenhum Reel.</string>
+    <string name="btn_enable_accessibility">Ativar serviço de acessibilidade</string>
+    <string name="btn_open_feed">Abrir feed</string>
+    <string name="btn_open_settings">Definições</string>
+    <string name="btn_sync">Sincronizar Reels</string>
+
+    <string name="settings_title">Definições</string>
+    <string name="settings_selection_mode">Modo de seleção</string>
+    <string name="settings_include_only">Incluir apenas os selecionados</string>
+    <string name="settings_exclude_selected">Excluir os selecionados</string>
+    <string name="settings_include_groups">Incluir grupos</string>
+    <string name="settings_import_history">Importar histórico antigo</string>
+    <string name="settings_invert_swipe">Inverter direção do swipe</string>
 </resources>
