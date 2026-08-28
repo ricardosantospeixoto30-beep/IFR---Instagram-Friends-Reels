@@ -7,17 +7,17 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-6 ✅ (validado no OnePlus, sessão 16). PoC-7 🟡 exploração inicial implementada (open viewer + dump). Aguarda dump do viewer para completar a extracção do URL.
-**Última atualização:** 2025-08-28 (sessão 16)
+**Fase atual:** Fase 1 (PoC) — PoC-7 🟡 iteração 2 implementada (open + tap ⋮ + dump). Aguarda dump do bottom sheet para completar copy-link.
+**Última atualização:** 2025-08-28 (sessão 17)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Estado a partir da sessão 16 (PoC-6 fechado, PoC-7 primeiro passo implementado).
+1. **Pull** do repo. Estado a partir da sessão 17 (viewer mapeado; falta bottom sheet do ⋮).
 2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" → **6.1** para PoC-7 (precisa do dump do Reel viewer).
-    - Últimos logs de sessão em §7 (sessões 12 → 16).
+    - §6 "Próximos passos concretos" → **6.1** para completar PoC-7.
+    - Últimos logs de sessão em §7 (sessões 12 → 17).
 3. **Ficheiros-chave a rever antes de mexer código:**
     - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor de a11y, gestos, dumps.
     - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG.
@@ -196,30 +196,28 @@ Já entregue no primeiro commit:
 - 🟡 PoC-7 — **em curso** — exploração do Reel viewer implementada (sessão 16). Aguarda dump para saber onde está o "Copiar link".
 - 🔲 PoC-8 — feed vertical, Room DB, MVVM (+ **batching** de acções — ver §5)
 
-### 6.1 Próxima sessão — completar PoC-7
+### 6.1 Próxima sessão — completar PoC-7 (copy link)
 
-**Passo 1 (já entregue, sessão 16):** nova ação `ACTION_OPEN_REEL` que:
-- Reutiliza `findFirstReelBubble(RECEIVED)` do PoC-4.
-- Dispara um tap curto (80 ms) no centro do container XMA para abrir o Reel viewer do IG.
-- Aguarda 2 s a UI carregar e faz `dumpAllWindows("after-reel-tap")` automaticamente.
+**Progresso desta sessão (17):**
+- Reel viewer mapeado (dump `reel dump.txt` → `IgSelectors.ReelViewer.*`).
+- Descoberta bónus: `sender_username_or_fullname` no viewer expõe o **nome do remetente humano** ("Pedro Sardoeira" em 1-a-1). Isto pode servir de fallback para identificar o membro em grupos (backlog do PoC-4 §5, ponto (a) — abrir o Reel para ler o remetente).
+- Nova ação `ACTION_OPEN_REEL_AND_MORE` que abre o Reel viewer → aguarda 2 s → clica no `clips_ufi_more_button_component` (⋮) → aguarda 1 s → `dumpAllWindows("after-viewer-more")` automaticamente.
 
 **O que precisas de fazer no OnePlus:**
 
-1. Puxar repo, abrir uma conversa com um Reel recebido visível.
-2. Baixar shade → tocar **Abrir** na notificação (ou botão "Abrir 1.º Reel no viewer" no ecrã da app).
-3. Deixar o Reel viewer abrir. O service faz o dump automaticamente ao fim de ~2 s.
-4. **Enviar o log completo entre `===== DUMP_ALL START reason=after-reel-tap =====` e `===== DUMP_ALL END =====`** — precisamos ver que botões existem no viewer (Share, ⋮, "Copiar link", ícone de link/paper-plane…).
+1. Abrir uma conversa com um Reel recebido visível.
+2. Baixar shade → tocar **⋮** na notificação Friends Reels (ou "Abrir 1.º Reel + tocar Mais" no ecrã da app).
+3. Deixar o viewer abrir e o bottom sheet aparecer (aguardar ~4 s no total).
+4. **Enviar o log completo entre `===== DUMP_ALL START reason=after-viewer-more =====` e `===== DUMP_ALL END =====`** — precisamos ver que itens tem o bottom sheet (Copiar link, Guardar, Denunciar, Não gosto, etc.) e com que ids/labels.
 
 **Passo 2 (próxima sessão, depois do dump):**
 
-Com base no dump vou implementar `ACTION_COPY_REEL_URL` que:
-- Localiza o botão de share/⋮ dentro do viewer via `resource-id`.
-- Clica → aguarda menu → clica em "Copiar link".
-- Lê o texto do clipboard via `ClipboardManager`.
-- Registra o URL no Logcat (e mais tarde persistir em Room no PoC-8).
-- Fecha o viewer (back) para voltar à conversa.
+Implementar `ACTION_COPY_REEL_URL` que:
+- Reaproveita o fluxo `openFirstReelViewer(TapMoreAndDump)`.
+- Substitui o dump final por: procurar item do bottom sheet cujo `contentDescription`/`text` está em `ReelViewer.COPY_LINK_LABELS` → `performAction(ACTION_CLICK)` → ler o `ClipboardManager.primaryClip` (após ~500 ms) → registar URL.
+- Fechar o viewer (`performGlobalAction(GLOBAL_ACTION_BACK)` × 2).
 
-**Alternativa se não houver "Copiar link" no viewer:** usar "Reencaminhar" do menu de contexto do Reel na DM → o share sheet do Android abre com "Copiar link". Fica como plano B.
+Fallback: se o bottom sheet **não** tiver "Copiar link", usar o `direct_share_button` (`desc="Partilhar"`) → share sheet Android → localizar "Copiar link" no chooser.
 
 ### 6.2 A seguir
 
@@ -467,3 +465,29 @@ Com base no dump vou implementar `ACTION_COPY_REEL_URL` que:
   3. Deixar o Reel viewer abrir; após ~2 s o dump é automático.
   4. Enviar o log completo entre `===== DUMP_ALL START reason=after-reel-tap =====` e `===== DUMP_ALL END =====` (tal como o dump do grupo — envio de raspão logo à primeira).
 - Com esse dump ficamos a saber que botões o viewer expõe (Share, ⋮, Copiar link, etc.) e implemento `ACTION_COPY_REEL_URL` na sessão seguinte.
+
+### 2026-08-28 — Sessão 17 (Ricardo + Copilot CLI) — Reel viewer mapeado + PoC-7 iteração 2
+
+- **Dump `docs/screen-dumps/reel dump.txt` analisado.** O viewer nativo do IG vive **todo dentro da WINDOW[3] APPLICATION** — não abre em popup, portanto `rootInActiveWindow` chega. Estrutura mapeada:
+  - Header: botão retroceder, `sender_profile_pic`, `sender_username_or_fullname` (text="Pedro Sardoeira"), `sender_timestamp` (text="Há 3 h"), botão "Criar um reel".
+  - Vídeo: `clips_video_container` dentro de `clips_media_component`.
+  - Strip vertical direito (`clips_ufi_component`): `like_button`, `like_count`, `comment_button`, `desc="Republicar"`, **`direct_share_button` desc="Partilhar"**, `ufi_text_component` (repartilhas), `save_button`, **`clips_ufi_more_button_component` desc="Mais"**, `media_album_art_button` desc="Áudio".
+  - Info do autor original: `clips_author_username` text="relatable_sayyz".
+  - Reply composer: `reply_bar_edittext` text="Responde a Pedro Sardoeira", 3 emojis rápidos (`item_emoji`), `reply_bar_reaction_sheet_button`.
+  - `SeekBar` `id/scrubber` (barra de progresso do vídeo).
+- **Descoberta bónus para o PoC-4 em grupos:** `sender_username_or_fullname` mostra o **nome de quem partilhou o Reel na DM** (em 1-a-1 foi "Pedro Sardoeira"). Em grupos, hipoteticamente vai expor o nome do membro individual. Isto abre uma via viável para o problema registado em §5 — sem precisarmos de pixel-hash: assim que estivermos com o Reel viewer aberto, temos o nome do remetente humano. Fica como possível melhoria futura do PoC-4 (não urgente).
+- **Todos os selectors do viewer centralizados em `IgSelectors.ReelViewer`.**
+- **Nova ação encadeada `ACTION_OPEN_REEL_AND_MORE`:**
+  - Reaproveita `openFirstReelViewer(afterOpen: AfterOpenViewer)` — a sealed class nova permite alternar o passo pós-abertura (`DumpNow` = dump directo, `TapMoreAndDump` = click no ⋮ + dump).
+  - Depois do settle do viewer, procura `clips_ufi_more_button_component` (o ⋮) via `findFirstNodeAcrossWindows` e faz `performAction(ACTION_CLICK)`.
+  - Aguarda `MORE_MENU_SETTLE_MS = 1000 ms` (animação do bottom sheet) e chama `dumpAllWindows("after-viewer-more")`.
+  - Guarda defensiva: se o botão não estiver clicável, `findClickableAncestor` sobe até 5 níveis.
+  - Se o botão ⋮ nem aparecer, `dumpAllWindows("more-not-found")` para termos evidência do que estava no ecrã.
+- **UI/Notificação:** novo botão **⋮** na notificação (request 7) + "Abrir 1.º Reel + tocar Mais (+ dump)" no ecrã da app.
+- **Ficheiros alterados:**
+  - `IgSelectors.kt` — novo `IgSelectors.ReelViewer` completo.
+  - `InstagramReaderService.kt` — sealed class `AfterOpenViewer`, refactor de `openFirstReelViewer`, novo `tapMoreInReelViewer`, constante `MORE_MENU_SETTLE_MS`, broadcast `ACTION_OPEN_REEL_AND_MORE`, notificação com botão ⋮.
+  - `MainActivity.kt` — botão "Abrir 1.º Reel + tocar Mais".
+  - `strings.xml` — `btn_open_reel_more`, `notif_action_open_more`.
+  - `PROJECT_PROGRESS.md` — estado atual, §6.1 reorientada para completar copy-link, este log.
+- **Próximo passo do utilizador:** tocar **⋮** na notificação; esperar ~4 s até o bottom sheet abrir; enviar o log entre `===== DUMP_ALL START reason=after-viewer-more =====` e `===== DUMP_ALL END =====`. Com esse dump implemento `ACTION_COPY_REEL_URL` na sessão 18.

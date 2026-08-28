@@ -201,4 +201,53 @@ object IgSelectors {
         /** Labels for the "Copy link" action (may not appear for every Reel share). */
         val ACTION_COPY_LINK = setOf("Copiar link", "Copiar ligação", "Copy link")
     }
+
+    // ---------------------------------------------------------------------
+    // Reel viewer (native full-screen player opened from a DM bubble)
+    //
+    // Nodes captured in the session-16 dump (`reel dump.txt` WINDOW[3]).
+    // The viewer lives entirely in the main IG APPLICATION window (no
+    // separate popup) so rootInActiveWindow is enough after settle.
+    // ---------------------------------------------------------------------
+    object ReelViewer {
+        /** ViewPager that hosts one Reel per page. Presence == viewer open. */
+        const val CLIPS_VIEWER_PAGER = "clips_viewer_view_pager"
+
+        /** ViewGroup that wraps the currently playing Reel (has contentDescription "Reel de <autor>"). */
+        const val CLIPS_MEDIA_COMPONENT = "clips_media_component"
+
+        /** Original author of the Reel (username shown at the bottom left). */
+        const val CLIPS_AUTHOR_USERNAME = "clips_author_username"
+
+        /**
+         * Sender of the Reel inside the DM. In 1-a-1 chats this is the
+         * interlocutor; in groups this is the specific member who shared the
+         * Reel — VERY useful as a fallback for the PoC-4 "sender in a group"
+         * open point (see §5 of the progress log).
+         */
+        const val SENDER_USERNAME_OR_FULLNAME = "sender_username_or_fullname"
+        const val SENDER_PROFILE_PIC = "sender_profile_pic"
+        const val SENDER_TIMESTAMP = "sender_timestamp"
+
+        /** Right-hand vertical action strip. */
+        const val UFI_COMPONENT = "clips_ufi_component"
+        const val UFI_LIKE_BUTTON = "like_button"
+        const val UFI_COMMENT_BUTTON = "comment_button"
+        const val UFI_SAVE_BUTTON = "save_button"
+
+        /** Native Android share sheet entry point (desc="Partilhar" / "Share"). */
+        const val UFI_SHARE_BUTTON = "direct_share_button"
+
+        /** ⋮ menu — opens the bottom sheet that (probably) hosts "Copy link". */
+        const val UFI_MORE_BUTTON = "clips_ufi_more_button_component"
+
+        /** Reply composer at the bottom of the viewer (alternative reply path). */
+        const val REPLY_BAR_EDITTEXT = "reply_bar_edittext"
+
+        /**
+         * Localized labels for the "Copy link" entry inside the ⋮ bottom sheet.
+         * Not yet confirmed in a dump — to be validated in PoC-7 iteration 2.
+         */
+        val COPY_LINK_LABELS = setOf("Copiar link", "Copiar ligação", "Copy link")
+    }
 }

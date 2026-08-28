@@ -139,7 +139,9 @@ class InstagramReaderService : AccessibilityService() {
                         runInInstagram {
                             longPressFirstReel(afterLongPress = AfterLongPress.ReplyWithText(MOCK_REPLY_TEXT))
                         }
-                    ACTION_OPEN_REEL -> runInInstagram { openFirstReelViewer() }
+                    ACTION_OPEN_REEL -> runInInstagram { openFirstReelViewer(AfterOpenViewer.DumpNow) }
+                    ACTION_OPEN_REEL_AND_MORE ->
+                        runInInstagram { openFirstReelViewer(AfterOpenViewer.TapMoreAndDump) }
                 }
             }
         }
@@ -152,6 +154,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_REACT_LAUGH)
             addAction(ACTION_REPLY_FIRST_REEL_MOCK)
             addAction(ACTION_OPEN_REEL)
+            addAction(ACTION_OPEN_REEL_AND_MORE)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -165,7 +168,7 @@ class InstagramReaderService : AccessibilityService() {
             "Action receiver registered (dump=$ACTION_DUMP_TREE, dumpAll=$ACTION_DUMP_ALL_WINDOWS, " +
                 "list=$ACTION_LIST_REELS, longpress=$ACTION_LONG_PRESS_FIRST_REEL, " +
                 "heart=$ACTION_REACT_HEART, laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
-                "open=$ACTION_OPEN_REEL)"
+                "open=$ACTION_OPEN_REEL, openMore=$ACTION_OPEN_REEL_AND_MORE)"
         )
     }
 
@@ -412,7 +415,13 @@ class InstagramReaderService : AccessibilityService() {
     // dump reveals the correct resource ids.
     // ---------------------------------------------------------------------
 
-    private fun openFirstReelViewer() {
+    /** What to do after the Reel viewer has (probably) opened. */
+    private sealed class AfterOpenViewer {
+        object DumpNow : AfterOpenViewer()
+        object TapMoreAndDump : AfterOpenViewer()
+    }
+
+    private fun openFirstReelViewer(afterOpen: AfterOpenViewer) {
         val igWindow = findIgApplicationWindow()
         val root = igWindow?.root ?: rootInActiveWindow
         if (root == null) {
@@ -448,7 +457,8 @@ class InstagramReaderService : AccessibilityService() {
         Log.i(
             TAG,
             "OPEN_REEL: target index=${target.index} kind=${target.kind} direction=${target.direction} " +
-                "author=${target.reelAuthor} bounds=${bounds.toShortString()} center=(${bounds.centerX()},${bounds.centerY()})"
+                "author=${target.reelAuthor} bounds=${bounds.toShortString()} center=(${bounds.centerX()},${bounds.centerY()}) " +
+                "afterOpen=${afterOpen::class.simpleName}"
         )
         if (windowBounds != null && !windowBounds.contains(bounds.centerX(), bounds.centerY())) {
             Log.w(TAG, "OPEN_REEL: bubble center outside IG window bounds — refusing to tap off-screen.")
@@ -468,10 +478,41 @@ class InstagramReaderService : AccessibilityService() {
         }, mainHandler)
         Log.i(TAG, "OPEN_REEL: dispatchGesture accepted=$dispatched duration=${TAP_DURATION_MS}ms")
 
-        mainHandler.postDelayed(
-            { dumpAllWindows("after-reel-tap") },
-            TAP_DURATION_MS + REEL_VIEWER_SETTLE_MS,
+        val delay = TAP_DURATION_MS + REEL_VIEWER_SETTLE_MS
+        when (afterOpen) {
+            AfterOpenViewer.DumpNow ->
+                mainHandler.postDelayed({ dumpAllWindows("after-reel-tap") }, delay)
+            AfterOpenViewer.TapMoreAndDump ->
+                mainHandler.postDelayed({ tapMoreInReelViewer() }, delay)
+        }
+    }
+
+    /**
+     * Click the ⋮ button on the Reel viewer (right-hand action strip) to
+     * open the bottom sheet that (very likely) contains "Copy link". After
+     * settle, dump every window so we can capture the sheet layout.
+     * The sheet may live in a separate window layered on top of the viewer,
+     * which is why we always dump ALL windows here.
+     */
+    private fun tapMoreInReelViewer() {
+        val moreId = IgSelectors.id(IgSelectors.ReelViewer.UFI_MORE_BUTTON)
+        val moreNode = findFirstNodeAcrossWindows { it.viewIdResourceName == moreId }
+        if (moreNode == null) {
+            Log.w(TAG, "MORE_IN_VIEWER: '${IgSelectors.ReelViewer.UFI_MORE_BUTTON}' not found. Viewer failed to open?")
+            dumpAllWindows("more-not-found")
+            return
+        }
+        val bounds = Rect().also { moreNode.getBoundsInScreen(it) }
+        // Some Compose action buttons expose the icon as non-clickable child of
+        // a clickable ancestor. The current dump shows the ImageView itself as
+        // clickable, but stay defensive.
+        val target = if (moreNode.isClickable) moreNode else findClickableAncestor(moreNode) ?: moreNode
+        val ok = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        Log.i(
+            TAG,
+            "MORE_IN_VIEWER: performAction(ACTION_CLICK) on 'Mais' returned $ok bounds=${bounds.toShortString()}"
         )
+        mainHandler.postDelayed({ dumpAllWindows("after-viewer-more") }, MORE_MENU_SETTLE_MS)
     }
 
     // ---------------------------------------------------------------------
@@ -876,6 +917,7 @@ class InstagramReaderService : AccessibilityService() {
         private const val SEND_SETTLE_MS = 500L // wait for the voice/gallery strip to become the Send button
         private const val TAP_DURATION_MS = 80L // short click gesture for opening a Reel bubble
         private const val REEL_VIEWER_SETTLE_MS = 2000L // Reel viewer needs to load the video/controls before the dump
+        private const val MORE_MENU_SETTLE_MS = 1000L // bottom sheet animation after tapping ⋮
         private const val FOREGROUND_POLL_INTERVAL_MS = 200L
         private const val FOREGROUND_POLL_MAX_RETRIES = 30 // ~6s total, enough for task-switch animations
         private const val MIN_REEL_BUBBLE_HEIGHT_PX = 200 // ignore stubs that are almost fully scrolled off
@@ -891,6 +933,7 @@ class InstagramReaderService : AccessibilityService() {
         const val ACTION_REACT_LAUGH = "com.example.friendsreels.ACTION_REACT_LAUGH"
         const val ACTION_REPLY_FIRST_REEL_MOCK = "com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK"
         const val ACTION_OPEN_REEL = "com.example.friendsreels.ACTION_OPEN_REEL"
+        const val ACTION_OPEN_REEL_AND_MORE = "com.example.friendsreels.ACTION_OPEN_REEL_AND_MORE"
 
         /** SharedPreferences file shared between the UI and the service. */
         const val PREFS_NAME = "friends_reels_prefs"
@@ -949,6 +992,11 @@ class InstagramReaderService : AccessibilityService() {
                 0,
                 getString(R.string.notif_action_open),
                 pendingBroadcast(ACTION_OPEN_REEL, requestCode = 6)
+            )
+            .addAction(
+                0,
+                getString(R.string.notif_action_open_more),
+                pendingBroadcast(ACTION_OPEN_REEL_AND_MORE, requestCode = 7)
             )
             .addAction(
                 0,
