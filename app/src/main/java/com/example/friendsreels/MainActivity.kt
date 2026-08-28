@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
                         onListReels = { sendServiceBroadcast(InstagramReaderService.ACTION_LIST_REELS) },
                         onReactHeart = { sendServiceBroadcast(InstagramReaderService.ACTION_REACT_HEART) },
                         onReactLaugh = { sendServiceBroadcast(InstagramReaderService.ACTION_REACT_LAUGH) },
+                        onReplyMock = { sendServiceBroadcast(InstagramReaderService.ACTION_REPLY_FIRST_REEL_MOCK) },
                         initialIgnoreSent = prefs.getBoolean(
                             InstagramReaderService.PREF_IGNORE_SENT,
                             InstagramReaderService.PREF_IGNORE_SENT_DEFAULT,
@@ -110,6 +111,7 @@ private fun HomeScreen(
     onListReels: () -> Unit,
     onReactHeart: () -> Unit,
     onReactLaugh: () -> Unit,
+    onReplyMock: () -> Unit,
     initialIgnoreSent: Boolean,
     onIgnoreSentChange: (Boolean) -> Unit,
 ) {
@@ -190,6 +192,9 @@ private fun HomeScreen(
             }
             Button(onClick = onReactLaugh, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.btn_react_laugh))
+            }
+            Button(onClick = onReplyMock, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.btn_reply_reel))
             }
         }
     }

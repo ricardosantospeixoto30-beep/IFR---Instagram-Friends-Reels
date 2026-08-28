@@ -111,6 +111,26 @@ object IgSelectors {
         // Composer (text field to send messages back into the DM)
         const val COMPOSER_BAR = "message_composer_bar"
         const val COMPOSER_EDITTEXT = "row_thread_composer_edittext"
+
+        // Once the composer has text, IG replaces the voice/gallery/sticker
+        // strip with a single "Send" button. The id has changed over the
+        // years and we haven't captured a dump of the populated composer yet,
+        // so we probe a list of known candidates. Fallback is a search by
+        // `contentDescription` in the localized labels below.
+        val COMPOSER_SEND_BUTTON_CANDIDATES = listOf(
+            "row_thread_composer_send_button",
+            "row_thread_composer_send",
+            "composer_send_button",
+            "send_button",
+        )
+
+        /** Localized contentDescriptions for the composer send button. */
+        val COMPOSER_SEND_LABELS = setOf("Enviar", "Send")
+
+        // When the user picks "Responder" from the context menu, IG shows a
+        // reply-preview strip on top of the composer. Useful as a positive
+        // signal that the reply flow is truly active.
+        const val COMPOSER_REPLY_BAR_CONTAINER = "message_composer_reply_bar_container"
     }
 
     // ---------------------------------------------------------------------

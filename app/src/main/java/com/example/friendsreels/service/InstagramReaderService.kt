@@ -12,6 +12,7 @@ import android.content.IntentFilter
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -52,6 +53,12 @@ import com.example.friendsreels.instagram.IgSelectors
  * to Direction.RECEIVED only, controlled by the persisted
  * `ignore_sent_reels` preference. The listing can also be dumped to logcat
  * via ACTION_LIST_REELS.
+ *
+ * PoC-6 (reply): after the long-press opens the context menu popup, clicks
+ * the "Reply" item, types a fixed mock text into the composer via
+ * ACTION_SET_TEXT, and clicks the send button. Falls back to a diagnostic
+ * dump if the send button cannot be found so we can capture the missing
+ * resource id from the user's device. Action: ACTION_REPLY_FIRST_REEL_MOCK.
  */
 class InstagramReaderService : AccessibilityService() {
 
@@ -121,6 +128,10 @@ class InstagramReaderService : AccessibilityService() {
                         runInInstagram { longPressFirstReel(afterLongPress = AfterLongPress.TapReaction("❤")) }
                     ACTION_REACT_LAUGH ->
                         runInInstagram { longPressFirstReel(afterLongPress = AfterLongPress.TapReaction("😂")) }
+                    ACTION_REPLY_FIRST_REEL_MOCK ->
+                        runInInstagram {
+                            longPressFirstReel(afterLongPress = AfterLongPress.ReplyWithText(MOCK_REPLY_TEXT))
+                        }
                 }
             }
         }
@@ -131,6 +142,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_LONG_PRESS_FIRST_REEL)
             addAction(ACTION_REACT_HEART)
             addAction(ACTION_REACT_LAUGH)
+            addAction(ACTION_REPLY_FIRST_REEL_MOCK)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -143,7 +155,7 @@ class InstagramReaderService : AccessibilityService() {
             TAG,
             "Action receiver registered (dump=$ACTION_DUMP_TREE, dumpAll=$ACTION_DUMP_ALL_WINDOWS, " +
                 "list=$ACTION_LIST_REELS, longpress=$ACTION_LONG_PRESS_FIRST_REEL, " +
-                "heart=$ACTION_REACT_HEART, laugh=$ACTION_REACT_LAUGH)"
+                "heart=$ACTION_REACT_HEART, laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK)"
         )
     }
 
@@ -242,6 +254,7 @@ class InstagramReaderService : AccessibilityService() {
     private sealed class AfterLongPress {
         object DumpAllWindows : AfterLongPress()
         data class TapReaction(val emoji: String) : AfterLongPress()
+        data class ReplyWithText(val text: String) : AfterLongPress()
     }
 
     private fun longPressFirstReel(afterLongPress: AfterLongPress) {
@@ -341,6 +354,9 @@ class InstagramReaderService : AccessibilityService() {
             is AfterLongPress.TapReaction -> {
                 mainHandler.postDelayed({ tapQuickReaction(afterLongPress.emoji) }, settleMs)
             }
+            is AfterLongPress.ReplyWithText -> {
+                mainHandler.postDelayed({ openReplyAndSend(afterLongPress.text) }, settleMs)
+            }
         }
     }
 
@@ -371,6 +387,127 @@ class InstagramReaderService : AccessibilityService() {
             "REACT: performAction(ACTION_CLICK) on emoji '$emoji' returned $clicked " +
                 "bounds=${emojiBounds.toShortString()}"
         )
+    }
+
+    // ---------------------------------------------------------------------
+    // PoC-6 — Reply to the first Reel with a fixed mock text
+    // ---------------------------------------------------------------------
+
+    /**
+     * Runs after the long-press has opened the context menu popup. Clicks
+     * the "Reply" item, then chains through the composer settle → set text
+     * → click send flow. Every step logs its outcome. If any step cannot
+     * find the required node, an automatic dump is issued so we can see
+     * exactly what the IG UI looked like at that moment.
+     */
+    private fun openReplyAndSend(text: String) {
+        val replyLabels = IgSelectors.ContextMenu.ACTION_REPLY
+        Log.i(TAG, "REPLY: looking for context menu item 'Responder' (labels=$replyLabels)")
+
+        val replyItem = findFirstNodeAcrossWindows { node ->
+            val id = node.viewIdResourceName ?: return@findFirstNodeAcrossWindows false
+            if (id != IgSelectors.id(IgSelectors.ContextMenu.CONTEXT_MENU_ITEM)) return@findFirstNodeAcrossWindows false
+            val desc = node.contentDescription?.toString()
+            desc != null && replyLabels.contains(desc)
+        }
+        if (replyItem == null) {
+            Log.w(TAG, "REPLY: 'Responder' item not found. Was the context menu open?")
+            mainHandler.postDelayed({ dumpAllWindows("reply-no-menu") }, 200L)
+            return
+        }
+        val clicked = replyItem.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        Log.i(TAG, "REPLY: performAction(ACTION_CLICK) on 'Responder' returned $clicked")
+
+        mainHandler.postDelayed({ typeInComposer(text) }, COMPOSER_SETTLE_MS)
+    }
+
+    /**
+     * Locate the composer EditText and inject [text] via ACTION_SET_TEXT.
+     * ACTION_SET_TEXT bypasses the IME entirely and works for Compose text
+     * fields that expose CharSequence writes through the a11y layer, which
+     * covers the current IG composer (validated on OnePlus Nord 5).
+     */
+    private fun typeInComposer(text: String) {
+        val composer = findFirstNodeAcrossWindows { node ->
+            node.viewIdResourceName == IgSelectors.id(IgSelectors.Thread.COMPOSER_EDITTEXT)
+        }
+        if (composer == null) {
+            Log.w(TAG, "REPLY: composer EditText not found after settle.")
+            mainHandler.postDelayed({ dumpAllWindows("reply-no-composer") }, 200L)
+            return
+        }
+
+        // Sanity check: the reply preview strip should be up. If it isn't,
+        // we can still try to set text (the reaction just won't be tied to
+        // the original message), but log a warning to help future debugging.
+        val hasReplyBar = findFirstNodeAcrossWindows { node ->
+            node.viewIdResourceName == IgSelectors.id(IgSelectors.Thread.COMPOSER_REPLY_BAR_CONTAINER)
+        } != null
+        if (!hasReplyBar) {
+            Log.w(TAG, "REPLY: composer visible but reply-preview bar not detected; sending anyway.")
+        }
+
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        }
+        val setOk = composer.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        Log.i(TAG, "REPLY: performAction(ACTION_SET_TEXT text='$text') returned $setOk hasReplyBar=$hasReplyBar")
+
+        mainHandler.postDelayed({ clickSendButton() }, SEND_SETTLE_MS)
+    }
+
+    /**
+     * Find the composer's Send button. IG's resource id for this button has
+     * moved around between builds, so we probe a list of known candidates
+     * (see [IgSelectors.Thread.COMPOSER_SEND_BUTTON_CANDIDATES]) and fall
+     * back to matching on the localized contentDescription ("Enviar" /
+     * "Send"). If none of those hits, we issue an `after-set-text` dump so
+     * the missing id can be added to the candidate list next time.
+     */
+    private fun clickSendButton() {
+        val candidateIds = IgSelectors.Thread.COMPOSER_SEND_BUTTON_CANDIDATES
+            .map { IgSelectors.id(it) }
+            .toSet()
+        val sendLabels = IgSelectors.Thread.COMPOSER_SEND_LABELS
+
+        val sendNode = findFirstNodeAcrossWindows { node ->
+            val id = node.viewIdResourceName
+            if (id != null && candidateIds.contains(id)) return@findFirstNodeAcrossWindows true
+            val desc = node.contentDescription?.toString() ?: return@findFirstNodeAcrossWindows false
+            sendLabels.contains(desc)
+        }
+
+        if (sendNode == null) {
+            Log.w(
+                TAG,
+                "REPLY: send button not found (tried ids=${IgSelectors.Thread.COMPOSER_SEND_BUTTON_CANDIDATES} " +
+                    "desc=$sendLabels). Emitting after-set-text dump so we can capture the real id."
+            )
+            dumpAllWindows("after-set-text")
+            return
+        }
+        val bounds = Rect().also { sendNode.getBoundsInScreen(it) }
+        val clickable = sendNode.isClickable
+        // Some builds mark the icon child non-clickable but the parent Button
+        // is; walk up until we hit a clickable ancestor if needed.
+        val target = if (clickable) sendNode else findClickableAncestor(sendNode) ?: sendNode
+        val ok = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        Log.i(
+            TAG,
+            "REPLY: send button click returned $ok id=${sendNode.viewIdResourceName} " +
+                "desc=${sendNode.contentDescription} bounds=${bounds.toShortString()}"
+        )
+    }
+
+    private fun findClickableAncestor(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        var current: AccessibilityNodeInfo? = node.parent
+        var depth = 0
+        while (current != null && depth < 5) {
+            if (current.isClickable) return current
+            current = current.parent
+            depth++
+        }
+        return null
     }
 
     /**
@@ -650,9 +787,14 @@ class InstagramReaderService : AccessibilityService() {
         private const val TAG = "IGReaderService"
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
+        private const val COMPOSER_SETTLE_MS = 900L // context menu closes + reply preview + composer focus
+        private const val SEND_SETTLE_MS = 500L // wait for the voice/gallery strip to become the Send button
         private const val FOREGROUND_POLL_INTERVAL_MS = 200L
         private const val FOREGROUND_POLL_MAX_RETRIES = 30 // ~6s total, enough for task-switch animations
         private const val MIN_REEL_BUBBLE_HEIGHT_PX = 200 // ignore stubs that are almost fully scrolled off
+
+        /** Placeholder text used by the PoC-6 mock reply broadcast. */
+        const val MOCK_REPLY_TEXT = "👀"
 
         const val ACTION_DUMP_TREE = "com.example.friendsreels.ACTION_DUMP_TREE"
         const val ACTION_DUMP_ALL_WINDOWS = "com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS"
@@ -660,6 +802,7 @@ class InstagramReaderService : AccessibilityService() {
         const val ACTION_LONG_PRESS_FIRST_REEL = "com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL"
         const val ACTION_REACT_HEART = "com.example.friendsreels.ACTION_REACT_HEART"
         const val ACTION_REACT_LAUGH = "com.example.friendsreels.ACTION_REACT_LAUGH"
+        const val ACTION_REPLY_FIRST_REEL_MOCK = "com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK"
 
         /** SharedPreferences file shared between the UI and the service. */
         const val PREFS_NAME = "friends_reels_prefs"
@@ -708,6 +851,11 @@ class InstagramReaderService : AccessibilityService() {
                 0,
                 getString(R.string.notif_action_laugh),
                 pendingBroadcast(ACTION_REACT_LAUGH, requestCode = 2)
+            )
+            .addAction(
+                0,
+                getString(R.string.notif_action_reply),
+                pendingBroadcast(ACTION_REPLY_FIRST_REEL_MOCK, requestCode = 5)
             )
             .addAction(
                 0,

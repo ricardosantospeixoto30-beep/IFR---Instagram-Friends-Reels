@@ -7,17 +7,17 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-4 ✅ fechado (sessão 14). Próximo: PoC-6 (responder ao Reel).
-**Última atualização:** 2025-08-28 (sessão 14)
+**Fase atual:** Fase 1 (PoC) — PoC-6 (responder) 🟡 código implementado (sessão 15), aguarda teste no OnePlus.
+**Última atualização:** 2025-08-28 (sessão 15)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Estado a partir da sessão 14 (PoC-4 fechado; limitação de grupos documentada em §5).
+1. **Pull** do repo. Estado a partir da sessão 15 (PoC-6 implementado, por testar).
 2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" → **6.1 PoC-6** tem o plano detalhado.
-    - Últimos logs de sessão em §7 (sessões 12 → 14).
+    - §6 "Próximos passos concretos" → **6.1** tem o que falta testar no PoC-6.
+    - Últimos logs de sessão em §7 (sessões 12 → 15).
 3. **Ficheiros-chave a rever antes de mexer código:**
     - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor de a11y, gestos, dumps.
     - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG.
@@ -191,27 +191,33 @@ Já entregue no primeiro commit:
 - ✅ PoC-3 — long-press dirigido ao bubble do Reel via `dispatchGesture`
 - ✅ PoC-4 — direção RECEIVED/SENT validada em DM 1-a-1 e em grupo (sessões 12→14). Limitação de grupos (nome do membro remetente não é textualizado pela a11y layer) registada em §5.
 - ✅ PoC-5 — reagir ao 1.º Reel com ❤ e 😂 (filtra por RECEIVED por defeito)
-- 🔲 PoC-6 — **PRÓXIMO** — responder ao Reel (via "Responder" no menu popup + composer)
+- 🟡 PoC-6 — **CÓDIGO IMPLEMENTADO (sessão 15), aguarda teste no OnePlus** — responder ao 1.º Reel recebido com texto mock "👀"
 - 🔲 PoC-7 — extrair URL do Reel (menu não tem sempre "Copiar link"; alternativa: abrir Reel viewer / Reencaminhar)
 - 🔲 PoC-8 — feed vertical, Room DB, MVVM
 
-### 6.1 Próxima sessão — PoC-6 (responder ao Reel)
+### 6.1 Próxima sessão — validar PoC-6 + preparar PoC-7
 
-**Objetivo:** enviar uma resposta ligada a uma mensagem específica (mesmo comportamento do "Responder" nativo do IG). Base para o botão "Responder" no futuro feed.
+**PoC-6 — o que falta testar no OnePlus:**
 
-**Fluxo (validado no dump da sessão 14 WINDOW[3]):**
+Fluxo implementado no service: `runInInstagram` → `longPressFirstReel(afterLongPress=ReplyWithText("👀"))` → **click "Responder"** no `context_menu_options_list` → aguarda `COMPOSER_SETTLE_MS`=900ms → **`ACTION_SET_TEXT`** no `row_thread_composer_edittext` com "👀" → aguarda `SEND_SETTLE_MS`=500ms → **click no botão Send** (probe: `row_thread_composer_send_button`, `..._send`, `composer_send_button`, `send_button`; fallback: `contentDescription` = "Enviar"/"Send"). Se nenhum candidato bater, dispara automaticamente `dumpAllWindows("after-set-text")` para capturarmos o id real.
 
-1. Reutilizar `findFirstReelBubble(messageList, onlyDirection = Direction.RECEIVED)` do PoC-4 para escolher o alvo.
-2. Long-press com `dispatchGesture` (mesmo path do PoC-5).
-3. Após settle, procurar em `getWindows()` a janela popup (`context_menu_options_list`) e localizar o `context_menu_item` cujo `contentDescription` está em `IgSelectors.ContextMenu.ACTION_REPLY` (`"Responder"` / `"Reply"`). Clicar com `performAction(ACTION_CLICK)`.
-4. Aguardar o composer (`row_thread_composer_edittext`, id validado no dump) receber o "reply preview" (parece um `LinearLayout` com id `message_composer_reply_bar_container`, também presente na árvore capturada).
-5. Injetar texto via `AccessibilityNodeInfo.performAction(ACTION_SET_TEXT, Bundle{EXTRA_TEXT})` no `row_thread_composer_edittext`.
-6. Localizar o botão de envio (aparece no lugar de `row_thread_composer_voice` assim que o composer tem texto; a confirmar via dump com texto escrito — pedir ao utilizador para tirar). Provável id: `row_thread_composer_send_button` (a validar). Fallback: dispatchGesture com toque nas bounds retornadas.
-7. Nova ação broadcast `ACTION_REPLY_FIRST_REEL_MOCK` com texto fixo (ex. `"👀"`) para testar sem UI de input; depois adicionar UI de input.
+Passos concretos para o utilizador:
 
-**Riscos conhecidos:**
-- Janelas popup fecham em animação — aumentar o `POST_LONG_PRESS_SETTLE_MS` só para este fluxo pode ser necessário.
-- Se `ACTION_SET_TEXT` não funcionar no EditText do Compose IG, fallback é `dispatchGesture` para focar + `AccessibilityService.performGlobalAction(...)` com paste, ou copiar texto para clipboard e usar `ACTION_PASTE`. Deixar como plano B.
+1. Puxar repo, correr no OnePlus.
+2. Abrir uma conversa (DM 1-a-1 ou grupo) com pelo menos um Reel recebido visível.
+3. Baixar shade → tocar **👀** na notificação **Friends Reels** (ou "Responder com 👀 ao 1.º Reel" no ecrã da app).
+4. Reportar visualmente:
+    - O composer abriu com o preview de "A responder a…" por cima?
+    - O emoji 👀 apareceu na caixa de texto?
+    - A mensagem foi enviada (aparece uma nova bolha "👀" com o quote do Reel)?
+5. Se algum passo falhar (ex. o botão Send não é encontrado), o Logcat vai ter:
+    - `REPLY: send button not found (tried ids=[...] desc=[Enviar, Send]). Emitting after-set-text dump ...` seguido de um `DUMP_ALL START reason=after-set-text`.
+    - Basta enviar esse dump para eu adicionar o id real a `COMPOSER_SEND_BUTTON_CANDIDATES`.
+
+**Casos particulares a verificar:**
+
+- Grupo com 3 Reels recebidos consecutivos (`ryankellycomedy`, `adamraqeem`, `urokowatch`): confirmar que a resposta fica anexada ao Reel do topo (`urokowatch` — o `findFirstReelBubble` ordena por `bounds.top`). Não confundir com o autor do Reel.
+- DM 1-a-1 com só Reels SENT visíveis + `ignoreSent=true` (default): esperado que a acção falhe cedo (`no eligible Reel bubble found`), sem chegar ao composer.
 
 ### 6.2 A seguir
 
@@ -414,3 +420,25 @@ Já entregue no primeiro commit:
 - **Decisão:** PoC-4 fica **fechado**. Próximo passo prioritário: **PoC-6 (responder ao Reel)** — plano em §6.1. Ainda precisamos de um dump extra do composer com texto escrito (a captar na próxima sessão de testes) para confirmar o id/bounds do botão de envio.
 - **Nenhum código alterado nesta sessão** — apenas documentação (`Estado atual`, §5, §6.1, este log) + comentário permanente em `IgSelectors.Thread.SENDER_AVATAR`.
 - **Melhoria de workflow acordada:** o utilizador vai enviar o dump completo logo à primeira em vez de o partilhar por partes.
+
+### 2026-08-28 — Sessão 15 (Ricardo + Copilot CLI) — PoC-6 implementado
+
+- **Nova sub-classe `AfterLongPress.ReplyWithText(text: String)`** encadeada ao long-press existente. Reaproveita 100% do PoC-3/5 até ao momento em que o menu popup abre.
+- **Novo `ACTION_REPLY_FIRST_REEL_MOCK`** (broadcast + botão 👀 na notificação e no ecrã da app). Texto de teste hardcoded em `MOCK_REPLY_TEXT = "👀"` — no MVP final ficará dinâmico (input do utilizador no feed).
+- **Pipeline `openReplyAndSend(text)`:**
+  1. Procura em `getWindows()` um `context_menu_item` cujo `contentDescription` está em `ContextMenu.ACTION_REPLY` (`"Responder"` / `"Reply"`) e faz `performAction(ACTION_CLICK)`. Se não achar → `dumpAllWindows("reply-no-menu")` para vermos porquê.
+  2. Aguarda `COMPOSER_SETTLE_MS = 900 ms`, procura `row_thread_composer_edittext`, faz `performAction(ACTION_SET_TEXT, Bundle{ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE=text})`. `ACTION_SET_TEXT` funciona no Compose EditText do IG sem precisar de IME.
+  3. Antes de escrever, verifica também a presença do `message_composer_reply_bar_container` (preview "A responder a…") como sinal positivo do fluxo estar em modo reply — só loga um WARN se estiver ausente, não bloqueia.
+  4. Aguarda `SEND_SETTLE_MS = 500 ms` (o strip voice/gallery vira botão Send assim que há texto).
+  5. Procura o botão Send por lista de candidatos `IgSelectors.Thread.COMPOSER_SEND_BUTTON_CANDIDATES` (`row_thread_composer_send_button`, `..._send`, `composer_send_button`, `send_button`) + fallback por `contentDescription` em `COMPOSER_SEND_LABELS = {"Enviar", "Send"}`. Se nenhum bater → `dumpAllWindows("after-set-text")` para capturar o id real.
+  6. Se o nó encontrado for `!isClickable`, sobe até 5 níveis à procura de um ancestral clicável antes de chamar `performAction(ACTION_CLICK)` (comum em Compose onde o icon é filho de um Button clicável).
+- **Selectors adicionados em `IgSelectors.Thread`:** `COMPOSER_SEND_BUTTON_CANDIDATES` (lista), `COMPOSER_SEND_LABELS` (set), `COMPOSER_REPLY_BAR_CONTAINER = "message_composer_reply_bar_container"`.
+- **UI/Notificação:** botão 👀 (`btn_reply_reel` / `notif_action_reply`). No shade fica junto do ❤ e 😂 (Android decide quantos mostrar visíveis; todos estão sempre acessíveis via expand).
+- **Nenhum uso do IME nem do clipboard** — `ACTION_SET_TEXT` é uma API a11y directa. Se o IG algum dia bloquear isto, plano B fica documentado em §6.1 do commit anterior (clipboard + `ACTION_PASTE`).
+- **Ficheiros alterados:**
+  - `IgSelectors.kt` — selectors novos do composer send + reply bar.
+  - `InstagramReaderService.kt` — `AfterLongPress.ReplyWithText`, `openReplyAndSend`, `typeInComposer`, `clickSendButton`, `findClickableAncestor`, `ACTION_REPLY_FIRST_REEL_MOCK`, timings, botão na notificação.
+  - `MainActivity.kt` — botão "Responder com 👀 ao 1.º Reel".
+  - `strings.xml` — `btn_reply_reel`, `notif_action_reply`.
+  - `PROJECT_PROGRESS.md` — estado atual, §6.1 e este log.
+- **Próximo passo do utilizador:** teste no OnePlus (ver §6.1) e enviar Logcat + eventualmente o `after-set-text` DUMP_ALL se o botão Send não for encontrado à primeira. Se tudo funcionar, PoC-6 fecha e passamos ao PoC-7 (extrair URL do Reel).
