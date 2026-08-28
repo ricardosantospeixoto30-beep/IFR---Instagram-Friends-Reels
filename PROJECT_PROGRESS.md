@@ -7,8 +7,8 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-7 🟡 iteração 2 implementada (open + tap ⋮ + dump). Aguarda dump do bottom sheet para completar copy-link.
-**Última atualização:** 2025-08-28 (sessão 18)
+**Fase atual:** Fase 1 (PoC) — PoC-7 🟡 fluxo completo `ACTION_COPY_REEL_URL` implementado (sessão 19). Aguarda validação no OnePlus (URL a aparecer no Logcat).
+**Última atualização:** 2025-08-29 (sessão 19)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
@@ -196,28 +196,38 @@ Já entregue no primeiro commit:
 - 🟡 PoC-7 — **em curso** — exploração do Reel viewer implementada (sessão 16). Aguarda dump para saber onde está o "Copiar link".
 - 🔲 PoC-8 — feed vertical, Room DB, MVVM (+ **batching** de acções — ver §5)
 
-### 6.1 Próxima sessão — completar PoC-7 (copy link via share sheet)
+### 6.1 Próxima sessão — validar `ACTION_COPY_REEL_URL` + preparar PoC-8
 
-**Estado após sessão 18:**
-- ⋮ bottom sheet **descartado** como fonte do URL: só contém "Guardar", "Reproduzir", "Porque estás a ver isto", "Com interesse", "Não tenho interesse", "Denunciar" (dump `reel view more.txt`). Documentado em `IgSelectors.ReelViewer.COPY_LINK_LABELS`.
-- Plano B implementado: nova ação `ACTION_OPEN_REEL_AND_SHARE` que abre o Reel viewer → clica no `direct_share_button` (desc="Partilhar") → aguarda 1.8 s pela sheet de partilha do IG (loads friends grid) → dump automático `after-viewer-share`.
+**Fluxo completo implementado na sessão 19:**
+
+Novo botão **🔗** na notificação (`ACTION_COPY_REEL_URL`) faz:
+1. `openFirstReelViewer(TapShareAndCopyLink)` — abre o Reel viewer (2 s).
+2. `tapShareInReelViewer(ClickCopyLink)` — clica no `direct_share_button` (1.8 s de settle da share sheet).
+3. `clickCopyLinkInShareSheet()` — procura entrada com `contentDescription in {"Copiar link","Copiar ligação","Copy link"}` (o id é o genérico `id/button` para todas as pills da row `direct_external_reshare_row`, portanto identificamos por description).
+4. `readReelUrlFromClipboard()` — aguarda 700 ms, lê `ClipboardManager.primaryClip`, loga o URL.
+5. Envia dois `GLOBAL_ACTION_BACK` espaçados 400 ms para fechar a share sheet + Reel viewer, deixando o utilizador de volta na conversa.
+
+Se em qualquer passo o node não for encontrado, dumps automáticos: `share-not-found`, `copy-link-not-found`.
 
 **O que precisas de fazer no OnePlus:**
 
 1. Abrir uma conversa com um Reel recebido visível.
-2. Baixar shade → tocar **↗** na notificação Friends Reels (ou "Abrir 1.º Reel + tocar Partilhar" no ecrã da app).
-3. Aguardar ~4 s (viewer + share sheet).
-4. **Enviar o log completo entre `===== DUMP_ALL START reason=after-viewer-share =====` e `===== DUMP_ALL END =====`** — precisamos ver a sheet de partilha do IG (grid de amigos + row de acções como "Copiar link", "Enviar como mensagem", etc.).
+2. Baixar shade → tocar **🔗** na notificação (ou "Copiar URL do 1.º Reel" no ecrã da app).
+3. Reportar:
+    - Logcat: linha `COPY_LINK: Reel URL = 'https://www.instagram.com/reel/...'` (ou WARN se algo falhar).
+    - Visualmente: viewer abre → share sheet → clique automático em "Copiar ligação" → toast do IG "Ligação copiada" → 2 backs → volta à conversa.
+4. Se o URL for lido correctamente, colar-o num browser para confirmar que abre o Reel. **PoC-7 fecha.**
 
-**Passo seguinte (depois do dump):**
+**Casos de erro a reportar:**
+- `COPY_LINK: 'Copiar ligação' not found in share sheet` → dump `copy-link-not-found` no Logcat. Envia. (Talvez a label seja diferente na tua versão do IG.)
+- `COPY_LINK: clipboard is empty or non-text` → o IG não escreveu, ou o timing precisa de ajuste. Aumentar `CLIPBOARD_READ_DELAY_MS`.
 
-Com o dump vou implementar `ACTION_COPY_REEL_URL`:
-- Reaproveitar `openFirstReelViewer(TapShareAndDump)`, mas substituir o dump final por: procurar item cujo `contentDescription`/`text` está em `ReelViewer.COPY_LINK_LABELS` → `performAction(ACTION_CLICK)` → aguardar 500 ms → ler `ClipboardManager.primaryClip` → log do URL.
-- Se depois quisermos fechar a sheet + viewer para o utilizador continuar onde estava: `performGlobalAction(GLOBAL_ACTION_BACK)` 2× (uma para fechar a sheet, outra para sair do viewer).
+### 6.2 PoC-8 — feed vertical + Room + batching
 
-Fallback se o Copy link **também** não estiver na sheet do share (raro): usar "Reencaminhar" do menu de contexto da DM (long-press) → share sheet do IG a partir dali → mesma caça a "Copiar link".
-
-### 6.2 A seguir
+Depois do PoC-7 fechar, arrancamos o PoC-8:
+- Room `ReelEntity(url, sender_dm, sender_original, thread_id, thumbnail_url, discovered_at, state)`.
+- Feed vertical Compose com ExoPlayer.
+- **Fila de acções (`ActionQueueEntity`)** para permitir o batching descrito em §5: o utilizador reage/responde no feed sem sair da app; um botão "Aplicar no Instagram" percorre a fila via os primitivos já validados (PoC-5, PoC-6).
 
 - **PoC-6 responder:** clique no `context_menu_item` cujo `contentDescription` está em `IgSelectors.ContextMenu.ACTION_REPLY`, seguido de escrever no `row_thread_composer_edittext` e enviar.
 - **PoC-7 URL:** o menu popup nem sempre tem "Copiar link". Plano: (a) tocar no bubble para abrir o Reel viewer e localizar o botão Share/Copiar link lá; ou (b) usar Reencaminhar → Copiar link do share sheet.
@@ -509,3 +519,31 @@ Fallback se o Copy link **também** não estiver na sheet do share (raro): usar 
   - `strings.xml` — `btn_open_reel_share`, `notif_action_open_share`.
   - `PROJECT_PROGRESS.md` — estado, §6.1 reorientada para o share sheet, este log.
 - **Próximo passo do utilizador:** tocar **↗** na notificação; aguardar ~4 s; enviar dump `after-viewer-share`. Com isso implemento `ACTION_COPY_REEL_URL` (click em "Copiar link" na share sheet → ler `ClipboardManager` → registar o URL do Reel) na sessão 19.
+
+### 2026-08-29 — Sessão 19 (Ricardo + Copilot CLI) — `ACTION_COPY_REEL_URL` implementado
+
+- **Dump `docs/screen-dumps/reel view more.txt` (linhas 41→108) analisado**: a share sheet do IG expõe as pills externas dentro de `direct_external_reshare_row` (RecyclerView). Cada pill é uma `ImageView` com **id genérico `com.instagram.android:id/button`** e `contentDescription` distinto:
+  - "Adicionar à história"
+  - "WhatsApp"
+  - "Partilhar" (share nativo)
+  - **"Copiar ligação"** ← ponto de extração do URL
+  - "Estado do WhatsApp"
+  - "SMS"
+- Como o id é genérico, a identificação faz-se por `contentDescription in COPY_LINK_LABELS`.
+- **Descoberta partilhada pelo utilizador:** a mesma sheet aparece via **long-press → Reencaminhar** na DM. Fica registada como via alternativa mais leve (evita carregar o Reel viewer) — pode ser usada como fallback ou como caminho preferido depois de mais testes. Não implementada nesta sessão.
+- **Novo `IgSelectors.ReelViewer.SHARE_SHEET_EXTERNAL_ROW = "direct_external_reshare_row"`** (referência, não usado directamente porque procuramos por description).
+- **Fluxo completo `ACTION_COPY_REEL_URL` (botão 🔗 na notificação + na app):**
+  - Reaproveita 100% do PoC-7 (viewer + share).
+  - Nova sealed class `AfterShare { DumpNow, ClickCopyLink }` para parametrizar o passo pós-share.
+  - `clickCopyLinkInShareSheet()` faz `performAction(ACTION_CLICK)` no primeiro nó com description em `COPY_LINK_LABELS`, com `findClickableAncestor` de reserva.
+  - `readReelUrlFromClipboard()` lê `ClipboardManager.primaryClip` 700 ms depois do click e loga o URL: `COPY_LINK: Reel URL = '<url>'`.
+  - Fecha automaticamente a share sheet + Reel viewer com **2× `performGlobalAction(GLOBAL_ACTION_BACK)`** espaçados 400 ms → o utilizador volta à conversa sem intervenção.
+- **Timings totais:** 2000 (viewer) + 1800 (share sheet) + 700 (clipboard) + 800 (2× back) ≈ 5.3 s do toque até estar de volta na conversa. Também candidato a afinação futura no tuning-pass do PoC-8.
+- **Notas sobre clipboard em Android moderno:** `AccessibilityService` está autorizado a ler o clipboard mesmo com a nossa app em background; adicionalmente o click acabou de ser executado enquanto o IG (foreground) escrevia o clip, portanto a leitura no tick seguinte é fiável. Se em algum dispositivo a leitura devolver vazio, aumentar `CLIPBOARD_READ_DELAY_MS` ou intercetar o texto do toast "Ligação copiada".
+- **Ficheiros alterados:**
+  - `IgSelectors.kt` — `SHARE_SHEET_EXTERNAL_ROW`.
+  - `InstagramReaderService.kt` — `AfterOpenViewer.TapShareAndCopyLink`, `AfterShare` sealed class, `tapShareInReelViewer(afterShare)` parametrizado, `clickCopyLinkInShareSheet`, `readReelUrlFromClipboard`, constantes `CLIPBOARD_READ_DELAY_MS`, `BACK_AFTER_COPY_DELAY_MS`, broadcast `ACTION_COPY_REEL_URL`, botão 🔗 na notificação.
+  - `MainActivity.kt` — botão "Copiar URL do 1.º Reel".
+  - `strings.xml` — `btn_copy_reel_url`, `notif_action_copy_url`.
+  - `PROJECT_PROGRESS.md` — estado, §6.1 (validação PoC-7 + preview PoC-8), §6.2 (PoC-8 com batching), este log.
+- **Próximo passo do utilizador:** tocar **🔗** na notificação numa conversa com Reel recebido → confirmar no Logcat `COPY_LINK: Reel URL = '<url>'` → colar no browser para validar. Se funcionar, **PoC-7 fecha** e arrancamos o PoC-8.

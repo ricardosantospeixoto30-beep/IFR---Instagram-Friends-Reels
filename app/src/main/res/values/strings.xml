@@ -22,6 +22,7 @@
     <string name="btn_open_reel">Abrir 1.º Reel no viewer (+ dump)</string>
     <string name="btn_open_reel_more">Abrir 1.º Reel + tocar Mais (+ dump)</string>
     <string name="btn_open_reel_share">Abrir 1.º Reel + tocar Partilhar (+ dump)</string>
+    <string name="btn_copy_reel_url">Copiar URL do 1.º Reel (viewer → Partilhar → Copiar)</string>
     <string name="toggle_ignore_sent">Ignorar Reels enviados por mim</string>
     <string name="toggle_ignore_sent_help">Quando ativado, o alvo das reações é o primeiro Reel recebido visível (marcado com o avatar do remetente). Desativa para permitir reagir aos teus próprios Reels na conversa.</string>
 
@@ -35,6 +36,7 @@
     <string name="notif_action_open">Abrir</string>
     <string name="notif_action_open_more">⋮</string>
     <string name="notif_action_open_share">↗</string>
+    <string name="notif_action_copy_url">🔗</string>
     <string name="notif_action_list">Listar</string>
     <string name="notif_action_dump">Dump</string>
 

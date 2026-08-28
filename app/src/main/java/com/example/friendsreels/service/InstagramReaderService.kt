@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -144,6 +145,8 @@ class InstagramReaderService : AccessibilityService() {
                         runInInstagram { openFirstReelViewer(AfterOpenViewer.TapMoreAndDump) }
                     ACTION_OPEN_REEL_AND_SHARE ->
                         runInInstagram { openFirstReelViewer(AfterOpenViewer.TapShareAndDump) }
+                    ACTION_COPY_REEL_URL ->
+                        runInInstagram { openFirstReelViewer(AfterOpenViewer.TapShareAndCopyLink) }
                 }
             }
         }
@@ -158,6 +161,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_OPEN_REEL)
             addAction(ACTION_OPEN_REEL_AND_MORE)
             addAction(ACTION_OPEN_REEL_AND_SHARE)
+            addAction(ACTION_COPY_REEL_URL)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -172,7 +176,7 @@ class InstagramReaderService : AccessibilityService() {
                 "list=$ACTION_LIST_REELS, longpress=$ACTION_LONG_PRESS_FIRST_REEL, " +
                 "heart=$ACTION_REACT_HEART, laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
                 "open=$ACTION_OPEN_REEL, openMore=$ACTION_OPEN_REEL_AND_MORE, " +
-                "openShare=$ACTION_OPEN_REEL_AND_SHARE)"
+                "openShare=$ACTION_OPEN_REEL_AND_SHARE, copyUrl=$ACTION_COPY_REEL_URL)"
         )
     }
 
@@ -424,6 +428,7 @@ class InstagramReaderService : AccessibilityService() {
         object DumpNow : AfterOpenViewer()
         object TapMoreAndDump : AfterOpenViewer()
         object TapShareAndDump : AfterOpenViewer()
+        object TapShareAndCopyLink : AfterOpenViewer()
     }
 
     private fun openFirstReelViewer(afterOpen: AfterOpenViewer) {
@@ -490,7 +495,9 @@ class InstagramReaderService : AccessibilityService() {
             AfterOpenViewer.TapMoreAndDump ->
                 mainHandler.postDelayed({ tapMoreInReelViewer() }, delay)
             AfterOpenViewer.TapShareAndDump ->
-                mainHandler.postDelayed({ tapShareInReelViewer() }, delay)
+                mainHandler.postDelayed({ tapShareInReelViewer(AfterShare.DumpNow) }, delay)
+            AfterOpenViewer.TapShareAndCopyLink ->
+                mainHandler.postDelayed({ tapShareInReelViewer(AfterShare.ClickCopyLink) }, delay)
         }
     }
 
@@ -522,13 +529,20 @@ class InstagramReaderService : AccessibilityService() {
         mainHandler.postDelayed({ dumpAllWindows("after-viewer-more") }, MORE_MENU_SETTLE_MS)
     }
 
+    /** What to do once the IG share sheet has finished loading. */
+    private sealed class AfterShare {
+        object DumpNow : AfterShare()
+        object ClickCopyLink : AfterShare()
+    }
+
     /**
      * Click the "Partilhar" (share) button on the Reel viewer. This is our
      * Plan B for URL discovery after we confirmed the ⋮ bottom sheet does
-     * not contain "Copy link" (session 17). The share sheet almost always
-     * exposes a "Copy link" entry at the bottom of the friends grid.
+     * not contain "Copy link" (session 17). The share sheet exposes a
+     * "Copiar ligação" entry in the external reshare row
+     * (`direct_external_reshare_row`).
      */
-    private fun tapShareInReelViewer() {
+    private fun tapShareInReelViewer(afterShare: AfterShare) {
         val shareId = IgSelectors.id(IgSelectors.ReelViewer.UFI_SHARE_BUTTON)
         val shareNode = findFirstNodeAcrossWindows { it.viewIdResourceName == shareId }
         if (shareNode == null) {
@@ -545,8 +559,74 @@ class InstagramReaderService : AccessibilityService() {
         )
         // The IG share sheet is bigger and takes noticeably longer to load
         // than the ⋮ bottom sheet (it fetches the friends grid). Give it
-        // extra time before dumping.
-        mainHandler.postDelayed({ dumpAllWindows("after-viewer-share") }, SHARE_SHEET_SETTLE_MS)
+        // extra time before running the follow-up step.
+        when (afterShare) {
+            AfterShare.DumpNow ->
+                mainHandler.postDelayed({ dumpAllWindows("after-viewer-share") }, SHARE_SHEET_SETTLE_MS)
+            AfterShare.ClickCopyLink ->
+                mainHandler.postDelayed({ clickCopyLinkInShareSheet() }, SHARE_SHEET_SETTLE_MS)
+        }
+    }
+
+    /**
+     * Find the "Copiar ligação" entry inside the IG share sheet's external
+     * reshare row and click it. Every button in the row exposes the generic
+     * `id/button` resource id, so we identify by `contentDescription`
+     * against [IgSelectors.ReelViewer.COPY_LINK_LABELS]. After the click,
+     * IG copies the Reel URL into the system clipboard and shows a toast;
+     * we wait a short moment and then read the clipboard.
+     */
+    private fun clickCopyLinkInShareSheet() {
+        val labels = IgSelectors.ReelViewer.COPY_LINK_LABELS
+        val copyNode = findFirstNodeAcrossWindows { node ->
+            val desc = node.contentDescription?.toString() ?: return@findFirstNodeAcrossWindows false
+            labels.contains(desc)
+        }
+        if (copyNode == null) {
+            Log.w(TAG, "COPY_LINK: 'Copiar ligação' not found in share sheet (labels=$labels).")
+            dumpAllWindows("copy-link-not-found")
+            return
+        }
+        val bounds = Rect().also { copyNode.getBoundsInScreen(it) }
+        val target = if (copyNode.isClickable) copyNode else findClickableAncestor(copyNode) ?: copyNode
+        val ok = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        Log.i(
+            TAG,
+            "COPY_LINK: performAction(ACTION_CLICK) on 'Copiar ligação' returned $ok bounds=${bounds.toShortString()}"
+        )
+        mainHandler.postDelayed({ readReelUrlFromClipboard() }, CLIPBOARD_READ_DELAY_MS)
+    }
+
+    /**
+     * Read the Reel URL out of the system clipboard. AccessibilityServices
+     * are permitted to read the clipboard on modern Android; the click just
+     * dispatched happened while IG was the foreground app, so the clip has
+     * just been written.
+     *
+     * Also schedules two back gestures so the user is left back on the
+     * conversation (viewer + share sheet closed).
+     */
+    private fun readReelUrlFromClipboard() {
+        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (cm == null) {
+            Log.w(TAG, "COPY_LINK: ClipboardManager unavailable.")
+            return
+        }
+        val clip = cm.primaryClip
+        val itemCount = clip?.itemCount ?: 0
+        val text = if (clip != null && itemCount > 0) {
+            clip.getItemAt(0).coerceToText(this)?.toString()
+        } else null
+        if (text.isNullOrBlank()) {
+            Log.w(TAG, "COPY_LINK: clipboard is empty or non-text (itemCount=$itemCount).")
+        } else {
+            Log.i(TAG, "COPY_LINK: Reel URL = '$text'")
+        }
+        // Close the share sheet + the Reel viewer so the user is back on
+        // the conversation. Two BACKs: first closes the sheet, second exits
+        // the viewer.
+        mainHandler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, BACK_AFTER_COPY_DELAY_MS)
+        mainHandler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, BACK_AFTER_COPY_DELAY_MS * 2)
     }
 
     // ---------------------------------------------------------------------
@@ -953,6 +1033,8 @@ class InstagramReaderService : AccessibilityService() {
         private const val REEL_VIEWER_SETTLE_MS = 2000L // Reel viewer needs to load the video/controls before the dump
         private const val MORE_MENU_SETTLE_MS = 1000L // bottom sheet animation after tapping ⋮
         private const val SHARE_SHEET_SETTLE_MS = 1800L // IG share sheet loads the friends grid, needs more time
+        private const val CLIPBOARD_READ_DELAY_MS = 700L // wait for IG to write the URL after clicking "Copiar ligação"
+        private const val BACK_AFTER_COPY_DELAY_MS = 400L // pause between BACK gestures to close sheet + viewer
         private const val FOREGROUND_POLL_INTERVAL_MS = 200L
         private const val FOREGROUND_POLL_MAX_RETRIES = 30 // ~6s total, enough for task-switch animations
         private const val MIN_REEL_BUBBLE_HEIGHT_PX = 200 // ignore stubs that are almost fully scrolled off
@@ -970,6 +1052,7 @@ class InstagramReaderService : AccessibilityService() {
         const val ACTION_OPEN_REEL = "com.example.friendsreels.ACTION_OPEN_REEL"
         const val ACTION_OPEN_REEL_AND_MORE = "com.example.friendsreels.ACTION_OPEN_REEL_AND_MORE"
         const val ACTION_OPEN_REEL_AND_SHARE = "com.example.friendsreels.ACTION_OPEN_REEL_AND_SHARE"
+        const val ACTION_COPY_REEL_URL = "com.example.friendsreels.ACTION_COPY_REEL_URL"
 
         /** SharedPreferences file shared between the UI and the service. */
         const val PREFS_NAME = "friends_reels_prefs"
@@ -1038,6 +1121,11 @@ class InstagramReaderService : AccessibilityService() {
                 0,
                 getString(R.string.notif_action_open_share),
                 pendingBroadcast(ACTION_OPEN_REEL_AND_SHARE, requestCode = 8)
+            )
+            .addAction(
+                0,
+                getString(R.string.notif_action_copy_url),
+                pendingBroadcast(ACTION_COPY_REEL_URL, requestCode = 9)
             )
             .addAction(
                 0,

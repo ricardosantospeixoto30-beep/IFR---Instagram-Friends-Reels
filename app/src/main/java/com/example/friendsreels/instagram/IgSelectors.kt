@@ -238,6 +238,15 @@ object IgSelectors {
         /** Native Android share sheet entry point (desc="Partilhar" / "Share"). */
         const val UFI_SHARE_BUTTON = "direct_share_button"
 
+        /**
+         * RecyclerView at the bottom of the IG share sheet that hosts the
+         * external actions row (Add to story, WhatsApp, Share, Copy link,
+         * SMS, ...). Every child is an ImageView whose id is a generic
+         * `button` — the identification signal is the [COPY_LINK_LABELS]
+         * `contentDescription`.
+         */
+        const val SHARE_SHEET_EXTERNAL_ROW = "direct_external_reshare_row"
+
         /** ⋮ menu — opens the bottom sheet that (probably) hosts "Copy link". */
         const val UFI_MORE_BUTTON = "clips_ufi_more_button_component"
 
