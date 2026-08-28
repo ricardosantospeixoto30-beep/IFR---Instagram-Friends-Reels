@@ -59,6 +59,13 @@ import com.example.friendsreels.instagram.IgSelectors
  * ACTION_SET_TEXT, and clicks the send button. Falls back to a diagnostic
  * dump if the send button cannot be found so we can capture the missing
  * resource id from the user's device. Action: ACTION_REPLY_FIRST_REEL_MOCK.
+ *
+ * PoC-7 (open reel viewer for URL discovery): dispatches a short tap on
+ * the first Reel bubble to open Instagram's Reel viewer, then dumps every
+ * window so we can discover which node inside the viewer surfaces the
+ * shareable URL (Share button, ⋮ menu, `contentDescription`, etc.). This
+ * is the exploration step of PoC-7; actual URL extraction is added once
+ * the viewer's UI is mapped. Action: ACTION_OPEN_REEL.
  */
 class InstagramReaderService : AccessibilityService() {
 
@@ -132,6 +139,7 @@ class InstagramReaderService : AccessibilityService() {
                         runInInstagram {
                             longPressFirstReel(afterLongPress = AfterLongPress.ReplyWithText(MOCK_REPLY_TEXT))
                         }
+                    ACTION_OPEN_REEL -> runInInstagram { openFirstReelViewer() }
                 }
             }
         }
@@ -143,6 +151,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_REACT_HEART)
             addAction(ACTION_REACT_LAUGH)
             addAction(ACTION_REPLY_FIRST_REEL_MOCK)
+            addAction(ACTION_OPEN_REEL)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -155,7 +164,8 @@ class InstagramReaderService : AccessibilityService() {
             TAG,
             "Action receiver registered (dump=$ACTION_DUMP_TREE, dumpAll=$ACTION_DUMP_ALL_WINDOWS, " +
                 "list=$ACTION_LIST_REELS, longpress=$ACTION_LONG_PRESS_FIRST_REEL, " +
-                "heart=$ACTION_REACT_HEART, laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK)"
+                "heart=$ACTION_REACT_HEART, laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
+                "open=$ACTION_OPEN_REEL)"
         )
     }
 
@@ -386,6 +396,81 @@ class InstagramReaderService : AccessibilityService() {
             TAG,
             "REACT: performAction(ACTION_CLICK) on emoji '$emoji' returned $clicked " +
                 "bounds=${emojiBounds.toShortString()}"
+        )
+    }
+
+    // ---------------------------------------------------------------------
+    // PoC-7 — Open the Reel viewer (URL discovery step)
+    //
+    // The context menu opened by the long-press does NOT reliably include
+    // "Copy link" for shared Reels (confirmed in the session-6 dump). Our
+    // best chance at grabbing the shareable URL is to open the Reel inside
+    // Instagram's native viewer (tap the bubble) and then locate the Share
+    // / ⋮ / "Copy link" entry point that lives there. This function does
+    // the first half — tap + settle + dump — so we can map the viewer's
+    // UI. Actual URL extraction is added in the next iteration once the
+    // dump reveals the correct resource ids.
+    // ---------------------------------------------------------------------
+
+    private fun openFirstReelViewer() {
+        val igWindow = findIgApplicationWindow()
+        val root = igWindow?.root ?: rootInActiveWindow
+        if (root == null) {
+            Log.w(TAG, "OPEN_REEL requested but no Instagram root node available.")
+            return
+        }
+        if (root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
+            Log.w(TAG, "OPEN_REEL ignored: foreground is ${root.packageName}, expected ${IgSelectors.IG_PACKAGE}.")
+            return
+        }
+        val windowBounds = igWindow?.let { w -> Rect().also { w.getBoundsInScreen(it) } }
+
+        val messageList = root
+            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
+            .firstOrNull()
+        if (messageList == null) {
+            Log.w(TAG, "OPEN_REEL: no message_list found. Are you on a conversation screen?")
+            return
+        }
+
+        val target = findFirstReelBubble(
+            messageList,
+            onlyDirection = if (isIgnoreSentEnabled()) Direction.RECEIVED else null,
+        )
+        if (target == null) {
+            Log.w(
+                TAG,
+                "OPEN_REEL: no eligible Reel bubble found (ignoreSent=${isIgnoreSentEnabled()})."
+            )
+            return
+        }
+        val bounds = Rect(target.bounds)
+        Log.i(
+            TAG,
+            "OPEN_REEL: target index=${target.index} kind=${target.kind} direction=${target.direction} " +
+                "author=${target.reelAuthor} bounds=${bounds.toShortString()} center=(${bounds.centerX()},${bounds.centerY()})"
+        )
+        if (windowBounds != null && !windowBounds.contains(bounds.centerX(), bounds.centerY())) {
+            Log.w(TAG, "OPEN_REEL: bubble center outside IG window bounds — refusing to tap off-screen.")
+            return
+        }
+
+        val path = Path().apply { moveTo(bounds.exactCenterX(), bounds.exactCenterY()) }
+        val stroke = GestureDescription.StrokeDescription(path, 0L, TAP_DURATION_MS)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+        val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                Log.i(TAG, "OPEN_REEL: tap gesture completed")
+            }
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                Log.w(TAG, "OPEN_REEL: tap gesture cancelled by system")
+            }
+        }, mainHandler)
+        Log.i(TAG, "OPEN_REEL: dispatchGesture accepted=$dispatched duration=${TAP_DURATION_MS}ms")
+
+        mainHandler.postDelayed(
+            { dumpAllWindows("after-reel-tap") },
+            TAP_DURATION_MS + REEL_VIEWER_SETTLE_MS,
         )
     }
 
@@ -789,6 +874,8 @@ class InstagramReaderService : AccessibilityService() {
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
         private const val COMPOSER_SETTLE_MS = 900L // context menu closes + reply preview + composer focus
         private const val SEND_SETTLE_MS = 500L // wait for the voice/gallery strip to become the Send button
+        private const val TAP_DURATION_MS = 80L // short click gesture for opening a Reel bubble
+        private const val REEL_VIEWER_SETTLE_MS = 2000L // Reel viewer needs to load the video/controls before the dump
         private const val FOREGROUND_POLL_INTERVAL_MS = 200L
         private const val FOREGROUND_POLL_MAX_RETRIES = 30 // ~6s total, enough for task-switch animations
         private const val MIN_REEL_BUBBLE_HEIGHT_PX = 200 // ignore stubs that are almost fully scrolled off
@@ -803,6 +890,7 @@ class InstagramReaderService : AccessibilityService() {
         const val ACTION_REACT_HEART = "com.example.friendsreels.ACTION_REACT_HEART"
         const val ACTION_REACT_LAUGH = "com.example.friendsreels.ACTION_REACT_LAUGH"
         const val ACTION_REPLY_FIRST_REEL_MOCK = "com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK"
+        const val ACTION_OPEN_REEL = "com.example.friendsreels.ACTION_OPEN_REEL"
 
         /** SharedPreferences file shared between the UI and the service. */
         const val PREFS_NAME = "friends_reels_prefs"
@@ -856,6 +944,11 @@ class InstagramReaderService : AccessibilityService() {
                 0,
                 getString(R.string.notif_action_reply),
                 pendingBroadcast(ACTION_REPLY_FIRST_REEL_MOCK, requestCode = 5)
+            )
+            .addAction(
+                0,
+                getString(R.string.notif_action_open),
+                pendingBroadcast(ACTION_OPEN_REEL, requestCode = 6)
             )
             .addAction(
                 0,

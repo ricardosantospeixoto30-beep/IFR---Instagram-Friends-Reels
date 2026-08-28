@@ -7,17 +7,17 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-6 (responder) 🟡 código implementado (sessão 15), aguarda teste no OnePlus.
-**Última atualização:** 2025-08-28 (sessão 15)
+**Fase atual:** Fase 1 (PoC) — PoC-6 ✅ (validado no OnePlus, sessão 16). PoC-7 🟡 exploração inicial implementada (open viewer + dump). Aguarda dump do viewer para completar a extracção do URL.
+**Última atualização:** 2025-08-28 (sessão 16)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Estado a partir da sessão 15 (PoC-6 implementado, por testar).
+1. **Pull** do repo. Estado a partir da sessão 16 (PoC-6 fechado, PoC-7 primeiro passo implementado).
 2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" → **6.1** tem o que falta testar no PoC-6.
-    - Últimos logs de sessão em §7 (sessões 12 → 15).
+    - §6 "Próximos passos concretos" → **6.1** para PoC-7 (precisa do dump do Reel viewer).
+    - Últimos logs de sessão em §7 (sessões 12 → 16).
 3. **Ficheiros-chave a rever antes de mexer código:**
     - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor de a11y, gestos, dumps.
     - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG.
@@ -179,6 +179,7 @@ Já entregue no primeiro commit:
 - **Identificar o membro remetente em grupos (limitação da UI do IG, validada 2025-08-28 sessão 14):** no ecrã da conversa a árvore de acessibilidade **não expõe o nome/username do membro do grupo que partilhou o Reel**. O `sender_avatar` só tem `contentDescription="Foto de perfil"` (constante), não há qualquer `TextView` com o nome dentro do `message_content`, e o menu de contexto pós long-press só expõe data/hora. Consequências:
     - No feed do MVP, Reels partilhados em grupo aparecem como "de \<nome do grupo\>", não "de \<membro\>".
     - Se quisermos mais tarde o membro individual, opções: (a) tocar no `sender_avatar` para abrir o perfil e ler o username (troca de ecrã), (b) pixel-hash do avatar contra a lista de membros do grupo. Nenhuma via é trivial; fica em backlog.
+- **Ações executam sempre com o IG em foreground.** O `dispatchGesture` opera nos pixels renderizados, portanto não é possível reagir/responder em background enquanto o utilizador vê Reels na nossa app. Mitigação prevista para o PoC-8: **batching**. O feed regista as intenções do utilizador (❤, resposta) numa fila local; no fim da sessão de visualização (ou quando o utilizador toca "Aplicar no Instagram") a app traz o IG à frente **uma única vez** e o service percorre a fila sequencialmente. Trade-off: latência de aplicação real fica diferida em vez de imediata, mas evita alternância constante de foreground. Utilizador levantou o tópico na sessão 16.
 
 ---
 
@@ -191,33 +192,34 @@ Já entregue no primeiro commit:
 - ✅ PoC-3 — long-press dirigido ao bubble do Reel via `dispatchGesture`
 - ✅ PoC-4 — direção RECEIVED/SENT validada em DM 1-a-1 e em grupo (sessões 12→14). Limitação de grupos (nome do membro remetente não é textualizado pela a11y layer) registada em §5.
 - ✅ PoC-5 — reagir ao 1.º Reel com ❤ e 😂 (filtra por RECEIVED por defeito)
-- 🟡 PoC-6 — **CÓDIGO IMPLEMENTADO (sessão 15), aguarda teste no OnePlus** — responder ao 1.º Reel recebido com texto mock "👀"
-- 🔲 PoC-7 — extrair URL do Reel (menu não tem sempre "Copiar link"; alternativa: abrir Reel viewer / Reencaminhar)
-- 🔲 PoC-8 — feed vertical, Room DB, MVVM
+- ✅ PoC-6 — responder ao 1.º Reel recebido com texto mock "👀" (validado no OnePlus, sessão 16)
+- 🟡 PoC-7 — **em curso** — exploração do Reel viewer implementada (sessão 16). Aguarda dump para saber onde está o "Copiar link".
+- 🔲 PoC-8 — feed vertical, Room DB, MVVM (+ **batching** de acções — ver §5)
 
-### 6.1 Próxima sessão — validar PoC-6 + preparar PoC-7
+### 6.1 Próxima sessão — completar PoC-7
 
-**PoC-6 — o que falta testar no OnePlus:**
+**Passo 1 (já entregue, sessão 16):** nova ação `ACTION_OPEN_REEL` que:
+- Reutiliza `findFirstReelBubble(RECEIVED)` do PoC-4.
+- Dispara um tap curto (80 ms) no centro do container XMA para abrir o Reel viewer do IG.
+- Aguarda 2 s a UI carregar e faz `dumpAllWindows("after-reel-tap")` automaticamente.
 
-Fluxo implementado no service: `runInInstagram` → `longPressFirstReel(afterLongPress=ReplyWithText("👀"))` → **click "Responder"** no `context_menu_options_list` → aguarda `COMPOSER_SETTLE_MS`=900ms → **`ACTION_SET_TEXT`** no `row_thread_composer_edittext` com "👀" → aguarda `SEND_SETTLE_MS`=500ms → **click no botão Send** (probe: `row_thread_composer_send_button`, `..._send`, `composer_send_button`, `send_button`; fallback: `contentDescription` = "Enviar"/"Send"). Se nenhum candidato bater, dispara automaticamente `dumpAllWindows("after-set-text")` para capturarmos o id real.
+**O que precisas de fazer no OnePlus:**
 
-Passos concretos para o utilizador:
+1. Puxar repo, abrir uma conversa com um Reel recebido visível.
+2. Baixar shade → tocar **Abrir** na notificação (ou botão "Abrir 1.º Reel no viewer" no ecrã da app).
+3. Deixar o Reel viewer abrir. O service faz o dump automaticamente ao fim de ~2 s.
+4. **Enviar o log completo entre `===== DUMP_ALL START reason=after-reel-tap =====` e `===== DUMP_ALL END =====`** — precisamos ver que botões existem no viewer (Share, ⋮, "Copiar link", ícone de link/paper-plane…).
 
-1. Puxar repo, correr no OnePlus.
-2. Abrir uma conversa (DM 1-a-1 ou grupo) com pelo menos um Reel recebido visível.
-3. Baixar shade → tocar **👀** na notificação **Friends Reels** (ou "Responder com 👀 ao 1.º Reel" no ecrã da app).
-4. Reportar visualmente:
-    - O composer abriu com o preview de "A responder a…" por cima?
-    - O emoji 👀 apareceu na caixa de texto?
-    - A mensagem foi enviada (aparece uma nova bolha "👀" com o quote do Reel)?
-5. Se algum passo falhar (ex. o botão Send não é encontrado), o Logcat vai ter:
-    - `REPLY: send button not found (tried ids=[...] desc=[Enviar, Send]). Emitting after-set-text dump ...` seguido de um `DUMP_ALL START reason=after-set-text`.
-    - Basta enviar esse dump para eu adicionar o id real a `COMPOSER_SEND_BUTTON_CANDIDATES`.
+**Passo 2 (próxima sessão, depois do dump):**
 
-**Casos particulares a verificar:**
+Com base no dump vou implementar `ACTION_COPY_REEL_URL` que:
+- Localiza o botão de share/⋮ dentro do viewer via `resource-id`.
+- Clica → aguarda menu → clica em "Copiar link".
+- Lê o texto do clipboard via `ClipboardManager`.
+- Registra o URL no Logcat (e mais tarde persistir em Room no PoC-8).
+- Fecha o viewer (back) para voltar à conversa.
 
-- Grupo com 3 Reels recebidos consecutivos (`ryankellycomedy`, `adamraqeem`, `urokowatch`): confirmar que a resposta fica anexada ao Reel do topo (`urokowatch` — o `findFirstReelBubble` ordena por `bounds.top`). Não confundir com o autor do Reel.
-- DM 1-a-1 com só Reels SENT visíveis + `ignoreSent=true` (default): esperado que a acção falhe cedo (`no eligible Reel bubble found`), sem chegar ao composer.
+**Alternativa se não houver "Copiar link" no viewer:** usar "Reencaminhar" do menu de contexto do Reel na DM → o share sheet do Android abre com "Copiar link". Fica como plano B.
 
 ### 6.2 A seguir
 
@@ -442,3 +444,26 @@ Passos concretos para o utilizador:
   - `strings.xml` — `btn_reply_reel`, `notif_action_reply`.
   - `PROJECT_PROGRESS.md` — estado atual, §6.1 e este log.
 - **Próximo passo do utilizador:** teste no OnePlus (ver §6.1) e enviar Logcat + eventualmente o `after-set-text` DUMP_ALL se o botão Send não for encontrado à primeira. Se tudo funcionar, PoC-6 fecha e passamos ao PoC-7 (extrair URL do Reel).
+
+### 2026-08-28 — Sessão 16 (Ricardo + Copilot CLI) — PoC-6 validado ✅ + PoC-7 exploração inicial
+
+- **Utilizador testou PoC-6 no OnePlus:** o fluxo completo `long-press → Responder → composer → 👀 → Send` **funcionou à primeira**. Latência subjectiva descrita como "um pouco lenta" (~3.5 s de settle total), mesmo perfil da reacção. Nenhum dump `after-set-text` foi necessário — o probe de ids acertou logo.
+- **Latência: plano futuro.** Vamos afinar os settles (600 → 800/600/300) só depois de fecharmos o PoC-8. Já é o tuning esperado, código foi conservador de propósito para o primeiro teste passar.
+- **Question do utilizador — "dá para acontecer por trás enquanto vejo Reels?"** — Resposta e decisão em §5 "Ações executam sempre com o IG em foreground": não em tempo real (o `dispatchGesture` só funciona no foreground), mas a solução prevista é **batching** no PoC-8 (fila local + flush único no fim). Ficou registado como limitação + mitigação.
+- **PoC-7 arranque:** implementei a ação exploratória `ACTION_OPEN_REEL` para abrir o Reel viewer nativo do IG a partir da conversa.
+  - `openFirstReelViewer()` reutiliza `findFirstReelBubble(RECEIVED)` do PoC-4.
+  - `dispatchGesture` com `TAP_DURATION_MS = 80 ms` centrado no container XMA (não usa long-press porque o objectivo é abrir o viewer, não o menu de contexto).
+  - Aguarda `REEL_VIEWER_SETTLE_MS = 2000 ms` para o Reel viewer carregar o vídeo/controls e faz `dumpAllWindows("after-reel-tap")` automaticamente.
+  - Guarda a mesma protecção do PoC-5/6: se o centro do bubble cair fora do IG window, recusa disparar.
+- **Novo botão UI + notificação:** "Abrir" (notificação, request 6) / "Abrir 1.º Reel no viewer (+ dump)" (ecrã da app). Broadcast `ACTION_OPEN_REEL`.
+- **Ficheiros alterados:**
+  - `InstagramReaderService.kt` — `openFirstReelViewer`, novas constantes `TAP_DURATION_MS`/`REEL_VIEWER_SETTLE_MS`, broadcast `ACTION_OPEN_REEL`, botão na notificação.
+  - `MainActivity.kt` — botão "Abrir 1.º Reel no viewer".
+  - `strings.xml` — `btn_open_reel`, `notif_action_open`.
+  - `PROJECT_PROGRESS.md` — estado atual, §5 (batching), §6.1 (plano para completar PoC-7), este log.
+- **Próximo passo do utilizador (para fechar PoC-7):**
+  1. Abrir uma conversa com um Reel recebido visível.
+  2. Baixar shade → tocar **Abrir**.
+  3. Deixar o Reel viewer abrir; após ~2 s o dump é automático.
+  4. Enviar o log completo entre `===== DUMP_ALL START reason=after-reel-tap =====` e `===== DUMP_ALL END =====` (tal como o dump do grupo — envio de raspão logo à primeira).
+- Com esse dump ficamos a saber que botões o viewer expõe (Share, ⋮, Copiar link, etc.) e implemento `ACTION_COPY_REEL_URL` na sessão seguinte.
