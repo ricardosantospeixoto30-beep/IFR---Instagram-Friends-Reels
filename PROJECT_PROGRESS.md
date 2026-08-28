@@ -7,8 +7,8 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-2 em curso (mapeamento de seletores do IG).
-**Última atualização:** 2025-08-28 (sessão 2)
+**Fase atual:** Fase 1 (PoC) — PoC-2 concluído, PoC-3 (long-press bypass) prestes a ser testado.
+**Última atualização:** 2025-08-28 (sessão 3)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ---
@@ -185,13 +185,14 @@ Já entregue no primeiro commit:
 - Criação deste ficheiro `PROJECT_PROGRESS.md` com a documentação da Fase 0.
 - Primeiro commit contém apenas o skeleton que abre no Android Studio e permite ativar a AccessibilityService — objetivo é validar o pipeline no PC do utilizador antes de avançar.
 
-### 2025-08-28 — Sessão 2 (Ricardo + Copilot CLI)
+### 2025-08-28 — Sessão 3 (Ricardo + Copilot CLI)
 
-- **Skeleton validado no dispositivo real (OnePlus Nord 5, Android 16):** app abre, botão para "Ativar serviço de acessibilidade" funciona, e o `Logcat` mostra `InstagramReaderService connected` quando o serviço é ativado. ✅
-- **Confirmado idioma do IG do utilizador:** Português (Portugal). Adicionar também suporte para Inglês porque é praticamente de graça.
-- **PoC-2 iniciado:** foi adicionada ao `InstagramReaderService` a capacidade de despejar a árvore de acessibilidade do ecrã atual para o Logcat, mediante broadcast:
-  - Ação: `com.example.friendsreels.ACTION_DUMP_TREE`
-  - Comando adb: `adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_TREE`
-  - Cada nó imprime `className`, flags de comportamento (`C`=clickable, `S`=scrollable, `L`=long-clickable, `E`=editable), `viewId`, `contentDescription`, `text`, e bounds.
-- **Ajuste ao `accessibility_service_config.xml`:** removido `android:packageNames` para o dump funcionar em qualquer app (útil durante o mapping). Vai ser restringido de novo a `com.instagram.android` mais tarde, quando entrar em modo "produção".
-- **Próximo passo do utilizador:** correr o dump nos ecrãs de interesse do IG (Home, Direct/Inbox, Conversa individual, mensagem com Reel, long-press num Reel) e enviar os outputs para eu construir o `IgSelectors.kt`.
+- **PoC-2 concluído.** Utilizador correu o dump nos 5 ecrãs pedidos (Home, Direct/Inbox, Conversa, Reel visível, Long-press). Os dumps ficaram guardados em `docs/screen-dumps/2025-08-28-initial-mapping.txt`.
+- **Mapeamento dos seletores centralizado** em `com.example.friendsreels.instagram.IgSelectors`. IDs de recursos do IG são independentes do idioma; strings localizadas ficam em conjuntos PT + EN.
+- **Descoberta importante (Direct/Inbox em Compose):** o inbox já não expõe `resource-id`s nas rows. A identificação das conversas terá de ser feita por `contentDescription` que segue o formato `"<nome>, [não lidos, ]<preview> ·, <tempo>"`.
+- **Descoberta importante (long-press vs OnePlus):**
+  - Simular long-press por toque real aciona o *Portal de conteúdo* do OxygenOS.
+  - Usar `AccessibilityNodeInfo.performAction(ACTION_LONG_CLICK)` diretamente no nó `message_content` deve contornar essa interceção. Vamos validar no próximo teste do utilizador.
+- **Descoberta importante (menu de contexto):** após long-press aparecem em simultâneo (a) o painel de reações rápidas com 6 emojis (❤️ 😂 😮 😢 😡 👍) já com IDs identificados, e (b) o menu completo (Responder, Copiar link, Reencaminhar, Eliminar…) implementado em Compose. O menu completo ainda não foi totalmente capturado em nenhum dump por causa do timing da animação.
+- **Novo broadcast implementado:** `com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL` faz agora `performAction(ACTION_LONG_CLICK)` no primeiro `message_content` cuja subtree contém `message_content_portrait_xma_container` ou `message_content_generic_xma_container`, e dispara automaticamente um dump 1500ms depois. Isto resolve o problema de timing manual e (esperamos) contornar o Portal de conteúdo.
+- **Próximo passo do utilizador:** correr o novo broadcast dentro de uma conversa com um Reel e enviar os logs do IGReaderService entre `===== DUMP START reason=after-longpress =====` e `===== DUMP END =====`. Com esse dump completo, ficamos com todos os labels do menu (Responder, Copiar link, ...) para PoC-5 (reagir) e PoC-6 (responder).

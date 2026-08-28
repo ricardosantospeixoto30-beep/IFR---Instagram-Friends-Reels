@@ -17,12 +17,19 @@ Ver **`Friends_Reels_Inbox_Technical_Spec_v2.md`** para a spec completa e **`PRO
 - JDK 17+ (o AS trás o próprio JBR).
 - Android SDK 35.
 
-## Ferramenta de dump (PoC-2)
+## Ferramentas de dump / long-press (PoC-2/PoC-3)
 
-Quando o `AccessibilityService` está ativo, é possível pedir um dump da árvore de acessibilidade do ecrã atual. Útil para mapear os seletores de Instagram usados pela app.
+Quando o `AccessibilityService` está ativo, é possível pedir um dump da árvore de acessibilidade do ecrã atual ou disparar um long-press automático no primeiro Reel visível da conversa aberta.
 
 ```bash
+# Dump da árvore de acessibilidade do ecrã atual.
 adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_TREE
+
+# Long-press no primeiro Reel da conversa aberta + dump automático 1.5s depois.
+# Requer estar dentro de uma conversa do Instagram que contenha um Reel visível.
+adb shell am broadcast -a com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL
 ```
 
 Ver o resultado em `adb logcat -s IGReaderService` (ou no Logcat do Android Studio com filtro `IGReaderService`).
+
+Todos os dumps de referência estão em `docs/screen-dumps/`.
