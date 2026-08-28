@@ -164,11 +164,11 @@ class InstagramReaderService : AccessibilityService() {
      * pressing Home and re-opening the app icon.
      */
     private fun runInInstagram(action: () -> Unit) {
-        val currentPkg = rootInActiveWindow?.packageName?.toString()
-        if (currentPkg == IgSelectors.IG_PACKAGE) {
+        if (isInstagramReady()) {
             action()
             return
         }
+        val currentPkg = rootInActiveWindow?.packageName?.toString()
         Log.i(TAG, "runInInstagram: foreground is '$currentPkg', bringing Instagram to front.")
         val launch = packageManager.getLaunchIntentForPackage(IgSelectors.IG_PACKAGE)
         if (launch == null) {
@@ -185,15 +185,35 @@ class InstagramReaderService : AccessibilityService() {
         pollInstagramForeground(retriesLeft = FOREGROUND_POLL_MAX_RETRIES, action = action)
     }
 
-    private fun pollInstagramForeground(retriesLeft: Int, action: () -> Unit) {
+    /**
+     * Instagram is considered "ready" when it is the foreground package AND
+     * the a11y layer reports its APPLICATION window aligned with the display
+     * origin. When IG is brought to front from another app it is animated
+     * in from the right; during the animation `getBoundsInScreen` on the
+     * IG window returns shifted values (e.g. left>0) that propagate down to
+     * every child node. Dispatching a gesture then targets off-screen
+     * coordinates. Waiting for `left==0` ensures the slide-in has finished.
+     */
+    private fun isInstagramReady(): Boolean {
         val currentPkg = rootInActiveWindow?.packageName?.toString()
-        if (currentPkg == IgSelectors.IG_PACKAGE) {
-            Log.i(TAG, "runInInstagram: Instagram now in foreground, running action.")
+        if (currentPkg != IgSelectors.IG_PACKAGE) return false
+        val igWindow = findIgApplicationWindow() ?: return false
+        val bounds = Rect().also { igWindow.getBoundsInScreen(it) }
+        return bounds.left == 0 && bounds.width() > 0
+    }
+
+    private fun pollInstagramForeground(retriesLeft: Int, action: () -> Unit) {
+        if (isInstagramReady()) {
+            Log.i(TAG, "runInInstagram: Instagram now foreground + window settled, running action.")
             action()
             return
         }
         if (retriesLeft <= 0) {
-            Log.w(TAG, "runInInstagram: gave up waiting for Instagram to come to front (last=$currentPkg).")
+            val pkg = rootInActiveWindow?.packageName?.toString()
+            val bounds = findIgApplicationWindow()?.let {
+                Rect().also { r -> it.getBoundsInScreen(r) }
+            }
+            Log.w(TAG, "runInInstagram: gave up waiting (pkg=$pkg, igWindowBounds=$bounds).")
             return
         }
         mainHandler.postDelayed(
@@ -415,16 +435,22 @@ class InstagramReaderService : AccessibilityService() {
         val portraits = messageList.findAccessibilityNodeInfosByViewId(portraitId).orEmpty()
         val generics = messageList.findAccessibilityNodeInfosByViewId(genericId).orEmpty()
 
+        // We want a bubble that is actually visible enough to receive a
+        // long-press. Bubbles at the top or bottom of the RecyclerView are
+        // reported by the a11y layer even when they are almost fully clipped
+        // (e.g. only ~30 px tall). Long-pressing those hits the bubble's
+        // partial area — sometimes just the header row — and IG doesn't
+        // recognise it as a message press. Filter to bubbles with a
+        // reasonable visible height instead.
         val candidates = (portraits.map { "portrait" to it } + generics.map { "generic" to it })
-            .filter {
+            .mapNotNull {
                 val r = Rect(); it.second.getBoundsInScreen(r)
-                r.width() > 0 && r.height() > 0
+                if (r.width() <= 0 || r.height() < MIN_REEL_BUBBLE_HEIGHT_PX) null
+                else Triple(it.first, it.second, r)
             }
-            .sortedBy {
-                val r = Rect(); it.second.getBoundsInScreen(r); r.top
-            }
+            .sortedBy { it.third.top }
 
-        val (kind, node) = candidates.firstOrNull() ?: return null
+        val (kind, node, _) = candidates.firstOrNull() ?: return null
         val author = node
             .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.REEL_AUTHOR_USERNAME))
             ?.firstOrNull()
@@ -529,7 +555,8 @@ class InstagramReaderService : AccessibilityService() {
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
         private const val FOREGROUND_POLL_INTERVAL_MS = 200L
-        private const val FOREGROUND_POLL_MAX_RETRIES = 20 // ~4s total
+        private const val FOREGROUND_POLL_MAX_RETRIES = 30 // ~6s total, enough for task-switch animations
+        private const val MIN_REEL_BUBBLE_HEIGHT_PX = 200 // ignore stubs that are almost fully scrolled off
 
         const val ACTION_DUMP_TREE = "com.example.friendsreels.ACTION_DUMP_TREE"
         const val ACTION_DUMP_ALL_WINDOWS = "com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS"

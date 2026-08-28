@@ -278,3 +278,15 @@ Já entregue no primeiro commit:
 - **Confirmação do dump:** o dump `after-longpress` da sessão anterior mostra a thread no **estado normal** (sem `message_actions_container`, sem `creation_row_container`) — prova de que o long-press nunca chegou ao IG.
 - **Nota sobre o double-tap do IG:** o utilizador lembrou que double-tap num Reel na DM aplica ❤ automaticamente. Guardamos essa informação como plano B para reações de coração: se a via do long-press+quick-reaction alguma vez falhar de novo, podemos dispatched um double-tap gesture sobre o bubble. Fica na back-pocket, para já mantemos o long-press porque é o único caminho que também suporta 😂 (e outros emojis).
 - **Próximo passo do utilizador:** puxar o repo, correr, testar de novo os botões da notificação para ❤ e 😂. Os logs devem agora mostrar bounds dentro de 0..1080 em X. Se o menu abrir mas o emoji não for tocado, é problema seguinte a resolver.
+
+### 2025-08-28 — Sessão 10 (Ricardo + Copilot CLI)
+
+- **Novo teste no OnePlus** mostrou os primeiros logs pós-fix da sessão 9. Continuavam sem funcionar visualmente. Análise revelou **duas causas** encadeadas:
+  1. **Janela em animação de entrada.** O runInInstagram detecta o IG como foreground ~235 ms depois do startActivity. Mas a task do IG está ainda a fazer o slide-in a partir da direita: o getBoundsInScreen da janela reporta left=1128 (em vez de 0), variando a cada tentativa. Como as bounds das crianças herdam esse offset, o gesto ia disparar em x aprox 1500 num ecrã de 1080 pixels — outra vez fora do ecrã. Prova: os bounds relativos ao topo/esquerda da janela (bubble.left - window.left) davam aprox 147, igual ao dump feito 2 s depois.
+  2. **Bubble alvo semi-cortada.** O pure_hu_yaarrr estava quase todo por cima do RecyclerView (b=[147,267][593,297], altura de 30 px). A ordenação por top escolhia esse em vez do próximo bubble totalmente visível.
+- **Correções desta sessão:**
+  - Novo predicado isInstagramReady(): exige packageName==IG e igWindow.left == 0.
+  - runInInstagram usa esse predicado antes de correr a action, tanto no atalho inicial como em cada iteração do pollInstagramForeground.
+  - Aumentado FOREGROUND_POLL_MAX_RETRIES de 20 para 30 (aprox 6 s).
+  - findFirstReelBubble descarta bubbles com altura inferior a 200 px (MIN_REEL_BUBBLE_HEIGHT_PX).
+- **Próximo passo do utilizador:** repetir os testes pela notificação. Logs esperados: window settled + bounds do bubble dentro de 0..1080 em X.
