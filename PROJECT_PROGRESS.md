@@ -7,8 +7,8 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-3 (long-press dirigido) prestes a ser retestado.
-**Última atualização:** 2025-08-28 (sessão 4)
+**Fase atual:** Fase 1 (PoC) — PoC-3 concluído (visualmente); a capturar labels do menu para PoC-5/6.
+**Última atualização:** 2025-08-28 (sessão 5)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ---
@@ -210,3 +210,12 @@ Já entregue no primeiro commit:
   - `LONG_PRESS: dispatchGesture accepted=true duration=600ms`
   - `LONG_PRESS: gesture completed`
   - Dump com `reason=after-longpress`
+
+### 2025-08-28 — Sessão 5 (Ricardo + Copilot CLI)
+
+- **PoC-3 com `dispatchGesture` funcionou:** o long-press caiu na bolha do Reel correto (`relatable_sayyz`), o IG entrou em modo "message actions" (`message_actions_container` presente) e o utilizador **confirmou visualmente** que apareceram simultaneamente:
+  - a barra de reações rápidas (❤️ 😂 😮 😢 😡 👍),
+  - o menu de contexto completo (Responder, Copiar link, Reencaminhar, Eliminar).
+- **Descoberta importante:** o dump da janela ativa mostra `compose_context_menu` com altura 0 — isto significa que o menu **não está na janela principal do IG**. Está numa **janela popup separada** que o `rootInActiveWindow` não vê.
+- **Solução implementada:** nova ação `ACTION_DUMP_ALL_WINDOWS` que usa `AccessibilityService.getWindows()` para enumerar todas as janelas visíveis (aplicação, IME, sistema, overlays) e dumpa cada uma. O dump automático após long-press passou a usar esta função.
+- **Próximo passo do utilizador:** correr `ACTION_LONG_PRESS_FIRST_REEL` de novo dentro da conversa com Reel; enviar o `DUMP_ALL` completo. Com esses labels vamos poder fazer PoC-5 (clicar em ❤️/😂) e PoC-6 (clicar em "Responder").

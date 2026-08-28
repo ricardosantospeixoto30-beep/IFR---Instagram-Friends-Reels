@@ -65,12 +65,14 @@ class InstagramReaderService : AccessibilityService() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 when (intent?.action) {
                     ACTION_DUMP_TREE -> dumpActiveWindow("adb")
+                    ACTION_DUMP_ALL_WINDOWS -> dumpAllWindows("adb")
                     ACTION_LONG_PRESS_FIRST_REEL -> longPressFirstReel()
                 }
             }
         }
         val filter = IntentFilter().apply {
             addAction(ACTION_DUMP_TREE)
+            addAction(ACTION_DUMP_ALL_WINDOWS)
             addAction(ACTION_LONG_PRESS_FIRST_REEL)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -80,7 +82,11 @@ class InstagramReaderService : AccessibilityService() {
             registerReceiver(receiver, filter)
         }
         actionReceiver = receiver
-        Log.i(TAG, "Action receiver registered (dump=$ACTION_DUMP_TREE, longpress=$ACTION_LONG_PRESS_FIRST_REEL)")
+        Log.i(
+            TAG,
+            "Action receiver registered (dump=$ACTION_DUMP_TREE, dumpAll=$ACTION_DUMP_ALL_WINDOWS, " +
+                "longpress=$ACTION_LONG_PRESS_FIRST_REEL)"
+        )
     }
 
     private fun unregisterActionReceiver() {
@@ -147,7 +153,10 @@ class InstagramReaderService : AccessibilityService() {
         Log.i(TAG, "LONG_PRESS: dispatchGesture accepted=$dispatched duration=${LONG_PRESS_DURATION_MS}ms")
 
         // Give the context menu animation enough time to settle, then dump.
-        mainHandler.postDelayed({ dumpActiveWindow("after-longpress") }, LONG_PRESS_DURATION_MS + 1500L)
+        // The IG context menu (Reply / Copy link / Forward / Delete) is rendered
+        // in a separate popup window on top of the main IG window, so we must
+        // enumerate all windows via getWindows() to see it.
+        mainHandler.postDelayed({ dumpAllWindows("after-longpress") }, LONG_PRESS_DURATION_MS + 1500L)
     }
 
     private data class ReelTarget(
@@ -204,6 +213,53 @@ class InstagramReaderService : AccessibilityService() {
         Log.i(TAG, "===== DUMP END reason=$reason pkg=$pkg =====")
     }
 
+    /**
+     * Dump every window currently reported by the accessibility framework.
+     *
+     * The active/main app window is what `rootInActiveWindow` returns, but
+     * popups, dialogs, bottom sheets and context menus are frequently placed
+     * in separate windows layered on top. Instagram's message context menu
+     * (Reply / Copy link / Forward / Delete) is one such case.
+     *
+     * Requires `flagRetrieveInteractiveWindows` in the service config, which
+     * is already enabled in accessibility_service_config.xml.
+     */
+    private fun dumpAllWindows(reason: String) {
+        val allWindows = try { windows } catch (_: Exception) { emptyList() }
+        if (allWindows.isNullOrEmpty()) {
+            Log.w(TAG, "DUMP_ALL ($reason): windows() returned empty; falling back to active window.")
+            dumpActiveWindow(reason)
+            return
+        }
+        Log.i(TAG, "===== DUMP_ALL START reason=$reason windowCount=${allWindows.size} =====")
+        for ((index, window) in allWindows.withIndex()) {
+            val root = window.root
+            val pkg = root?.packageName?.toString() ?: "?"
+            val type = when (window.type) {
+                android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION -> "APPLICATION"
+                android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD -> "IME"
+                android.view.accessibility.AccessibilityWindowInfo.TYPE_SYSTEM -> "SYSTEM"
+                android.view.accessibility.AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY -> "A11Y_OVERLAY"
+                android.view.accessibility.AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER -> "SPLIT_DIVIDER"
+                else -> "OTHER(${window.type})"
+            }
+            val bounds = android.graphics.Rect().also { window.getBoundsInScreen(it) }
+            val isActive = window.isActive
+            val isFocused = window.isFocused
+            Log.i(
+                TAG,
+                "----- WINDOW[$index] id=${window.id} type=$type pkg=$pkg " +
+                    "active=$isActive focused=$isFocused bounds=${bounds.toShortString()} -----"
+            )
+            if (root == null) {
+                Log.i(TAG, "  (no root node)")
+            } else {
+                dumpNode(root, 1)
+            }
+        }
+        Log.i(TAG, "===== DUMP_ALL END reason=$reason =====")
+    }
+
     private fun dumpNode(node: AccessibilityNodeInfo, depth: Int) {
         val indent = "  ".repeat(depth)
         val cls = node.className?.toString()?.substringAfterLast('.') ?: "?"
@@ -236,6 +292,7 @@ class InstagramReaderService : AccessibilityService() {
         private const val TAG = "IGReaderService"
         private const val LONG_PRESS_DURATION_MS = 600L
         const val ACTION_DUMP_TREE = "com.example.friendsreels.ACTION_DUMP_TREE"
+        const val ACTION_DUMP_ALL_WINDOWS = "com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS"
         const val ACTION_LONG_PRESS_FIRST_REEL = "com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL"
     }
 }

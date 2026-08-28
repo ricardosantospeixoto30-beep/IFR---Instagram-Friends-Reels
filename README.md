@@ -22,11 +22,16 @@ Ver **`Friends_Reels_Inbox_Technical_Spec_v2.md`** para a spec completa e **`PRO
 Quando o `AccessibilityService` está ativo, é possível pedir um dump da árvore de acessibilidade do ecrã atual ou disparar um long-press automático no primeiro Reel visível da conversa aberta.
 
 ```bash
-# Dump da árvore de acessibilidade do ecrã atual.
+# Dump da árvore de acessibilidade da janela ativa.
 adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_TREE
 
-# Long-press no primeiro Reel da conversa aberta + dump automático 1.5s depois.
-# Requer estar dentro de uma conversa do Instagram que contenha um Reel visível.
+# Dump de TODAS as janelas atualmente visíveis (inclui popups, dialogs,
+# bottom sheets, keyboards, overlays). Necessário para inspecionar menus
+# de contexto que o Android coloca numa janela separada.
+adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS
+
+# Long-press no primeiro Reel da conversa aberta + dump de todas as janelas
+# 2.1 s depois. Requer estar dentro de uma conversa com um Reel visível.
 adb shell am broadcast -a com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL
 ```
 
