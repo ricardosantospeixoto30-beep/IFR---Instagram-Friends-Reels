@@ -1,0 +1,58 @@
+---------------------------- PROCESS STARTED (18022) for package com.example.friendsreels ----------------------------
+2026-08-28 23:58:48.731 18022-18022 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
+2026-08-28 23:58:48.732 18022-18022 IGReaderService         com.example.friendsreels             I  Action receiver registered (dump=com.example.friendsreels.ACTION_DUMP_TREE, dumpAll=com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS, list=com.example.friendsreels.ACTION_LIST_REELS, longpress=com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL, heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH, reply=com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK, open=com.example.friendsreels.ACTION_OPEN_REEL, openMore=com.example.friendsreels.ACTION_OPEN_REEL_AND_MORE)
+2026-08-28 23:58:48.743 18022-18022 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-08-28 23:58:50.330 18022-18022 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-28 23:58:50.553 18022-18022 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
+2026-08-28 23:58:51.224 18022-18022 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-28 23:58:51.260 18022-18022 IGReaderService         com.example.friendsreels             I  OPEN_REEL: target index=2 kind=portrait direction=RECEIVED author=relatable_sayyz bounds=[147,321][593,1123] center=(370,722) afterOpen=TapMoreAndDump
+2026-08-28 23:58:51.264 18022-18022 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-08-28 23:58:51.351 18022-18022 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-08-28 23:58:53.541 18022-18022 IGReaderService         com.example.friendsreels             I  MORE_IN_VIEWER: performAction(ACTION_CLICK) on 'Mais' returned true bounds=[943,1820][1059,1936]
+2026-08-28 23:58:54.546 18022-18022 IGReaderService         com.example.friendsreels             I  ===== DUMP_ALL START reason=after-viewer-more windowCount=4 =====
+2026-08-28 23:58:54.553 18022-18022 IGReaderService         com.example.friendsreels             I  ----- WINDOW[0] id=1567 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[953,561][1080,688] -----
+2026-08-28 23:58:54.553 18022-18022 IGReaderService         com.example.friendsreels             I    FrameLayout [C---] id=- b=[0,0][1080,2378]
+2026-08-28 23:58:54.559 18022-18022 IGReaderService         com.example.friendsreels             I      RecyclerView [-S--] id=- desc="Toque numa funcionalidade para começar a utilizá-la:" b=[1017,561][1080,688]
+2026-08-28 23:58:54.562 18022-18022 IGReaderService         com.example.friendsreels             I        ViewGroup [C---] id=- desc="Friends Reels — Instagram Reader" b=[1017,561][1080,688]
+2026-08-28 23:58:54.566 18022-18022 IGReaderService         com.example.friendsreels             I  ----- WINDOW[1] id=1565 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[187,2262][889,2378] -----
+2026-08-28 23:58:54.566 18022-18022 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=com.android.systemui:id/navigation_bar_frame b=[0,2262][1080,2378]
+2026-08-28 23:58:54.575 18022-18022 IGReaderService         com.example.friendsreels             I      FrameLayout [----] id=com.android.systemui:id/navigation_bar_view b=[0,2262][1080,2378]
+2026-08-28 23:58:54.576 18022-18022 IGReaderService         com.example.friendsreels             I        ImageView [C---] id=com.android.systemui:id/back desc="Anterior" b=[187,2262][397,2378]
+2026-08-28 23:58:54.576 18022-18022 IGReaderService         com.example.friendsreels             I        ImageView [C---] id=com.android.systemui:id/recent_apps desc="Visão geral" b=[679,2262][889,2378]
+2026-08-28 23:58:54.576 18022-18022 IGReaderService         com.example.friendsreels             I        ImageView [C-L-] id=com.android.systemui:id/home desc="Página inicial" b=[434,2262][644,2378]
+2026-08-28 23:58:54.581 18022-18022 IGReaderService         com.example.friendsreels             I  ----- WINDOW[2] id=1562 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[0,0][1080,120] -----
+2026-08-28 23:58:54.581 18022-18022 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=- b=[0,0][1080,120]
+2026-08-28 23:58:54.586 18022-18022 IGReaderService         com.example.friendsreels             I      FrameLayout [----] id=com.android.systemui:id/status_bar b=[0,0][1080,120]
+2026-08-28 23:58:54.589 18022-18022 IGReaderService         com.example.friendsreels             I        FrameLayout [----] id=com.android.systemui:id/status_bar_start_side_content b=[73,30][392,109]
+2026-08-28 23:58:54.589 18022-18022 IGReaderService         com.example.friendsreels             I          TextView [----] id=com.android.systemui:id/clock desc="11:58 da tarde" text="11:58" b=[73,30][182,109]
+2026-08-28 23:58:54.589 18022-18022 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do WhatsApp: " b=[182,30][224,109]
+2026-08-28 23:58:54.589 18022-18022 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Sistema Android: " b=[224,30][266,109]
+2026-08-28 23:58:54.589 18022-18022 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Atualização de software: " b=[266,30][308,109]
+2026-08-28 23:58:54.590 18022-18022 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Ligação de dispositivos: " b=[308,30][350,109]
+2026-08-28 23:58:54.592 18022-18022 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Friends Reels: " b=[350,30][392,109]
+2026-08-28 23:58:54.592 18022-18022 IGReaderService         com.example.friendsreels             I        LinearLayout [----] id=com.android.systemui:id/system_icons b=[756,43][1016,96]
+2026-08-28 23:58:54.599 18022-18022 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Campainha em silêncio." b=[757,43][799,96]
+2026-08-28 23:58:54.602 18022-18022 IGReaderService         com.example.friendsreels             I          ImageView [----] id=com.android.systemui:id/wifi_signal desc="Sinal de Wi-Fi completo." b=[799,48][857,90]
+2026-08-28 23:58:54.606 18022-18022 IGReaderService         com.example.friendsreels             I          FrameLayout [----] id=com.android.systemui:id/mobile_combo desc="vodafone P, 2 barras." b=[857,43][910,96]
+2026-08-28 23:58:54.610 18022-18022 IGReaderService         com.example.friendsreels             I          LinearLayout [----] id=com.android.systemui:id/battery desc="Bateria Elemento da barra de estado Bateria restante 42 porcento" b=[910,43][1016,96]
+2026-08-28 23:58:54.630 18022-18022 IGReaderService         com.example.friendsreels             I            TextView [----] id=com.android.systemui:id/battery_percentage_view text="42%" b=[946,43][1016,96]
+2026-08-28 23:58:54.633 18022-18022 IGReaderService         com.example.friendsreels             I  ----- WINDOW[3] id=1569 type=APPLICATION pkg=com.instagram.android active=true focused=true bounds=[0,0][1080,2378] -----
+2026-08-28 23:58:54.633 18022-18022 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=- b=[0,0][1080,2378]
+2026-08-28 23:58:54.635 18022-18022 IGReaderService         com.example.friendsreels             I      ViewGroup [----] id=com.instagram.android:id/layout_container_parent b=[0,0][1080,2378]
+2026-08-28 23:58:54.639 18022-18022 IGReaderService         com.example.friendsreels             I        FrameLayout [----] id=com.instagram.android:id/bottom_sheet_container b=[0,120][1080,2262]
+2026-08-28 23:58:54.641 18022-18022 IGReaderService         com.example.friendsreels             I          FrameLayout [----] id=- b=[32,1402][540,1628]
+2026-08-28 23:58:54.641 18022-18022 IGReaderService         com.example.friendsreels             I            LinearLayout [C---] id=- desc="Guardar" b=[272,1402][524,1628]
+2026-08-28 23:58:54.641 18022-18022 IGReaderService         com.example.friendsreels             I              TextView [----] id=com.instagram.android:id/label text="Guardar" b=[272,1586][524,1628]
+2026-08-28 23:58:54.641 18022-18022 IGReaderService         com.example.friendsreels             I          FrameLayout [----] id=- b=[540,1402][1048,1628]
+2026-08-28 23:58:54.641 18022-18022 IGReaderService         com.example.friendsreels             I            LinearLayout [C---] id=- desc="Reproduzir" b=[556,1402][808,1628]
+2026-08-28 23:58:54.641 18022-18022 IGReaderService         com.example.friendsreels             I              TextView [----] id=com.instagram.android:id/label text="Reproduzir" b=[556,1586][808,1628]
+2026-08-28 23:58:54.641 18022-18022 IGReaderService         com.example.friendsreels             I          RecyclerView [----] id=com.instagram.android:id/recycler_view b=[32,1681][1048,2230]
+2026-08-28 23:58:54.641 18022-18022 IGReaderService         com.example.friendsreels             I            ViewGroup [C---] id=- b=[32,1682][1048,1819]
+2026-08-28 23:58:54.641 18022-18022 IGReaderService         com.example.friendsreels             I              Button [C---] id=com.instagram.android:id/control_option_text text="Porque é que estás a ver esta publicação" b=[201,1727][923,1775]
+2026-08-28 23:58:54.641 18022-18022 IGReaderService         com.example.friendsreels             I            ViewGroup [C---] id=- b=[32,1819][1048,1956]
+2026-08-28 23:58:54.644 18022-18022 IGReaderService         com.example.friendsreels             I              Button [C---] id=com.instagram.android:id/control_option_text text="Com interesse" b=[201,1864][455,1912]
+2026-08-28 23:58:54.644 18022-18022 IGReaderService         com.example.friendsreels             I            ViewGroup [C---] id=- b=[32,1956][1048,2093]
+2026-08-28 23:58:54.646 18022-18022 IGReaderService         com.example.friendsreels             I              Button [C---] id=com.instagram.android:id/control_option_text text="Não tenho interesse" b=[201,2001][559,2049]
+2026-08-28 23:58:54.646 18022-18022 IGReaderService         com.example.friendsreels             I            ViewGroup [C---] id=- b=[32,2093][1048,2230]
+2026-08-28 23:58:54.647 18022-18022 IGReaderService         com.example.friendsreels             I              Button [C---] id=com.instagram.android:id/control_option_text text="Denunciar" b=[201,2138][380,2186]
+2026-08-28 23:58:54.648 18022-18022 IGReaderService         com.example.friendsreels             I  ===== DUMP_ALL END reason=after-viewer-more =====
