@@ -1355,20 +1355,169 @@ class InstagramReaderService : AccessibilityService() {
     // drain that queue in FIFO order, driving the same primitives that
     // power the notification buttons (long-press → quick-reaction / reply).
     //
-    // Scope of this iteration (documented decision):
-    //   - We DO NOT navigate between conversations. Each pending row is
-    //     compared against `lastKnownConversationTitle` — the header title
-    //     of whichever thread IG is currently on. Rows for other threads
-    //     are marked FAILED with a "wrong thread — open <title>" hint so
-    //     the user can switch conversations and hit "Aplicar" again.
-    //     Full thread navigation is deferred to PoC-9 (needs a stable
-    //     thread_id which we don't have yet — see §6.2 of PROJECT_PROGRESS).
-    //   - Order within a batch is preserved (createdAt ASC). Actions of
-    //     the same kind on different Reels of the same thread still hit
-    //     "the first RECEIVED Reel visible" — this is a known simplification
-    //     shared with PoC-5/6 and will be replaced when the batching UI
-    //     targets specific bubbles.
+    // Scope of this iteration (PoC-9, session 33):
+    //   - Cross-conversation navigation is now handled internally by
+    //     [navigateToThreadAsync]. Before each step the executor checks
+    //     the live `header_title`; if it does not match `step.reel.
+    //     threadTitle`, IG is driven back to the inbox and the matching
+    //     row is clicked (matched by `contentDescription` prefix, which
+    //     the Compose inbox exposes even without resource-ids — see
+    //     [IgSelectors.Inbox]).
+    //   - Steps are grouped by threadTitle before execution so a single
+    //     batch visits each conversation at most once (preserving the
+    //     original createdAt ordering both between and within groups).
+    //   - Actions of the same kind on different Reels of the same thread
+    //     still hit "the first RECEIVED Reel visible" — this is a known
+    //     simplification shared with PoC-5/6 and will be replaced by
+    //     targeting per specific bubble in PoC-8 iter 4.
     // ---------------------------------------------------------------------
+
+    // -------------------------------------------------------------------
+    // PoC-9 — thread navigation helpers
+    // -------------------------------------------------------------------
+
+    /**
+     * Live-read of the current thread's header title. Unlike
+     * [lastKnownConversationTitle] (which is only refreshed by
+     * `onAccessibilityEvent` when a NEW title is seen, and therefore
+     * stays STALE after a BACK-to-inbox), this walks the current tree
+     * every call. Returns null when we're not inside a thread (e.g.
+     * we're on the inbox, on Home, or IG is not foreground).
+     */
+    private fun currentHeaderTitle(): String? {
+        val root = rootInActiveWindow ?: return null
+        if (root.packageName?.toString() != IgSelectors.IG_PACKAGE) return null
+        return root
+            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.HEADER_TITLE))
+            ?.firstOrNull()
+            ?.text
+            ?.toString()
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+    }
+
+    /**
+     * True when the Direct inbox is (probably) visible: the localized
+     * "Messages" title from [IgSelectors.Inbox.TITLE_MESSAGES] is present
+     * somewhere in the current IG windows. Cheap heuristic; may false-
+     * positive on transitions but that only means an extra retry.
+     */
+    private fun isInboxVisible(): Boolean {
+        val root = rootInActiveWindow ?: return false
+        if (root.packageName?.toString() != IgSelectors.IG_PACKAGE) return false
+        val labels = IgSelectors.Inbox.TITLE_MESSAGES
+        return findFirstNodeAcrossWindows { node ->
+            val t = node.text?.toString()?.trim()
+            !t.isNullOrEmpty() && labels.any { it.equals(t, ignoreCase = true) }
+        } != null
+    }
+
+    /** Click the Direct tab in the bottom navigation. Returns true on dispatch. */
+    private fun clickDirectTab(): Boolean {
+        val targetId = IgSelectors.id(IgSelectors.BottomNav.DIRECT_TAB)
+        val node = findFirstNodeAcrossWindows { n ->
+            n.viewIdResourceName == targetId
+        } ?: return false
+        // Bottom tabs may not be clickable directly — walk up to the nearest clickable ancestor.
+        var candidate: AccessibilityNodeInfo? = node
+        var hops = 0
+        while (candidate != null && !candidate.isClickable && hops < 4) {
+            candidate = candidate.parent
+            hops++
+        }
+        val toClick = candidate ?: node
+        return toClick.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    }
+
+    /**
+     * Locate the inbox row whose `contentDescription` starts with
+     * `"<threadTitle>, "` (the format observed in PoC-2, e.g. `"Pedro
+     * Sardoeira, ...preview... ·, 3 h"`), then click its nearest
+     * clickable ancestor. Returns true on dispatch. Case-sensitive
+     * matching — thread titles are captured verbatim into the DB from the
+     * header, so an exact match is expected.
+     */
+    private fun clickInboxRow(threadTitle: String): Boolean {
+        val prefix = "$threadTitle, "
+        val row = findFirstNodeAcrossWindows { n ->
+            val d = n.contentDescription?.toString()
+            d != null && d.startsWith(prefix)
+        } ?: run {
+            Log.w(TAG, "NAV: no inbox row starts with '$prefix'.")
+            return false
+        }
+        var candidate: AccessibilityNodeInfo? = row
+        var hops = 0
+        while (candidate != null && !candidate.isClickable && hops < 6) {
+            candidate = candidate.parent
+            hops++
+        }
+        val toClick = candidate ?: row
+        val ok = toClick.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        Log.i(TAG, "NAV: click inbox row '$threadTitle' returned $ok")
+        return ok
+    }
+
+    /**
+     * Iteratively drive IG to the thread whose `header_title` equals
+     * [target]. Each attempt inspects the current state and dispatches
+     * ONE action (BACK, direct_tab click, or inbox row click), then
+     * re-polls after [NAV_STEP_SETTLE_MS]. Stops when the header matches
+     * (success) or [attemptsLeft] reaches 0 (failure).
+     *
+     * State machine per attempt:
+     *   - Inside a thread with a mismatched header → BACK to reach inbox.
+     *   - Not in a thread and inbox not visible → click direct_tab.
+     *   - Inbox visible → search for the row and click it.
+     */
+    private fun navigateToThreadAsync(
+        target: String,
+        attemptsLeft: Int,
+        onDone: (Boolean) -> Unit,
+    ) {
+        if (attemptsLeft <= 0) {
+            Log.w(TAG, "NAV: gave up navigating to '$target' after ${NAV_MAX_ATTEMPTS} attempts.")
+            onDone(false)
+            return
+        }
+        val header = currentHeaderTitle()
+        if (header == target) {
+            Log.i(TAG, "NAV: arrived at '$target' (attemptsLeft=$attemptsLeft).")
+            onDone(true)
+            return
+        }
+
+        val stage: String
+        val dispatched: Boolean
+        when {
+            !header.isNullOrEmpty() -> {
+                stage = "back-out (current='$header')"
+                dispatched = performGlobalAction(GLOBAL_ACTION_BACK)
+            }
+            isInboxVisible() -> {
+                stage = "inbox-click"
+                dispatched = clickInboxRow(target)
+                if (!dispatched) {
+                    Log.w(TAG, "NAV: inbox row '$target' unclickable, giving up.")
+                    onDone(false)
+                    return
+                }
+            }
+            else -> {
+                stage = "open-direct-tab"
+                dispatched = clickDirectTab()
+                if (!dispatched) {
+                    Log.w(TAG, "NAV: direct_tab not found, giving up.")
+                    onDone(false)
+                    return
+                }
+            }
+        }
+        Log.i(TAG, "NAV: attempt ${NAV_MAX_ATTEMPTS - attemptsLeft + 1} stage=$stage dispatched=$dispatched target='$target'")
+        mainHandler.postDelayed({
+            navigateToThreadAsync(target, attemptsLeft - 1, onDone)
+        }, NAV_STEP_SETTLE_MS)
+    }
 
     private var batchInProgress = false
 
@@ -1383,7 +1532,7 @@ class InstagramReaderService : AccessibilityService() {
             Log.i(TAG, "APPLY_PENDING: batch already in progress, ignoring.")
             return
         }
-        val currentThread = lastKnownConversationTitle?.takeIf { it.isNotBlank() }
+        val currentThread = currentHeaderTitle()
         Log.i(TAG, "APPLY_PENDING: starting drain (currentThread='$currentThread').")
         batchInProgress = true
 
@@ -1398,7 +1547,7 @@ class InstagramReaderService : AccessibilityService() {
             // Pre-resolve every referenced Reel so we can filter on the
             // main thread without further DB round-trips.
             val reelDao = db.reelDao()
-            val steps = actions.mapNotNull { action ->
+            val rawSteps = actions.mapNotNull { action ->
                 val reel = reelDao.byId(action.reelId)
                 if (reel == null) {
                     // Reel row was deleted between enqueue and drain —
@@ -1415,10 +1564,22 @@ class InstagramReaderService : AccessibilityService() {
                     BatchStep(action = action, reel = reel)
                 }
             }
-            Log.i(TAG, "APPLY_PENDING: resolved ${steps.size} step(s) to run.")
+
+            // Group by threadTitle so a single batch visits each conversation
+            // at most once. Groups are ordered by their earliest `createdAt`
+            // (preserves user intent — a batch that started with "Pedro"
+            // still hits Pedro's thread first) and within a group the
+            // original `createdAt ASC` order is kept.
+            val steps = rawSteps
+                .groupBy { it.reel.threadTitle }
+                .toList()
+                .sortedBy { (_, list) -> list.minOfOrNull { it.action.createdAt } ?: 0L }
+                .flatMap { (_, list) -> list.sortedBy { it.action.createdAt } }
+            val threadCount = steps.map { it.reel.threadTitle }.distinct().size
+            Log.i(TAG, "APPLY_PENDING: resolved ${steps.size} step(s) across $threadCount thread(s) to run.")
 
             mainHandler.postDelayed({
-                runBatchStep(steps, index = 0, currentThread = currentThread)
+                runBatchStep(steps, index = 0)
             }, BATCH_START_DELAY_MS)
         }
     }
@@ -1426,19 +1587,62 @@ class InstagramReaderService : AccessibilityService() {
     private data class BatchStep(val action: PendingActionEntity, val reel: ReelEntity)
 
     /**
-     * Execute [steps][index]. On completion (or failure) schedules the
-     * next step after a per-kind delay (see [BATCH_STEP_INTERVAL_REACTION_MS]
-     * / [BATCH_STEP_INTERVAL_REPLY_MS] — replies are ~4.5s because IG's
-     * composer+send flow is slower than a quick-reaction click).
-     * Bookkeeping in the DB happens on the IO scope for each step.
+     * Entry point for step [index]. Ensures IG is on the correct
+     * conversation via [navigateToThreadAsync] before running the
+     * primitive; skips the row (FAILED) if navigation gives up. Once the
+     * step is dispatched, schedules the next after a per-kind delay (see
+     * [BATCH_STEP_INTERVAL_REACTION_MS] / [BATCH_STEP_INTERVAL_REPLY_MS] —
+     * replies are ~4.5s because IG's composer+send flow is slower than a
+     * quick-reaction click). Bookkeeping in the DB happens on the IO
+     * scope for each step.
      */
-    private fun runBatchStep(steps: List<BatchStep>, index: Int, currentThread: String?) {
+    private fun runBatchStep(steps: List<BatchStep>, index: Int) {
         if (index >= steps.size) {
             Log.i(TAG, "APPLY_PENDING: drain finished (${steps.size} step(s) processed).")
             batchInProgress = false
             postControlNotification()
             return
         }
+        val step = steps[index]
+        val target = step.reel.threadTitle
+        val currentHeader = currentHeaderTitle()
+
+        if (currentHeader == target) {
+            executeBatchStep(steps, index)
+            return
+        }
+
+        // Wrong thread (or unknown state e.g. inbox / home) — drive IG to
+        // the target conversation before proceeding.
+        Log.i(
+            TAG,
+            "APPLY_PENDING: step ${index + 1}/${steps.size} needs navigation — " +
+                "current='$currentHeader' target='$target'"
+        )
+        navigateToThreadAsync(target, attemptsLeft = NAV_MAX_ATTEMPTS) { success ->
+            if (success) {
+                // Extra settle so the RecyclerView renders the message
+                // bubbles before we long-press the first one.
+                mainHandler.postDelayed({
+                    executeBatchStep(steps, index)
+                }, NAV_POST_ARRIVAL_SETTLE_MS)
+            } else {
+                val err = "Não consegui navegar para '$target'"
+                finishStepAsync(step.action.id, PendingActionEntity.STATUS_FAILED, err)
+                Log.w(TAG, "APPLY_PENDING: step ${index + 1}/${steps.size} skipped — $err")
+                mainHandler.postDelayed({
+                    runBatchStep(steps, index + 1)
+                }, BATCH_STEP_FAST_SKIP_MS)
+            }
+        }
+    }
+
+    /**
+     * Dispatch the primitive for [steps][index]. Assumes IG is already
+     * showing the correct thread (either because it was already open, or
+     * because [navigateToThreadAsync] just brought us here).
+     */
+    private fun executeBatchStep(steps: List<BatchStep>, index: Int) {
         val step = steps[index]
         val stepLabel = "step ${index + 1}/${steps.size}"
         updateProgressNotification(index + 1, steps.size)
@@ -1447,20 +1651,6 @@ class InstagramReaderService : AccessibilityService() {
             "APPLY_PENDING: $stepLabel actionId=${step.action.id} kind=${step.action.kind} " +
                 "reelId=${step.reel.id} thread='${step.reel.threadTitle}'"
         )
-
-        // Skip rows targeting a different conversation than the one IG is
-        // currently displaying. Marked FAILED so the user gets feedback,
-        // but not before finishing every step that DOES match — we don't
-        // want to leave PENDING rows behind when the user reopens the app.
-        if (currentThread == null || currentThread != step.reel.threadTitle) {
-            val err = "Conversa activa é '${currentThread ?: "?"}' mas a acção pertence a '${step.reel.threadTitle}'"
-            finishStepAsync(step.action.id, PendingActionEntity.STATUS_FAILED, err)
-            Log.w(TAG, "APPLY_PENDING: $stepLabel skipped — $err")
-            mainHandler.postDelayed({
-                runBatchStep(steps, index + 1, currentThread)
-            }, BATCH_STEP_FAST_SKIP_MS)
-            return
-        }
 
         // Mark RUNNING before we dispatch the gestures so a peek at the
         // feed during batching shows the row as in-flight.
@@ -1477,7 +1667,7 @@ class InstagramReaderService : AccessibilityService() {
                 finishStepAsync(step.action.id, PendingActionEntity.STATUS_FAILED, err)
                 Log.w(TAG, "APPLY_PENDING: $stepLabel unknown kind, marked FAILED.")
                 mainHandler.postDelayed({
-                    runBatchStep(steps, index + 1, currentThread)
+                    runBatchStep(steps, index + 1)
                 }, BATCH_STEP_FAST_SKIP_MS)
                 return
             }
@@ -1496,7 +1686,7 @@ class InstagramReaderService : AccessibilityService() {
             else -> BATCH_STEP_INTERVAL_REACTION_MS
         }
         mainHandler.postDelayed({
-            runBatchStep(steps, index + 1, currentThread)
+            runBatchStep(steps, index + 1)
         }, nextDelay)
     }
 
@@ -1643,7 +1833,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s31"
+        private const val BUILD_TAG = "build=s33"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -1682,6 +1872,34 @@ class InstagramReaderService : AccessibilityService() {
         private const val BATCH_START_DELAY_MS = 800L
         /** Fast-skip interval used when we're just marking rows FAILED without touching IG. */
         private const val BATCH_STEP_FAST_SKIP_MS = 400L
+
+        // -----------------------------------------------------------------
+        // PoC-9 (session 33) — thread navigation timing
+        // -----------------------------------------------------------------
+        /**
+         * Delay between successive navigation actions (BACK, direct_tab
+         * click, inbox row click). Needs to cover IG's own slide-in/out
+         * animation between screens. 1000ms is generous but safe — the
+         * whole batch pays this only when it needs to switch conversations.
+         */
+        private const val NAV_STEP_SETTLE_MS = 1000L
+        /**
+         * Max attempts before [navigateToThreadAsync] gives up. Each
+         * attempt dispatches one action + settles, so 10 * 1000ms = ~10s
+         * of navigation time budget per step. Typical path from arbitrary
+         * screen → thread is 3 attempts (Home→direct_tab, inbox→row,
+         * verify).
+         */
+        private const val NAV_MAX_ATTEMPTS = 10
+        /**
+         * Extra time granted after we land on the correct thread before
+         * running the primitive. IG's RecyclerView renders the message
+         * bubbles progressively; long-pressing the first Reel too soon
+         * has a chance of hitting an empty stub or a header. 1500ms
+         * mirrors [POST_LONG_PRESS_SETTLE_MS] because the failure modes
+         * are similar (a11y sees the tree before it's fully laid out).
+         */
+        private const val NAV_POST_ARRIVAL_SETTLE_MS = 1500L
 
         // -----------------------------------------------------------------
         // PoC-8 iteration 3 part B — history discovery (auto scroll)

@@ -7,21 +7,21 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC). **PoC-8 iteração 3 concluída** — batching de acções (parte A), scroll auto de descoberta histórica (parte B) e player WebView com embed + autoplay (parte C) validados em device.
-**Última atualização:** 2025-08-29 (sessão 32)
+**Fase atual:** Fase 1 (PoC). **PoC-9 iteração 1 implementada** (session 33) — batching passa a navegar entre conversas automaticamente antes de correr cada step. Aguarda validação em device.
+**Última atualização:** 2025-08-29 (sessão 33)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s31`.
+**HEAD actual:** `build=s33`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Verifica no arranque do service que o Logcat mostra `Action receiver registered (build=s31 ...)`. Se aparecer outra tag é APK antigo — reinstala.
+1. **Pull** do repo. Verifica no arranque do service que o Logcat mostra `Action receiver registered (build=s33 ...)`. Se aparecer outra tag é APK antigo — reinstala.
 2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" — a próxima é **PoC-9** (navegar entre conversas para o executor de batching poder correr rows de múltiplas threads num único pass).
-    - Último log de sessão em §7 (s31 fechou a parte C; s32 fez limpeza de docs).
+    - §6 "Próximos passos concretos" — se PoC-9 validar bem, próxima é **PoC-8 iter 4** (targeting por Reel específico).
+    - Último log de sessão em §7 (s33 introduziu `navigateToThreadAsync` + batching cross-thread; s32 fez limpeza de docs; s31 fechou parte C).
 3. **Ficheiros-chave (pontos de entrada para cada área):**
-    - `service/InstagramReaderService.kt` — motor a11y, todos os broadcasts, executor de batching (`applyPendingActions`), history-scroll (`discoverReelsHistory`).
-    - `instagram/IgSelectors.kt` — IDs/labels do IG (conversa, viewer, context menu, share sheet).
+    - `service/InstagramReaderService.kt` — motor a11y, todos os broadcasts, executor de batching (`applyPendingActions` → `runBatchStep` → `executeBatchStep`), navegação entre conversas (`navigateToThreadAsync`, `clickInboxRow`, `clickDirectTab`, `currentHeaderTitle`, `isInboxVisible`), history-scroll (`discoverReelsHistory`).
+    - `instagram/IgSelectors.kt` — IDs/labels do IG (inbox rows por prefix de `contentDescription`, conversa, viewer, context menu, share sheet).
     - `data/` — Room v3 (`ReelEntity`, `ReelDao`, `PendingActionEntity`, `PendingActionDao`, `AppDatabase`).
     - `ui/feed/` — Compose feed com cards, batching UI e bottom bar.
     - `ui/player/ReelPlayerActivity.kt` — WebView com `FriendsReelsWebViewClient` (intercepta `instagram://`, injecta JS para autoplay) e `toEmbedUrl()` para reescrever URLs em `.../reel/<code>/embed`.
@@ -32,13 +32,13 @@
     - macOS deste ambiente não tem Android SDK, só validar sintaxe. Se precisares mesmo de correr Gradle: `sdk use java 21.0.7-tem`.
     - Cada refactor visível deve bumpar `BUILD_TAG` (companion do `InstagramReaderService`) — dá ao utilizador confirmação no Logcat.
 5. **UX actual em device:**
-    - **Notificação persistente:** 3 botões — **🔍 Descobrir** (Reels visíveis), **🔗 Copiar URL** (enriquecer 1.º Reel com URL + dmSender), **▶ Aplicar fila** (correr batching). Tocar no corpo abre o feed.
+    - **Notificação persistente:** 3 botões — **🔍 Descobrir** (Reels visíveis), **🔗 Copiar URL** (enriquecer 1.º Reel com URL + dmSender), **▶ Aplicar fila** (correr batching — agora navega entre conversas). Tocar no corpo abre o feed.
     - **Ecrã da app:** primitivos directos (❤, 😂, 👀, 🔗, 🔍) + toggle "Ignorar Reels enviados" + botão **"Descobrir histórico (scroll auto)"** + **"Ver feed"**.
     - **Feed:** cards com badges, **"▶ Ver Reel aqui"** (player embed com autoplay + som), **"↗ Abrir no Instagram nativo"** (fallback), 3 botões de enfileirar (**"Enfileirar ❤/😂/👀"**, dedup por kind), **"✕ Cancelar acções pendentes deste Reel"** quando há PENDING, bottom bar **"Aplicar N acções no Instagram"** + **"Limpar histórico de ações concluídas"**.
-6. **Limitações conhecidas (relevantes para PoC-9 / iter 4):**
-    - Executor de batching só corre rows cuja `threadTitle` bate certo com a conversa activa; outras ficam `FAILED`. Precisa de navegação por `thread_id` (PoC-9).
-    - Todas as reacções/replies batem no **1.º Reel recebido visível** — se enfileirares para 2 Reels diferentes, ambas atacam o mesmo bubble. Precisa de targeting por `reelAuthor`/`reelUrl` + scroll até o Reel visível (iter 4).
+6. **Limitações conhecidas (relevantes para PoC-8 iter 4):**
+    - Todas as reacções/replies batem no **1.º Reel recebido visível** — se enfileirares para 2 Reels diferentes na mesma conversa, ambas atacam o mesmo bubble. Precisa de targeting por `reelAuthor`/`reelUrl` + scroll até o Reel visível (iter 4).
     - Cosmético: ordem dos badges no topo do card é fixa (❤ → 😂 → 👀), não segue `createdAt`. TODO.
+    - Navegação por `header_title` é frágil se dois threads tiverem o mesmo título exacto (não deve acontecer em prática — nome + timestamp costumam ser únicos, mas em grupos com nome duplicado o batching pode acabar na thread errada). Deep-link por `thread_id` fica como upgrade futuro.
 
 ---
 
@@ -196,7 +196,7 @@ Já entregue no primeiro commit:
 
 ## 6. Próximos passos concretos
 
-**Estado dos PoCs após sessão 32:**
+**Estado dos PoCs após sessão 33:**
 
 - ✅ PoC-1 — skeleton (compila, corre, a11y service ativa)
 - ✅ PoC-2 — mapeamento inicial (dumps em `docs/screen-dumps/`)
@@ -210,26 +210,39 @@ Já entregue no primeiro commit:
 - ✅ PoC-8 iter 3 parte A — batching: `pending_actions` + enfileirar/cancelar por card + executor `ACTION_APPLY_PENDING` com delays por-kind + notificação de 3 botões (🔍 🔗 ▶) + `contentIntent` para o feed
 - ✅ PoC-8 iter 3 parte B — `ACTION_DISCOVER_REELS_HISTORY` com `ACTION_SCROLL_BACKWARD` (fallback: swipe DOWN via gesture); stop em 3 scrolls empty ou cap de 30
 - ✅ PoC-8 iter 3 parte C — player embed (`.../reel/<code>/embed`) com JS injection para autoplay (unmuted → fallback muted); WebViewClient intercepta `instagram://` e `intent://` redirects; overlay de erro com fallback nativo
+- 🚧 PoC-9 — navegação entre conversas via `header_title` (fallback #2 do plano da s32) implementada em código; batching agrupa steps por thread e chama `navigateToThreadAsync` antes de cada grupo. Aguarda validação em device.
 
-### 6.1 Próxima sessão — PoC-9 (navegação entre conversas)
+### 6.1 Próxima sessão — validar PoC-9 + preparar PoC-8 iter 4
 
-O executor de batching hoje só corre rows cuja `threadTitle` bate certo com a conversa activa em IG; as outras ficam `FAILED` com hint "Conversa activa é 'X' mas a acção pertence a 'Y'". Para o batching valer a pena de verdade, precisamos de abrir a thread correcta antes de correr cada grupo de rows.
+**Passo 1 (obrigatório):** validar PoC-9 em device.
 
-**Abordagens a investigar (por ordem de preferência):**
+- **Teste N1 — batching numa única conversa (sanity check).** Enfileirar 2-3 acções para Reels de uma conversa X. Abrir IG e ficar noutra conversa Y (ou na inbox). Tocar em **"▶ Aplicar fila"** na notificação. Esperado no logcat:
+  - `APPLY_PENDING: starting drain (currentThread='Y' | null)`
+  - `APPLY_PENDING: resolved N step(s) across 1 thread(s)`
+  - `APPLY_PENDING: step 1/N needs navigation — current='Y' target='X'`
+  - Um ou dois ciclos de `NAV: attempt K stage=back-out|open-direct-tab|inbox-click ...`
+  - `NAV: arrived at 'X' (attemptsLeft=…)` — sucesso
+  - Sequência normal de reactions/replies em X.
+- **Teste N2 — batching cross-thread.** Enfileirar 1 acção para thread X e 2 para thread Y. Tocar em Aplicar. Esperado:
+  - `APPLY_PENDING: resolved 3 step(s) across 2 thread(s)`
+  - Executor arranca em X (ou Y, dependendo de qual grupo tem `createdAt` mais antigo), corre lá, depois navega para o outro grupo (`step needs navigation`), corre lá.
+- **Teste N3 — thread inexistente / nome mudou.** Se o utilizador conseguir provocar (renomear grupo, arquivar conversa), verificar que a acção é marcada FAILED com `Não consegui navegar para '<title>'` e o batch continua com os steps restantes.
 
-1. **Deep-link `instagram://direct/t/<thread_id>`.** Já é conhecido que o IG aceita este scheme. O problema é que ainda não temos um `thread_id` estável a persistir. Investigação necessária: dump da inbox (Direct) e da conversa para procurar um `thread_id` exposto nalgum atributo do XMA container, no header, ou no URL da activity que a a11y consegue ler.
-2. **Navegação por `header_title`.** Fallback frágil (o utilizador pode renomear grupos, dois utilizadores com o mesmo nome, etc.) mas serve para PoC. Fluxo: abrir inbox → enumerar linhas → matching por `contentDescription` que começa com o `threadTitle` → tap.
-3. **Schema:** adicionar `threadId: String?` ao `ReelEntity` (nullable, backfill à medida que descobrimos). DB v3 → v4 com destructive migration.
+**Se N1/N2 falharem** (o step fica preso em navegação, ou `NAV: no inbox row starts with '<title>, '`):
+- Provavelmente o formato do `contentDescription` das rows da inbox mudou ou tem espaços/caracteres subtis diferentes do `threadTitle` que guardámos. Pedir ao utilizador um dump da inbox (`am broadcast` — a implementar como `ACTION_DUMP_ACTIVE_WINDOW` opcional, ou usar `dumpsys accessibility`) para reajustar o predicado.
+- Alternativa: relaxar o matching para "contentDescription contém `threadTitle` como prefixo ignorando pontuação".
 
-**Depois do PoC-9 fica:**
+**Passo 2 (se PoC-9 validar):** avançar para **PoC-8 iter 4 — targeting por Reel específico**.
+- Actualmente todas as reacções/replies caem no 1.º Reel recebido visível. Precisa de scroll dentro da conversa até encontrar o bubble certo (matching por `reelAuthor` do XMA container ou por prefix do `reelUrl`).
+- Refactor de `longPressFirstReel` para receber um `reelSelector: (DmReelEntry) -> Boolean` em vez de assumir "first RECEIVED".
+- Adicionar scroll até 15 tentativas dentro da conversa para trazer o bubble à vista.
 
-- **PoC-8 iter 4 — targeting por Reel específico.** Reacções/replies do batch caem sempre no 1.º Reel recebido visível. Precisa de identificar o bubble certo por `reelAuthor` ou `reelUrl` guardado na fila + scroll dentro da conversa até o Reel aparecer.
+### 6.2 Além do PoC-9 / iter 4
+
 - **UX do badge order** (quirk s28): ordenar por `createdAt` em vez de posição fixa alfabética.
-
-### 6.2 Além do PoC-9
-
 - **Toast do IG "Ligação copiada":** substituir por absorção silenciosa se possível, ou aceitar como cost of doing business.
-- **Tuning de latência:** reduzir `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS` progressivamente agora que o batching mascara parte da lentidão.
+- **Tuning de latência:** reduzir `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS`, `NAV_STEP_SETTLE_MS` progressivamente agora que o batching mascara parte da lentidão.
+- **Deep-link `instagram://direct/t/<thread_id>` como substituto do fallback por título** — precisa de investigar onde o IG expõe o `thread_id` (dump da inbox + análise). Só compensa se a navegação por título mostrar cases de erro em produção.
 
 ---
 
@@ -951,3 +964,36 @@ O executor de batching hoje só corre rows cuja `threadTitle` bate certo com a c
   - `README.md` — actualizado no fim desta sessão (sem `build=sNN` no corpo, só pointer para o PROJECT_PROGRESS).
 - **`BUILD_TAG` mantido em `build=s31`** — nada mudou em código.
 - **Próximo passo (na próxima sessão):** PoC-9 (deep-link `instagram://direct/t/<thread_id>` ou navegação por `header_title` a partir da inbox). Ver §6.1 para plano.
+
+### 2026-08-29 — Sessão 33 (Ricardo + Copilot CLI) — PoC-9 (navegação entre conversas via `header_title`)
+
+- **Contexto:** o executor de batching da s26/s27 marcava como FAILED qualquer step cuja `threadTitle` não batesse com a conversa activa (`"Conversa activa é 'X' mas a acção pertence a 'Y'"`), tornando o batching útil só dentro de UMA thread. §6.1 da s32 propunha duas abordagens: deep-link `instagram://direct/t/<thread_id>` (precisa investigar onde IG expõe o id) ou navegação por título via inbox (fallback pragmático).
+- **Decisão nesta sessão:** implementar já a abordagem #2 (por título). Zero investigação em device necessária — o formato do `contentDescription` das rows da inbox já está mapeado em `IgSelectors.Inbox` desde a s3 (`"<name>, [não lidos, ]<preview> ·, <time>"`). Se a validação for tranquila, o deep-link fica como upgrade futuro.
+- **Alterações em `InstagramReaderService.kt`:**
+  - Novo bloco "PoC-9 — thread navigation helpers" antes do bloco de batching:
+    - `currentHeaderTitle()` — live read do `header_title` na árvore actual. Substitui usos de `lastKnownConversationTitle` (que ficava stale após BACK) dentro do batching.
+    - `isInboxVisible()` — heurística por presença do label localizado `IgSelectors.Inbox.TITLE_MESSAGES` em qualquer janela IG.
+    - `clickDirectTab()` — click no botão `direct_tab` da bottom nav, sobe a árvore até um ancestor clickable.
+    - `clickInboxRow(threadTitle)` — procura o nó cujo `contentDescription` começa com `"$threadTitle, "` (nota: o `, ` importa — é o separador do formato standard da inbox) e clica no ancestor clickable mais próximo.
+    - `navigateToThreadAsync(target, attemptsLeft, onDone)` — state machine assíncrona. Cada attempt inspecciona o estado actual e dispara UMA acção (BACK, click direct_tab, click row), depois postDelayed(`NAV_STEP_SETTLE_MS`, retry). Termina em sucesso quando `currentHeaderTitle() == target`, ou em falha quando não há inbox row match / não há direct_tab / attemptsLeft esgota.
+  - `applyPendingActions()` deixa de comparar `currentThread` uma vez no arranque. Reordena os `steps` agrupados por `threadTitle` (ordem entre grupos: earliest `createdAt`; ordem dentro do grupo: `createdAt ASC`) para minimizar navegações. Loga `resolved N step(s) across M thread(s) to run`.
+  - `runBatchStep(steps, index)` — signatura simplificada (deixou de aceitar `currentThread`). Passou a ser o "gate": se `currentHeaderTitle() == target` corre directamente; senão chama `navigateToThreadAsync` e no callback de sucesso agenda `executeBatchStep` após `NAV_POST_ARRIVAL_SETTLE_MS`. Falha → step marcado FAILED com `"Não consegui navegar para 'X'"`, continua com o próximo step.
+  - `executeBatchStep(steps, index)` novo — o antigo corpo de `runBatchStep` (dispatch da primitiva + agenda o próximo). Assume que a thread correcta já está aberta.
+- **Novas constantes de timing** (companion object):
+  - `NAV_STEP_SETTLE_MS = 1000L` — delay entre attempts de navegação. Cobre a animação BACK/slide-in do IG. Pago só quando é preciso trocar de conversa.
+  - `NAV_MAX_ATTEMPTS = 10` — orçamento total de ~10s por step de navegação. Path típico é 3 attempts (arbitrário → direct_tab → inbox → row → confirm).
+  - `NAV_POST_ARRIVAL_SETTLE_MS = 1500L` — grace period após chegada para a RecyclerView renderizar os bubbles antes do long-press. Espelha o `POST_LONG_PRESS_SETTLE_MS`.
+- **`BUILD_TAG` bumped para `build=s33`.** Sem alteração de schema Room. Sem novos broadcasts.
+- **Validação em ambiente do agente:** kotlinc parse-check (2.0.21 + JDK 21) sobre o `InstagramReaderService.kt` — nenhum erro de sintaxe/parse (só erros semânticos esperados por falta do Android classpath). Build real precisa do device do utilizador.
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — todos os helpers de navegação novos + refactor do executor + `BUILD_TAG=s33` + constantes de timing.
+  - `PROJECT_PROGRESS.md` — Estado atual, quick start, §6/6.1/6.2 reescritas, este log.
+- **Testes propostos ao utilizador** (após pull + reinstalar):
+  - **N1 — batching numa única conversa (sanity).** Enfileirar 2-3 acções para uma conversa X. Abrir IG e ficar na conversa Y (ou na inbox). Tocar **▶ Aplicar fila**. Esperado: navegação para X (logs `NAV: attempt K stage=…`), depois execução normal. `currentHeaderTitle` no arranque deve reflectir onde o utilizador está.
+  - **N2 — batching cross-thread.** Enfileirar 1 acção para X e 2 para Y. Tocar Aplicar. Esperado: `resolved 3 step(s) across 2 thread(s)`, executor arranca no grupo cuja acção é mais antiga, corre lá, navega para o outro grupo, corre lá.
+  - **N3 — thread com título único mas dentro dum estado estranho** (ex.: IG na Home, ou noutra app). Confirmar que o `runInInstagram` primeiro traz o IG à frente e depois o `navigateToThreadAsync` completa. Uma vez ambos os passos feitos, restante execução normal.
+- **Se algum teste falhar** (o step fica preso em `NAV: no inbox row starts with '<title>, '` ou o batch termina com FAILED):
+  - **Hipótese A — formato do `contentDescription` mudou.** O IG pode ter passado a usar separador diferente ("," sem espaço, ou "•" em vez de "·"). Diagnóstico: pedir dump da inbox e ajustar o predicado (`clickInboxRow`).
+  - **Hipótese B — thread title na BD tem trailing whitespace / diferente casing.** Fix rápido: normalizar ambos os lados (`.trim().lowercase()`).
+  - **Hipótese C — `direct_tab` não é o resource-id certo neste build.** Fix: fallback para procurar a bottom nav pelo `contentDescription` ("Mensagens").
+- **Nada mudou** nas primitivas PoC-3 a PoC-7 (long-press, reactions, reply, copy URL), no history-scroll (parte B), no player (parte C) ou na notificação persistente. Só o executor de batching + helpers de navegação.
