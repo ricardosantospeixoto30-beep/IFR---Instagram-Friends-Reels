@@ -7,20 +7,20 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC). **PoC-9 iteração 1 implementada** (session 33) — batching passa a navegar entre conversas automaticamente antes de correr cada step. Aguarda validação em device.
-**Última atualização:** 2025-08-29 (sessão 33)
+**Fase atual:** Fase 1 (PoC). **PoC-9 iter 1 validada em device** (nav cross-thread funciona). **PoC-8 iter 4 implementada** (session 34) — batching localiza o Reel específico por `reelAuthor` + scroll backwards se estiver fora do ecrã. Aguarda validação em device.
+**Última atualização:** 2025-08-29 (sessão 34)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s33`.
+**HEAD actual:** `build=s34`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Verifica no arranque do service que o Logcat mostra `Action receiver registered (build=s33 ...)`. Se aparecer outra tag é APK antigo — reinstala.
+1. **Pull** do repo. Verifica no arranque do service que o Logcat mostra `Action receiver registered (build=s34 ...)`. Se aparecer outra tag é APK antigo — reinstala.
 2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" — se PoC-9 validar bem, próxima é **PoC-8 iter 4** (targeting por Reel específico).
-    - Último log de sessão em §7 (s33 introduziu `navigateToThreadAsync` + batching cross-thread; s32 fez limpeza de docs; s31 fechou parte C).
+    - §6 "Próximos passos concretos" — se PoC-8 iter 4 validar bem, próxima é UX polish + PoC-10 (URL matching robusto).
+    - Último log de sessão em §7 (s34 adicionou `locateReelWithScroll` para PoC-8 iter 4; s33 introduziu `navigateToThreadAsync` PoC-9 iter 1).
 3. **Ficheiros-chave (pontos de entrada para cada área):**
-    - `service/InstagramReaderService.kt` — motor a11y, todos os broadcasts, executor de batching (`applyPendingActions` → `runBatchStep` → `executeBatchStep`), navegação entre conversas (`navigateToThreadAsync`, `clickInboxRow`, `clickDirectTab`, `currentHeaderTitle`, `isInboxVisible`), history-scroll (`discoverReelsHistory`).
+    - `service/InstagramReaderService.kt` — motor a11y, todos os broadcasts, executor de batching (`applyPendingActions` → `runBatchStep` → `executeBatchStep` → `locateReelWithScroll` → `dispatchLongPressOn`), navegação entre conversas (`navigateToThreadAsync`, `clickInboxRow`, `clickDirectTab`, `currentHeaderTitle`, `isInboxVisible`), history-scroll geral (`discoverReelsHistory`).
     - `instagram/IgSelectors.kt` — IDs/labels do IG (inbox rows por prefix de `contentDescription`, conversa, viewer, context menu, share sheet).
     - `data/` — Room v3 (`ReelEntity`, `ReelDao`, `PendingActionEntity`, `PendingActionDao`, `AppDatabase`).
     - `ui/feed/` — Compose feed com cards, batching UI e bottom bar.
@@ -32,13 +32,14 @@
     - macOS deste ambiente não tem Android SDK, só validar sintaxe. Se precisares mesmo de correr Gradle: `sdk use java 21.0.7-tem`.
     - Cada refactor visível deve bumpar `BUILD_TAG` (companion do `InstagramReaderService`) — dá ao utilizador confirmação no Logcat.
 5. **UX actual em device:**
-    - **Notificação persistente:** 3 botões — **🔍 Descobrir** (Reels visíveis), **🔗 Copiar URL** (enriquecer 1.º Reel com URL + dmSender), **▶ Aplicar fila** (correr batching — agora navega entre conversas). Tocar no corpo abre o feed.
+    - **Notificação persistente:** 3 botões — **🔍 Descobrir** (Reels visíveis), **🔗 Copiar URL** (enriquecer 1.º Reel com URL + dmSender), **▶ Aplicar fila** (correr batching — navega entre conversas E procura o Reel específico dentro da thread). Tocar no corpo abre o feed.
     - **Ecrã da app:** primitivos directos (❤, 😂, 👀, 🔗, 🔍) + toggle "Ignorar Reels enviados" + botão **"Descobrir histórico (scroll auto)"** + **"Ver feed"**.
     - **Feed:** cards com badges, **"▶ Ver Reel aqui"** (player embed com autoplay + som), **"↗ Abrir no Instagram nativo"** (fallback), 3 botões de enfileirar (**"Enfileirar ❤/😂/👀"**, dedup por kind), **"✕ Cancelar acções pendentes deste Reel"** quando há PENDING, bottom bar **"Aplicar N acções no Instagram"** + **"Limpar histórico de ações concluídas"**.
-6. **Limitações conhecidas (relevantes para PoC-8 iter 4):**
-    - Todas as reacções/replies batem no **1.º Reel recebido visível** — se enfileirares para 2 Reels diferentes na mesma conversa, ambas atacam o mesmo bubble. Precisa de targeting por `reelAuthor`/`reelUrl` + scroll até o Reel visível (iter 4).
+6. **Limitações conhecidas:**
+    - Matching por `reelAuthor` — se dois Reels partilhados na mesma conversa forem do mesmo criador IG, o executor bate no bubble MAIS ANTIGO visível/scrollado desse autor. Colisões possíveis mas aceitáveis para MVP. Fix futuro: guardar `reelUrl` durante o discover (obriga a abrir o viewer) e matching estrito por URL.
+    - Cap de 20 scrolls por step. Conversas com centenas de mensagens acima do target podem falhar — mitigação: correr **"Descobrir histórico"** primeiro para trazer o alvo à vista, ou re-abrir a conversa perto do alvo antes de aplicar.
     - Cosmético: ordem dos badges no topo do card é fixa (❤ → 😂 → 👀), não segue `createdAt`. TODO.
-    - Navegação por `header_title` é frágil se dois threads tiverem o mesmo título exacto (não deve acontecer em prática — nome + timestamp costumam ser únicos, mas em grupos com nome duplicado o batching pode acabar na thread errada). Deep-link por `thread_id` fica como upgrade futuro.
+    - Navegação por `header_title` é frágil se dois threads tiverem o mesmo título exacto (não deve acontecer em prática). Deep-link por `thread_id` fica como upgrade futuro.
 
 ---
 
@@ -196,7 +197,7 @@ Já entregue no primeiro commit:
 
 ## 6. Próximos passos concretos
 
-**Estado dos PoCs após sessão 33:**
+**Estado dos PoCs após sessão 34:**
 
 - ✅ PoC-1 — skeleton (compila, corre, a11y service ativa)
 - ✅ PoC-2 — mapeamento inicial (dumps em `docs/screen-dumps/`)
@@ -210,39 +211,45 @@ Já entregue no primeiro commit:
 - ✅ PoC-8 iter 3 parte A — batching: `pending_actions` + enfileirar/cancelar por card + executor `ACTION_APPLY_PENDING` com delays por-kind + notificação de 3 botões (🔍 🔗 ▶) + `contentIntent` para o feed
 - ✅ PoC-8 iter 3 parte B — `ACTION_DISCOVER_REELS_HISTORY` com `ACTION_SCROLL_BACKWARD` (fallback: swipe DOWN via gesture); stop em 3 scrolls empty ou cap de 30
 - ✅ PoC-8 iter 3 parte C — player embed (`.../reel/<code>/embed`) com JS injection para autoplay (unmuted → fallback muted); WebViewClient intercepta `instagram://` e `intent://` redirects; overlay de erro com fallback nativo
-- 🚧 PoC-9 — navegação entre conversas via `header_title` (fallback #2 do plano da s32) implementada em código; batching agrupa steps por thread e chama `navigateToThreadAsync` antes de cada grupo. Aguarda validação em device.
+- ✅ PoC-9 iter 1 — batching navega entre conversas via `header_title` na inbox (validado em device na s34)
+- 🚧 PoC-8 iter 4 — batching localiza o Reel específico por `reelAuthor` + `ACTION_SCROLL_BACKWARD` até 20× se não estiver visível. Aguarda validação em device.
 
-### 6.1 Próxima sessão — validar PoC-9 + preparar PoC-8 iter 4
+### 6.1 Próxima sessão — validar PoC-8 iter 4 + polish
 
-**Passo 1 (obrigatório):** validar PoC-9 em device.
+**Passo 1 (obrigatório):** validar PoC-8 iter 4 em device.
 
-- **Teste N1 — batching numa única conversa (sanity check).** Enfileirar 2-3 acções para Reels de uma conversa X. Abrir IG e ficar noutra conversa Y (ou na inbox). Tocar em **"▶ Aplicar fila"** na notificação. Esperado no logcat:
-  - `APPLY_PENDING: starting drain (currentThread='Y' | null)`
-  - `APPLY_PENDING: resolved N step(s) across 1 thread(s)`
-  - `APPLY_PENDING: step 1/N needs navigation — current='Y' target='X'`
-  - Um ou dois ciclos de `NAV: attempt K stage=back-out|open-direct-tab|inbox-click ...`
-  - `NAV: arrived at 'X' (attemptsLeft=…)` — sucesso
-  - Sequência normal de reactions/replies em X.
-- **Teste N2 — batching cross-thread.** Enfileirar 1 acção para thread X e 2 para thread Y. Tocar em Aplicar. Esperado:
-  - `APPLY_PENDING: resolved 3 step(s) across 2 thread(s)`
-  - Executor arranca em X (ou Y, dependendo de qual grupo tem `createdAt` mais antigo), corre lá, depois navega para o outro grupo (`step needs navigation`), corre lá.
-- **Teste N3 — thread inexistente / nome mudou.** Se o utilizador conseguir provocar (renomear grupo, arquivar conversa), verificar que a acção é marcada FAILED com `Não consegui navegar para '<title>'` e o batch continua com os steps restantes.
+- **Teste L1 — batching com Reel visível no arranque (sanity, mesmo comportamento antigo).** Enfileirar uma reacção no Reel MAIS RECENTE de uma conversa X (o que está mais próximo do fim). Abrir IG na conversa X (o Reel deve estar visível no ecrã). Tocar **▶ Aplicar fila**. Esperado no logcat:
+  - `LOCATE: matched reelId=… author=… at index=… bounds=… (scrollsLeft=20, visibleReceived=N)`
+  - Sem qualquer `ACTION_SCROLL_BACKWARD`.
+  - Depois: `LONG_PRESS: target index=…` normal, reacção aplicada.
 
-**Se N1/N2 falharem** (o step fica preso em navegação, ou `NAV: no inbox row starts with '<title>, '`):
-- Provavelmente o formato do `contentDescription` das rows da inbox mudou ou tem espaços/caracteres subtis diferentes do `threadTitle` que guardámos. Pedir ao utilizador um dump da inbox (`am broadcast` — a implementar como `ACTION_DUMP_ACTIVE_WINDOW` opcional, ou usar `dumpsys accessibility`) para reajustar o predicado.
-- Alternativa: relaxar o matching para "contentDescription contém `threadTitle` como prefixo ignorando pontuação".
+- **Teste L2 — batching com Reel FORA do ecrã (o cenário que falhava na s33).** Enfileirar uma reacção num Reel ANTIGO (perto do topo da BD). Abrir IG na conversa X (o Reel NÃO está visível — está scrollado acima). Tocar **▶ Aplicar fila**. Esperado:
+  - `LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted=true scrollsLeft=20`
+  - Uma ou mais linhas semelhantes (scrollsLeft=19, 18, …) até um `LOCATE: matched reelId=…`.
+  - Depois: `LONG_PRESS` normal + reacção.
+  - Se scrollar todo o caminho até esgotar 20 scrolls: `LOCATE: could not find … after 20 scrolls` → step FAILED com mensagem `Reel do @autor não encontrado após 20 scrolls (reelId=…)`. Aceitável se a BD tinha Reels antigos que já não estão no histórico da conversa (removidos, forwarded, etc.).
 
-**Passo 2 (se PoC-9 validar):** avançar para **PoC-8 iter 4 — targeting por Reel específico**.
-- Actualmente todas as reacções/replies caem no 1.º Reel recebido visível. Precisa de scroll dentro da conversa até encontrar o bubble certo (matching por `reelAuthor` do XMA container ou por prefix do `reelUrl`).
-- Refactor de `longPressFirstReel` para receber um `reelSelector: (DmReelEntry) -> Boolean` em vez de assumir "first RECEIVED".
-- Adicionar scroll até 15 tentativas dentro da conversa para trazer o bubble à vista.
+- **Teste L3 — batching múltiplos steps, mesma conversa, diferentes Reels.** Enfileirar 3 acções em 3 cards diferentes (Reels de autores diferentes) da mesma conversa. **▶ Aplicar fila**. Esperado: cada step localiza o seu autor correcto; scroll é preservado entre steps (não faz reset).
 
-### 6.2 Além do PoC-9 / iter 4
+- **Teste L4 — batching cross-thread, cada thread com Reel fora do ecrã.** Enfileirar 1 acção antiga na thread X e 1 acção antiga na thread Y. **▶ Aplicar fila**. Esperado:
+  - Nav para X → `LOCATE` com scroll → `LONG_PRESS` em X.
+  - Nav para Y → `LOCATE` com scroll → `LONG_PRESS` em Y.
+
+**Se algum teste falhar** (o step fica preso em LOCATE com `could not find` mesmo com o Reel supostamente na conversa):
+- **Hipótese A — autor errado guardado na BD.** Ver o `LOCATE: … authors=[list]` na linha de give-up e comparar com o esperado. Se o autor real estiver na lista mas não bater com `target.reelAuthor`, o problema é upstream (o discover capturou o autor errado). Diagnóstico: DUMP da conversa + comparar.
+- **Hipótese B — o Reel não está no histórico da conversa** (foi apagado, ou o utilizador confundiu Reels de threads diferentes). Aceitável — é o comportamento correcto: FAILED com mensagem clara.
+- **Hipótese C — `ACTION_SCROLL_BACKWARD` refused cedo demais** (o cap dos 20 é curto, ou a lista não aceita scroll). Ver `LOCATE: a11y scroll refused` — pode ser preciso o fallback de swipe-DOWN (já implementado em `discoverReelsHistory`, podemos reusar).
+
+**Passo 2 (se PoC-8 iter 4 validar):** UX polish + próximos PoCs.
+
+### 6.2 Polish e próximos passos
 
 - **UX do badge order** (quirk s28): ordenar por `createdAt` em vez de posição fixa alfabética.
+- **Match estrito por URL** *(PoC-10 tentativo)*: enriquecer todos os Reels descobertos com URL (não só quando o utilizador toca 🔗). Requer opening the viewer para cada Reel, o que é lento — talvez fazer só sob demand quando `reelAuthor` colide (múltiplos Reels do mesmo criador na mesma conversa).
+- **Fallback de swipe no LOCATE** — se `ACTION_SCROLL_BACKWARD` refused, reusar o mesmo `dispatchGesture` de swipe-DOWN do `discoverReelsHistory` para forçar scroll manual.
 - **Toast do IG "Ligação copiada":** substituir por absorção silenciosa se possível, ou aceitar como cost of doing business.
-- **Tuning de latência:** reduzir `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS`, `NAV_STEP_SETTLE_MS` progressivamente agora que o batching mascara parte da lentidão.
-- **Deep-link `instagram://direct/t/<thread_id>` como substituto do fallback por título** — precisa de investigar onde o IG expõe o `thread_id` (dump da inbox + análise). Só compensa se a navegação por título mostrar cases de erro em produção.
+- **Tuning de latência:** reduzir `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS`, `NAV_STEP_SETTLE_MS`, `LOCATE_SCROLL_SETTLE_MS` progressivamente agora que o batching mascara parte da lentidão.
+- **Deep-link `instagram://direct/t/<thread_id>` como substituto do fallback por título** — precisa de investigar onde o IG expõe o `thread_id`. Só compensa se a navegação por título mostrar cases de erro em produção.
 
 ---
 
@@ -997,3 +1004,30 @@ Já entregue no primeiro commit:
   - **Hipótese B — thread title na BD tem trailing whitespace / diferente casing.** Fix rápido: normalizar ambos os lados (`.trim().lowercase()`).
   - **Hipótese C — `direct_tab` não é o resource-id certo neste build.** Fix: fallback para procurar a bottom nav pelo `contentDescription` ("Mensagens").
 - **Nada mudou** nas primitivas PoC-3 a PoC-7 (long-press, reactions, reply, copy URL), no history-scroll (parte B), no player (parte C) ou na notificação persistente. Só o executor de batching + helpers de navegação.
+
+### 2026-08-29 — Sessão 34 (Ricardo + Copilot CLI) — PoC-9 validado + PoC-8 iter 4 (targeting por Reel + scroll)
+
+- **PoC-9 iter 1 validada em device.** Utilizador correu 4 batches consecutivos (log em `docs/screen-dumps/feed.txt`, timestamps 17:21→17:25):
+  - Batches em uma única conversa: `NAV` só dispara quando IG está noutra thread. Todas as chegadas confirmadas por `NAV: arrived at 'X' (attemptsLeft=…)`.
+  - Batch cross-thread (`resolved 2 step(s) across 2 thread(s)`): executor visitou Pedro Sardoeira, correu step 1, navegou para André Pinto, correu step 2. Ordem correcta.
+  - Batches arrancados de `com.example.friendsreels`, `com.android.systemui` e outra thread — `runInInstagram` + `navigateToThreadAsync` compõem-se sem edge cases.
+  - **Nada a mexer em PoC-9.**
+- **Bug real identificado no log:** dentro da conversa correcta, a maioria dos steps termina com `LONG_PRESS: no eligible Reel bubble found (ignoreSent=true). Are you on a conversation with a received Reel visible?`. Quando IG abre uma thread aterra sempre no bottom (mensagens mais recentes); os Reels que o utilizador enfileirou estão em cima, fora do ecrã. `longPressFirstReel` só olhava para os bubbles visíveis — não fazia scroll para procurar. Além disso, mesmo quando havia bubbles visíveis, o executor pegava no 1.º recebido em vez de verificar se era o Reel certo.
+- **Fix nesta sessão — PoC-8 iter 4:** localizar o Reel específico por `reelAuthor` + scroll backwards até encontrar.
+  - Novo helper `dispatchLongPressOn(target: DmReelEntry, afterLongPress, windowBounds?)` — extraído da parte "já tenho target" do `longPressFirstReel`. Permite ao batching entregar o alvo já localizado.
+  - Novo helper `locateReelWithScroll(target: ReelEntity, scrollsLeft, onDone)` — máquina de estados async recursiva:
+    1. Enumera bubbles recebidos visíveis via `enumerateReels(messageList)`.
+    2. Se `target.reelAuthor` bate com algum, chama `onDone(entry)` (top-most vence em caso de múltiplas do mesmo autor).
+    3. Senão dispara `ACTION_SCROLL_BACKWARD` no `message_list`, espera `LOCATE_SCROLL_SETTLE_MS=800ms`, recorre.
+    4. Cap de `BATCH_MAX_SCROLLS=20` (~16s per step). Se a11y scroll for refused (topo atingido) ou o cap esgotar, chama `onDone(null)`.
+    5. Fallback: se `target.reelAuthor` for null (rows antigos pré-PoC-4), matcha o primeiro RECEIVED visível — comportamento igual ao antigo.
+  - `executeBatchStep` refactorada — antes de disparar o long-press, chama `locateReelWithScroll(step.reel, BATCH_MAX_SCROLLS) { entry -> … }`. Se `entry != null` → `dispatchLongPressOn(entry, after)` + agenda próximo step com o delay habitual. Se null → step marcado FAILED com `Reel do @autor não encontrado após 20 scrolls (reelId=…)` e avança para o próximo.
+  - `longPressFirstReel` mantém-se para os botões da notificação (que não têm target concreto — passam `null` e mantêm o comportamento "first eligible").
+- **`BUILD_TAG` bumped para `build=s34`.** Sem alterações de schema Room.
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — `dispatchLongPressOn`, `locateReelWithScroll`, `executeBatchStep` refactorada, `BUILD_TAG=s34`, constantes `BATCH_MAX_SCROLLS`, `LOCATE_SCROLL_SETTLE_MS`.
+  - `PROJECT_PROGRESS.md` — Estado atual, quick start, §6/6.1/6.2 actualizadas, este log.
+- **Validação em ambiente do agente:** kotlinc parse-check OK. Build real precisa do OnePlus.
+- **Testes propostos (na §6.1):** L1 (Reel visível — sanity), L2 (Reel fora do ecrã — o cenário que falhava na s33), L3 (múltiplos steps mesma conversa, autores diferentes), L4 (cross-thread com Reels antigos em ambas).
+- **Limitação conhecida deste iter (documentada em Estado atual):** matching por `reelAuthor` — 2 Reels do mesmo criador IG partilhados na mesma conversa colidem (o top-most vence). Fix futuro é matching estrito por `reelUrl`, mas obriga a abrir o viewer para cada Reel durante o discover (lento). Fica para PoC-10.
+- **Nada mudou** nas primitivas isoladas PoC-3/5/6/7, no history-scroll `discoverReelsHistory`, no player, na notificação, ou na navegação PoC-9. Só o executor de batching + o pipeline de long-press.

@@ -338,7 +338,25 @@ class InstagramReaderService : AccessibilityService() {
             )
             return
         }
+        dispatchLongPressOn(target, afterLongPress, windowBounds)
+    }
 
+    /**
+     * Actually dispatch the long-press gesture on an already-located
+     * [target] bubble and schedule the [afterLongPress] follow-up after
+     * the settle window. Extracted from [longPressFirstReel] so the
+     * batching executor (PoC-8 iter 4) can call it directly after
+     * [locateReelWithScroll] finds the Reel that matches a queued row.
+     *
+     * [windowBounds] is passed in when the caller already has the IG
+     * APPLICATION window bounds (avoids a re-lookup). Passing null makes
+     * this method re-derive them.
+     */
+    private fun dispatchLongPressOn(
+        target: DmReelEntry,
+        afterLongPress: AfterLongPress,
+        windowBounds: Rect? = null,
+    ) {
         val bounds = Rect(target.bounds)
         Log.i(
             TAG,
@@ -353,11 +371,15 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
 
-        if (windowBounds != null && !windowBounds.contains(bounds.centerX(), bounds.centerY())) {
+        val resolvedWindowBounds = windowBounds
+            ?: findIgApplicationWindow()?.let { Rect().also { r -> it.getBoundsInScreen(r) } }
+        if (resolvedWindowBounds != null &&
+            !resolvedWindowBounds.contains(bounds.centerX(), bounds.centerY())
+        ) {
             Log.w(
                 TAG,
                 "LONG_PRESS: center (${bounds.centerX()},${bounds.centerY()}) is OUTSIDE Instagram " +
-                    "window bounds ${windowBounds.toShortString()}. Refusing to dispatch off-screen gesture."
+                    "window bounds ${resolvedWindowBounds.toShortString()}. Refusing to dispatch off-screen gesture."
             )
             return
         }
@@ -1521,6 +1543,102 @@ class InstagramReaderService : AccessibilityService() {
 
     private var batchInProgress = false
 
+    // -------------------------------------------------------------------
+    // PoC-8 iter 4 (session 34) — locate a specific Reel via history scroll
+    // -------------------------------------------------------------------
+
+    /**
+     * Try to find the exact bubble matching [target] inside the currently
+     * open conversation. If it isn't in the visible portion of
+     * `message_list`, scroll BACKWARD (towards older messages) and retry,
+     * up to [scrollsLeft] scrolls. Invokes [onDone] with a matching
+     * [DmReelEntry] on success or null when the search is exhausted /
+     * IG isn't in a valid state.
+     *
+     * Matching strategy:
+     *   1. Enumerate the received-Reel bubbles currently in the tree.
+     *   2. If [target.reelAuthor] is non-null, pick the top-most bubble
+     *      with the same `reelAuthor`. This is our best identity signal
+     *      short of persisting `reelUrl` for every bubble (which requires
+     *      opening the viewer — see PoC-7). Multiple Reels shared from
+     *      the same IG creator will collide; the top-most (older) match
+     *      wins. Trade-off documented in §5 of PROJECT_PROGRESS.
+     *   3. If [target.reelAuthor] is null (row inserted before PoC-4
+     *      captured the author), fall back to the top-most visible
+     *      received Reel — same behaviour as [findFirstReelBubble].
+     */
+    private fun locateReelWithScroll(
+        target: ReelEntity,
+        scrollsLeft: Int,
+        onDone: (DmReelEntry?) -> Unit,
+    ) {
+        val igWindow = findIgApplicationWindow()
+        val root = igWindow?.root ?: rootInActiveWindow
+        if (root == null || root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
+            Log.w(TAG, "LOCATE: no IG root available (pkg=${root?.packageName}), giving up.")
+            onDone(null)
+            return
+        }
+        val messageList = root
+            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
+            .firstOrNull()
+        if (messageList == null) {
+            Log.w(TAG, "LOCATE: no message_list; giving up.")
+            onDone(null)
+            return
+        }
+
+        val candidates = enumerateReels(messageList)
+            .filter { it.bounds.width() > 0 && it.bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX }
+            .filter { it.direction == Direction.RECEIVED }
+        val wantedAuthor = target.reelAuthor
+        val match = if (wantedAuthor != null) {
+            candidates.firstOrNull { it.reelAuthor == wantedAuthor }
+        } else {
+            candidates.firstOrNull()
+        }
+        if (match != null) {
+            Log.i(
+                TAG,
+                "LOCATE: matched reelId=${target.id} author=$wantedAuthor at " +
+                    "index=${match.index} bounds=${match.bounds.toShortString()} " +
+                    "(scrollsLeft=$scrollsLeft, visibleReceived=${candidates.size})"
+            )
+            onDone(match)
+            return
+        }
+
+        if (scrollsLeft <= 0) {
+            val visibleAuthors = candidates.map { it.reelAuthor ?: "?" }
+            Log.w(
+                TAG,
+                "LOCATE: could not find reelId=${target.id} author=$wantedAuthor after " +
+                    "$BATCH_MAX_SCROLLS scrolls. visibleReceived=${candidates.size} authors=$visibleAuthors"
+            )
+            onDone(null)
+            return
+        }
+
+        val scrolled = messageList.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
+        Log.i(
+            TAG,
+            "LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted=$scrolled " +
+                "scrollsLeft=$scrollsLeft author=$wantedAuthor"
+        )
+        if (!scrolled) {
+            // ACTION_SCROLL_BACKWARD only fires when the RecyclerView has more
+            // content to reveal upwards. A refusal here means we're at the top
+            // of the conversation and the target simply isn't in this thread
+            // any more (deleted? forwarded from elsewhere?). Give up cleanly.
+            Log.w(TAG, "LOCATE: a11y scroll refused — assumed top of conversation reached.")
+            onDone(null)
+            return
+        }
+        mainHandler.postDelayed({
+            locateReelWithScroll(target, scrollsLeft - 1, onDone)
+        }, LOCATE_SCROLL_SETTLE_MS)
+    }
+
     /**
      * Entry point for `ACTION_APPLY_PENDING`. Reads the pending queue on
      * the IO scope, then hops back to the main handler to execute each
@@ -1641,6 +1759,14 @@ class InstagramReaderService : AccessibilityService() {
      * Dispatch the primitive for [steps][index]. Assumes IG is already
      * showing the correct thread (either because it was already open, or
      * because [navigateToThreadAsync] just brought us here).
+     *
+     * PoC-8 iter 4 (session 34): before firing the long-press we call
+     * [locateReelWithScroll] to find the SPECIFIC bubble that matches
+     * `step.reel` (by [ReelEntity.reelAuthor]). If the target isn't
+     * currently visible, the message_list is scrolled backwards until
+     * either the bubble surfaces or the scroll budget is exhausted.
+     * Rows for Reels no longer in the thread are marked FAILED with a
+     * clear reason and the executor moves on to the next step.
      */
     private fun executeBatchStep(steps: List<BatchStep>, index: Int) {
         val step = steps[index]
@@ -1649,7 +1775,7 @@ class InstagramReaderService : AccessibilityService() {
         Log.i(
             TAG,
             "APPLY_PENDING: $stepLabel actionId=${step.action.id} kind=${step.action.kind} " +
-                "reelId=${step.reel.id} thread='${step.reel.threadTitle}'"
+                "reelId=${step.reel.id} thread='${step.reel.threadTitle}' author=${step.reel.reelAuthor}"
         )
 
         // Mark RUNNING before we dispatch the gestures so a peek at the
@@ -1673,21 +1799,35 @@ class InstagramReaderService : AccessibilityService() {
             }
         }
 
-        // Dispatch the primitive. We can't easily distinguish success from
-        // failure at this level (the a11y callbacks only tell us the
-        // gesture went out, not that IG accepted it), so for the PoC we
-        // mark the row DONE optimistically once the primitive returns.
-        // The user can visually confirm and re-enqueue if needed.
-        longPressFirstReel(afterLongPress = after)
-        finishStepAsync(step.action.id, PendingActionEntity.STATUS_DONE, null)
+        locateReelWithScroll(step.reel, scrollsLeft = BATCH_MAX_SCROLLS) { entry ->
+            if (entry == null) {
+                val err = "Reel do @${step.reel.reelAuthor ?: "?"} não encontrado após " +
+                    "$BATCH_MAX_SCROLLS scrolls (reelId=${step.reel.id})"
+                finishStepAsync(step.action.id, PendingActionEntity.STATUS_FAILED, err)
+                Log.w(TAG, "APPLY_PENDING: $stepLabel skipped — $err")
+                mainHandler.postDelayed({
+                    runBatchStep(steps, index + 1)
+                }, BATCH_STEP_FAST_SKIP_MS)
+                return@locateReelWithScroll
+            }
 
-        val nextDelay = when (step.action.kind) {
-            PendingActionEntity.KIND_REPLY_TEXT -> BATCH_STEP_INTERVAL_REPLY_MS
-            else -> BATCH_STEP_INTERVAL_REACTION_MS
+            // Target found (visible or after scrolling). Dispatch the
+            // primitive. We can't easily distinguish success from failure
+            // at this level (a11y callbacks only tell us the gesture went
+            // out, not that IG accepted it), so for the PoC we mark the
+            // row DONE optimistically once the primitive returns. The user
+            // can visually confirm and re-enqueue if needed.
+            dispatchLongPressOn(entry, after)
+            finishStepAsync(step.action.id, PendingActionEntity.STATUS_DONE, null)
+
+            val nextDelay = when (step.action.kind) {
+                PendingActionEntity.KIND_REPLY_TEXT -> BATCH_STEP_INTERVAL_REPLY_MS
+                else -> BATCH_STEP_INTERVAL_REACTION_MS
+            }
+            mainHandler.postDelayed({
+                runBatchStep(steps, index + 1)
+            }, nextDelay)
         }
-        mainHandler.postDelayed({
-            runBatchStep(steps, index + 1)
-        }, nextDelay)
     }
 
     private fun markRunningAsync(actionId: Long) {
@@ -1833,7 +1973,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s33"
+        private const val BUILD_TAG = "build=s34"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -1900,6 +2040,22 @@ class InstagramReaderService : AccessibilityService() {
          * are similar (a11y sees the tree before it's fully laid out).
          */
         private const val NAV_POST_ARRIVAL_SETTLE_MS = 1500L
+
+        // -----------------------------------------------------------------
+        // PoC-8 iter 4 (session 34) — locate specific Reel via scroll
+        // -----------------------------------------------------------------
+        /**
+         * Max backwards scrolls per batch step to bring the target Reel
+         * into view. IG opens conversations at the bottom, so enqueued
+         * Reels are usually older messages scrolled off-screen. 20 scrolls
+         * @ 800ms = ~16s hard-cap per step, which is generous enough for
+         * moderately deep histories. If the user has hundreds of messages
+         * above the target, they should re-open the conversation closer
+         * to the target first.
+         */
+        private const val BATCH_MAX_SCROLLS = 20
+        /** Delay after a `ACTION_SCROLL_BACKWARD` before re-enumerating. */
+        private const val LOCATE_SCROLL_SETTLE_MS = 800L
 
         // -----------------------------------------------------------------
         // PoC-8 iteration 3 part B — history discovery (auto scroll)
