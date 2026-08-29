@@ -7,14 +7,14 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-8 iteração 3 **parte A** implementada + 3 fixes (sessão 27) aplicados após os testes A/B da s26 revelarem: (i) 👀 sem dedup, (ii) notificação persistente só mostrava 3 dos 6 botões no OnePlus, (iii) race condition entre replies e o step seguinte. **Aguarda re-validação em device** (checklist A2/A3/B2/D2/F na §7 sessão 27). Falta ainda iter 3 parte B (scroll auto) e parte C (player WebView).
-**Última atualização:** 2025-08-29 (sessão 27)
+**Fase atual:** Fase 1 (PoC) — PoC-8 iteração 3 implementada por inteiro (parte A batching s26+s27, parte B history-scroll s28, parte C player WebView s28). **Aguarda validação em device** dos novos fluxos B/C. Parte A tinha sido validada na s27 (utilizador confirmou "funciona tudo").
+**Última atualização:** 2025-08-29 (sessão 28)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. HEAD = `build=s27` (sessão 27 — fixes ao batching da s26). Verificar que ao arrancar o service loga `Action receiver registered (build=s27 ...)` — se aparecer outra tag é APK antigo.
-2. **Notificação persistente actual** (s27): 3 botões visíveis, todos utilizáveis — **🔍 Descobrir**, **🔗 Copiar URL**, **▶ Aplicar fila**. Tocar no corpo abre o feed (novo `contentIntent`). Reacções/replies directas passam a ser exclusivamente via ecrã da app ou via feed (batching). Isto porque na s26 o Android colapsava para só 3 botões e nós tínhamos 6 → só ❤ 😂 👀 eram visíveis e mesmo esses "não pareciam clicáveis" no OnePlus/OxygenOS.
+1. **Pull** do repo. HEAD = `build=s28` (sessão 28 — partes B e C da iter 3 do PoC-8). Verificar que ao arrancar o service loga `Action receiver registered (build=s28 ...)` — se aparecer outra tag é APK antigo.
+2. **Notificação persistente actual** (s28, unchanged desde s27): 3 botões — **🔍 Descobrir**, **🔗 Copiar URL**, **▶ Aplicar fila**. Tocar no corpo abre o feed. Reactions/reply directas ficam no ecrã da app.
 3. **Ler primeiro:**
     - Esta secção "Estado atual".
     - §6 "Próximos passos concretos" — próxima é PoC-8 iter 3 parte B (scroll auto) + parte C (player WebView).
@@ -201,33 +201,27 @@ Já entregue no primeiro commit:
 - ✅ PoC-7 — copiar URL do Reel via viewer→Partilhar→Copiar ligação→clipboard bridge (`ClipboardCaptureActivity` com `onWindowFocusChanged`)
 - ✅ PoC-8 iter 1 — Room + `ACTION_DISCOVER_REELS` + feed vertical simples
 - ✅ PoC-8 iter 2 — integração PoC-7↔PoC-8: URL + `dmSender` persistidos, dedup 3-way (promote → insert → backfill)
-- 🚧 PoC-8 iter 3 parte A (sessões 26 + 27) — batching de acções: tabela `pending_actions` + botões de enfileirar no feed + botão `✕ Cancelar` por card + executor `ACTION_APPLY_PENDING` com delays por-kind + notificação persistente reduzida a 3 botões (🔍 🔗 ▶) + `contentIntent` a abrir o feed. Testes A/B da s26 passaram (com bug de race resolvido na s27); testes A2/A3/B2/D2/F da s27 **aguardam validação em device**.
-- ⬜ PoC-8 iter 3 parte B — scroll automático dentro da conversa (`ACTION_DISCOVER_REELS_HISTORY`).
-- ⬜ PoC-8 iter 3 parte C — player embutido (WebView com o `reelUrl`).
+- 🚧 PoC-8 iter 3 parte A (sessões 26 + 27) — batching de acções: tabela `pending_actions` + botões de enfileirar no feed + botão `✕ Cancelar` por card + executor `ACTION_APPLY_PENDING` com delays por-kind + notificação persistente reduzida a 3 botões (🔍 🔗 ▶) + `contentIntent` a abrir o feed. **Validado pelo utilizador na s28** ("dos testes que mencionaste funciona tudo"). Quirk conhecido: ordem dos badges no topo do card não segue a ordem de enfileirar (é sempre ❤ → 😂 → 👀 alfabético/ordinal, não createdAt). Cosmético — não bloqueia. Anotado como TODO para futuro.
+- 🚧 PoC-8 iter 3 parte B (sessão 28) — scroll automático dentro da conversa (`ACTION_DISCOVER_REELS_HISTORY`). Botão no ecrã da app: **"Descobrir histórico (scroll auto)"**. Enumera → `ACTION_SCROLL_BACKWARD` no `message_list` (com fallback para swipe DOWN via `dispatchGesture`) → volta a enumerar. Stop quando 3 scrolls consecutivos não trazem novos ou cap de 30 scrolls. Progresso na notificação (`A descobrir histórico… scroll X/30, Y novos Reels`). **Aguarda validação em device.**
+- 🚧 PoC-8 iter 3 parte C (sessão 28) — player WebView (`ReelPlayerActivity`). Novo botão primary por card: **"▶ Ver Reel aqui"**. Secondary link: **"↗ Abrir no Instagram nativo"** (comportamento anterior mantido como fallback). WebView com JS + DOM storage + autoplay. **Aguarda validação em device.**
 
-### 6.1 Próxima sessão — PoC-8 iteração 3 (partes B + C)
+### 6.1 Próxima sessão — validação B/C, depois PoC-9 (navegação entre conversas)
 
-**Contexto:** a parte A (batching) foi implementada na s26 e fixed na s27 (dedup do 👀, botão cancelar, notificação com 3 botões + contentIntent, delays por-kind para eliminar race). Assumindo que a validação dos testes A2/A3/B2/D2/F da sessão 27 passa, arrancar directamente para as partes B e C:
+**Contexto:** as três partes da iter 3 do PoC-8 estão implementadas. Parte A validada pelo utilizador na s28 (só ficou o quirk cosmético da ordem dos badges — anotado). Partes B e C **aguardam validação em device**. Assumindo que essa validação passa, arrancar para o PoC-9.
 
-**Objectivos (por ordem):**
+**Testes propostos para as partes B e C** (mesma sessão de teste do utilizador):
 
-1. **Scroll automático dentro da conversa** para descoberta em lote:
-    - Nova `ACTION_DISCOVER_REELS_HISTORY` — enquanto na conversa, faz `dispatchGesture` de swipe vertical do meio para cima dentro dos bounds de `message_list`, chama `enumerateReels` a cada scroll, repete até (a) não haver novos entries em N scrolls seguidos, ou (b) hit no top da RecyclerView.
-    - Mantém o toggle `ignoreSent` durante toda a descoberta.
-    - Deve tornar-se o comportamento default do 🔍 na notificação (com um cap seguro, ex. 20 scrolls) ou ficar como acção separada. **Decisão a tomar no início da sessão.**
-2. **Player para o feed** (menos crítico, decisão pragmática):
-    - O URL público do Reel não reproduz num ExoPlayer sem sessão IG. Duas opções:
-       - **(A) WebView** com o URL do Reel — o IG mostra o Reel completo dentro da WebView, mesmo sem login (tem UI mínima). Mais simples, funciona em ~90% dos casos.
-       - **(B) Só thumbnail estática** extraída do XMA container quando disponível + "Abrir no Instagram" — já temos, é o comportamento actual.
-    - Recomendação: começar por (A). Se der problemas de UX (autoplay bloqueado, layout partido), voltar ao (B).
+- **B1 — history scroll básico:** abrir uma conversa DM com pelo menos 3–4 Reels partilhados em momentos diferentes (para haver muitos que estão "fora do ecrã" quando abres). Abrir a app → tocar **"Descobrir histórico (scroll auto)"**. IG vem à frente; a notificação passa a `A descobrir histórico… scroll X/30, Y novos Reels`. No fim, no feed deve haver mais entries do que o 🔍 rápido daria isoladamente. Log esperado: várias linhas `HISTORY: scroll N/30 via ACTION_SCROLL_BACKWARD accepted` seguidas de `HISTORY: scroll=N inserted=... skipped=... totalInsertedRun=... consecutiveEmpty=... totalInDb=...` e por fim `HISTORY: finished — thread='...' scrolls=... totalInsertedRun=... totalSkippedRun=...`.
+- **B2 — history scroll até topo:** correr numa conversa que tem histórico curto. Deve parar em `HISTORY: stopping — 3 consecutive empty scrolls.` (não chegar aos 30).
+- **B3 — history scroll com IG fora de foco:** durante o scroll, meter outra app em foreground (ou o launcher). Deve loggar `HISTORY: IG no longer foreground during scroll, stopping.` e a notificação voltar aos 3 botões.
+- **C1 — player carrega:** no feed, num card com URL, tocar **"▶ Ver Reel aqui"**. Abre `ReelPlayerActivity` com WebView. Confirmar que o Reel carrega (pode demorar 1–3s). Se aparece login wall ou "Open in app", é um fail conhecido — reportar e caímos no fallback.
+- **C2 — fallback nativo:** tocar o link **"↗ Abrir no Instagram nativo"** no mesmo card. Deve abrir o IG nativo (comportamento antigo). Este link continua a ser a rede de segurança.
 
-**Retrospectiva da parte A (feita nas s26 + s27) — para não repetir:**
+**Prioridades para depois de B/C validados:**
 
-- Nova tabela `PendingActionEntity(id, reelId, kind, payload, createdAt, executedAt, status, error)` com `kind ∈ {REACT_HEART, REACT_LAUGH, REPLY_TEXT}` — ✅ implementada.
-- Feed enfileira em vez de executar de imediato + badge por kind + `✕ Cancelar` — ✅.
-- Botão global "Aplicar N acções no Instagram" + botão ▶ na notificação — ✅.
-- Executor com progresso na notificação (`A aplicar N/M…`) — ✅.
-- **Limitação assumida (por decisão):** não há navegação entre conversas nesta parte A. Rows para outras threads ficam `FAILED` com `Conversa activa é 'X' mas a acção pertence a 'Y'`. Navegação real via `thread_id` fica para PoC-9 (§6.2).
+1. **PoC-9 — navegação entre conversas.** Actualmente o executor de batching só funciona com a conversa activa em IG. Precisamos de resolver como abrir uma thread específica a partir do inbox — provavelmente lendo `thread_id` no XMA ou tentando o deep-link `instagram://direct/t/<thread_id>`.
+2. **PoC-8 iter 4 — targeting por Reel específico.** Hoje todas as reacções/replies do batch caem no 1.º Reel recebido visível. Precisamos de identificar o bubble certo pelo `reelAuthor` ou `reelUrl` guardado na fila, e scrollar dentro da conversa até ele estar visível antes de long-press.
+3. **UX do badge order** (quirk anotado na s28): ordenar os badges no topo do card por `createdAt` do PendingAction, em vez de posição fixa alfabética.
 
 ### 6.2 Além do PoC-8
 
@@ -826,3 +820,44 @@ Já entregue no primeiro commit:
   - Executor continua a bater sempre no **1.º Reel recebido visível** (limitação partilhada com PoC-5/6). Quando enfileirares acções para 2 Reels diferentes visíveis, os dois acabam por atacar o mesmo bubble. Ainda por resolver — o plano é a iter 4 (targeting por `reelAuthor` ou `reelUrl` na fila).
   - O executor marca `DONE` optimisticamente depois de dispatch — o Logcat pode dizer `DONE` mesmo que o IG não aceite a reacção. Confirma sempre visualmente.
   - Não há ainda uma UI para ver as rows `FAILED` do wrong-thread (só o Logcat conta a história). O botão `Limpar histórico de ações concluídas` funciona também para `FAILED` — mesmo comportamento que a s26.
+
+### 2026-08-29 — Sessão 28 (Ricardo + Copilot CLI) — PoC-8 iter 3 partes B + C
+
+- **Confirmação da parte A (s26 + s27):** utilizador validou em device que "dos testes que mencionaste funciona tudo" — A2 notificação com 3 botões distintos, A3 corpo abre feed, B2 batching sem race, D2 dedup 👀, F cancelar pendentes. Tudo OK.
+- **Quirk anotado (cosmético, não bloqueia):** a ordem dos badges no topo do card não segue a ordem de enfileirar. Se enfileirares primeiro `Enfileirar 😂` e depois `Enfileirar ❤`, o card mostra `❤ na fila` antes de `😂 na fila` (ordem fixa alfabética / posição das checks no código). Não é problema funcional — o executor continua a respeitar `createdAt ASC`. Fica como TODO cosmético (ver §6.1). Fix é ordenar por `createdAt` numa próxima iteração.
+- **Parte B (scroll auto) implementada:**
+  - Novo `ACTION_DISCOVER_REELS_HISTORY` no service. Registado no receiver.
+  - `discoverReelsHistory()` orquestra o ping-pong entre `doHistoryEnumerate` e `doHistoryScroll`. Estado agregado em `HistoryState(threadTitle, ignoreSent, totalScrolls, totalInserted, totalSkipped, consecutiveEmpty)`.
+  - Estratégia de scroll: primeiro tenta `messageList.performAction(ACTION_SCROLL_BACKWARD)` — respeita o fling/deceleration do IG. Se falhar, fallback para `dispatchGesture` de swipe DOWN dentro dos bounds da `message_list` (finger de y≈25% para y≈85% do bounds, duração 500ms).
+  - Enumeração usa exactamente o mesmo `enumerateReels` e a mesma dedup (`countMatching` por thread+author+direction) que o `discoverReels()` rápido — reaproveitamento total.
+  - Stop conditions: (a) `consecutiveEmpty >= 3` (heurística para "chegámos ao topo"), (b) `totalScrolls >= 30` (cap seguro), (c) IG deixou de ser foreground.
+  - Guarda `historyInProgress = true` durante o run. Segunda invocação enquanto está a correr é ignorada com log `HISTORY: already in progress, ignoring.`.
+  - Progresso: nova `updateHistoryProgressNotification(state)` — a notificação persistente mostra `A descobrir histórico… scroll X/30, Y novos Reels` com progress bar (max = 30). No fim, `postControlNotification()` restaura a UI normal de 3 botões.
+  - **UI:** novo botão no `MainActivity` — **"Descobrir histórico (scroll auto)"**. Não fica na notificação porque o Android colapsaria para 3 (ver s27) — mais um botão empurrava o ▶ para fora.
+- **Parte C (WebView player) implementada:**
+  - Nova activity `ui/player/ReelPlayerActivity` (Compose + `AndroidView { WebView }`). Extras: `EXTRA_URL`.
+  - WebView com `javaScriptEnabled=true`, `domStorageEnabled=true`, `mediaPlaybackRequiresUserGesture=false`, `useWideViewPort=true`, `loadWithOverviewMode=true`. `WebChromeClient` + `WebViewClient` default.
+  - **Feed reworkado:**
+    - Botão primary muda de "Abrir no Instagram" para **"▶ Ver Reel aqui"** (abre `ReelPlayerActivity`).
+    - Novo link secundário **"↗ Abrir no Instagram nativo"** por baixo, que preserva o comportamento antigo (intent para `com.instagram.android`). É o safety net caso a WebView falhe (login wall, geoblock, etc.).
+  - Registada no `AndroidManifest.xml` com `configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"` para o WebView sobreviver a rotação sem reload.
+  - Permission `INTERNET` já estava declarada (usada pelo IG intent-view). WebView herda-a.
+- **`BUILD_TAG` bumped para `build=s28`.** Sem alteração de schema Room (parte B só insere na tabela `reels` existente; parte C não toca em BD).
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — nova `ACTION_DISCOVER_REELS_HISTORY` + implementação completa (~250 linhas). `BUILD_TAG` bumped. Log line do receiver actualizada com `history=`.
+  - `MainActivity.kt` — novo botão `btn_discover_reels_history`.
+  - **NOVOS:** `ui/player/ReelPlayerActivity.kt` (WebView + Compose scaffold).
+  - `ui/feed/FeedScreen.kt` — `ReelCard` recebe agora `onPlayInApp` e `onOpenInInstagram` separados. Botão primary + secondary link.
+  - `AndroidManifest.xml` — declaração da nova activity.
+  - `res/values/strings.xml` — `btn_discover_reels_history`, `notif_history_progress`, `player_title`, `player_missing_url`, `feed_play_in_app`, `feed_open_in_ig_native`.
+  - `PROJECT_PROGRESS.md` — este log + estado actual + §6.1 reescrita para a próxima sessão focar na validação + PoC-9.
+- **Testes propostos ao utilizador** (na §6.1 acima — resumo aqui):
+  - **B1** — history scroll em conversa com Reels antigos. Espera-se `HISTORY: scroll N/30` sequencial, com contadores no logcat.
+  - **B2** — history scroll numa conversa com histórico curto. Espera-se `HISTORY: stopping — 3 consecutive empty scrolls.`.
+  - **B3** — history scroll interrompido (meter outra app à frente). Espera-se `HISTORY: IG no longer foreground during scroll, stopping.`.
+  - **C1** — tocar **"▶ Ver Reel aqui"** num card com URL. Confirmar que a WebView carrega o Reel. Se não carrega, é um fail conhecido — o fallback nativo cobre.
+  - **C2** — tocar **"↗ Abrir no Instagram nativo"** — deve abrir o IG nativo (comportamento antigo garantido).
+- **Coisas para o utilizador saber:**
+  - History scroll pode demorar até ~25s (30 scrolls × 0.8s settle) no pior caso. Não é rápido. Se conversa for enorme e o cap de 30 for atingido, corre outra vez para continuar.
+  - Se a WebView C1 mostrar login wall ou "Open in app", o teste C está feito com o resultado real — reportamos e caímos no B (thumbnail + botão nativo) na próxima iteração.
+  - Executor de batching (ACTION_APPLY_PENDING) continua a ter a limitação de bater sempre no 1.º Reel recebido visível — nada mudou nessa área desde a s27. Fica para PoC-8 iter 4.

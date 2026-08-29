@@ -71,4 +71,14 @@
 
     <string name="notif_action_apply">▶</string>
     <string name="notif_apply_progress">A aplicar %1$d/%2$d…</string>
+
+    <!-- PoC-8 iteração 3-B — history discovery (auto scroll) -->
+    <string name="btn_discover_reels_history">Descobrir histórico (scroll auto)</string>
+    <string name="notif_history_progress">A descobrir histórico… scroll %1$d/%2$d, %3$d novos Reels</string>
+
+    <!-- PoC-8 iteração 3-C — WebView player -->
+    <string name="player_title">Reel</string>
+    <string name="player_missing_url">Sem URL para reproduzir.</string>
+    <string name="feed_play_in_app">▶ Ver Reel aqui</string>
+    <string name="feed_open_in_ig_native">↗ Abrir no Instagram nativo</string>
 </resources>

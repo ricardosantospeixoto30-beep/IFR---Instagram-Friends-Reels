@@ -44,6 +44,7 @@ import com.example.friendsreels.R
 import com.example.friendsreels.data.PendingActionEntity
 import com.example.friendsreels.data.ReelEntity
 import com.example.friendsreels.service.InstagramReaderService
+import com.example.friendsreels.ui.player.ReelPlayerActivity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -85,7 +86,11 @@ fun FeedScreen() {
                     ReelCard(
                         reel = reel,
                         pendingKinds = pendingPairs,
-                        onOpen = {
+                        onPlayInApp = {
+                            vm.markSeen(reel.id)
+                            openReelInPlayer(context, reel)
+                        },
+                        onOpenInInstagram = {
                             vm.markSeen(reel.id)
                             openReelInInstagram(context, reel)
                         },
@@ -177,7 +182,8 @@ private fun EmptyState(padding: PaddingValues) {
 private fun ReelCard(
     reel: ReelEntity,
     pendingKinds: Set<String>,
-    onOpen: () -> Unit,
+    onPlayInApp: () -> Unit,
+    onOpenInInstagram: () -> Unit,
     onQueueHeart: () -> Unit,
     onQueueLaugh: () -> Unit,
     onQueueReply: () -> Unit,
@@ -216,10 +222,14 @@ private fun ReelCard(
             )
             Spacer(Modifier.height(12.dp))
             if (!reel.reelUrl.isNullOrBlank()) {
-                Button(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.feed_open_in_ig))
+                Button(onClick = onPlayInApp, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.feed_play_in_app))
                 }
                 Spacer(Modifier.height(4.dp))
+                TextButton(onClick = onOpenInInstagram, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.feed_open_in_ig_native))
+                }
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = reel.reelUrl,
                     style = MaterialTheme.typography.bodySmall,
@@ -342,6 +352,18 @@ private fun KindBadge(kind: String) {
 private fun formatEpoch(epochMs: Long): String {
     val sdf = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
     return sdf.format(Date(epochMs))
+}
+
+private fun openReelInPlayer(context: Context, reel: ReelEntity) {
+    val url = reel.reelUrl ?: return
+    val intent = Intent(context, ReelPlayerActivity::class.java)
+        .putExtra(ReelPlayerActivity.EXTRA_URL, url)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    try {
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        Toast.makeText(context, R.string.feed_open_failed, Toast.LENGTH_SHORT).show()
+    }
 }
 
 private fun openReelInInstagram(context: Context, reel: ReelEntity) {

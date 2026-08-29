@@ -159,6 +159,7 @@ class InstagramReaderService : AccessibilityService() {
                     ACTION_COPY_REEL_URL -> runInInstagram { openFirstReelViewer() }
                     ACTION_CLIPBOARD_CAPTURED -> handleClipboardCaptured(intent)
                     ACTION_DISCOVER_REELS -> runInInstagram { discoverReels() }
+                    ACTION_DISCOVER_REELS_HISTORY -> runInInstagram { discoverReelsHistory() }
                     ACTION_APPLY_PENDING -> runInInstagram { applyPendingActions() }
                 }
             }
@@ -170,6 +171,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_COPY_REEL_URL)
             addAction(ACTION_CLIPBOARD_CAPTURED)
             addAction(ACTION_DISCOVER_REELS)
+            addAction(ACTION_DISCOVER_REELS_HISTORY)
             addAction(ACTION_APPLY_PENDING)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -184,7 +186,7 @@ class InstagramReaderService : AccessibilityService() {
             "Action receiver registered ($BUILD_TAG heart=$ACTION_REACT_HEART, " +
                 "laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
                 "copyUrl=$ACTION_COPY_REEL_URL, discover=$ACTION_DISCOVER_REELS, " +
-                "applyPending=$ACTION_APPLY_PENDING)"
+                "history=$ACTION_DISCOVER_REELS_HISTORY, applyPending=$ACTION_APPLY_PENDING)"
         )
     }
 
@@ -1016,6 +1018,254 @@ class InstagramReaderService : AccessibilityService() {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // PoC-8 iteration 3 part B — history discovery (auto scroll)
+    //
+    // Same enumeration as `discoverReels()` but repeats after auto-scrolling
+    // the conversation upward. Stops when three consecutive scrolls fail
+    // to insert new rows (heuristic for "reached the top of the DM") or
+    // after HISTORY_MAX_SCROLLS scrolls (safety cap).
+    //
+    // Direction of scroll: in Instagram DMs the newest message is at the
+    // bottom. Older content sits above; to bring it into view we need the
+    // list to scroll BACKWARD (accessibility parlance) — same as pulling
+    // the visible messages downwards. We try `ACTION_SCROLL_BACKWARD` on
+    // the RecyclerView first (cleanest, respects fling+deceleration), and
+    // fall back to a gesture from y_near_top → y_near_bottom (finger drag
+    // DOWN) when that action is refused.
+    //
+    // Deduplication is the same (thread, author, direction) heuristic used
+    // by the fast discover — imperfect but matches the current schema.
+    // A single author sharing several Reels in the same thread will
+    // collapse to one row, which conveniently also drives the "no new
+    // inserts" stop condition.
+    // ---------------------------------------------------------------------
+
+    private var historyInProgress = false
+
+    /**
+     * Mutable state carried across the ping-pong between enumerate and
+     * scroll steps. Kept as a single object so we don't have to thread
+     * counters through every callback.
+     */
+    private data class HistoryState(
+        val threadTitle: String,
+        val ignoreSent: Boolean,
+        var totalScrolls: Int = 0,
+        var totalInserted: Int = 0,
+        var totalSkipped: Int = 0,
+        var consecutiveEmpty: Int = 0,
+    )
+
+    private fun discoverReelsHistory() {
+        if (historyInProgress) {
+            Log.i(TAG, "HISTORY: already in progress, ignoring.")
+            return
+        }
+        val root = findIgApplicationWindow()?.root ?: rootInActiveWindow
+        if (root == null || root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
+            Log.w(TAG, "HISTORY: Instagram is not foreground, aborting.")
+            return
+        }
+        val threadTitle = lastKnownConversationTitle?.takeIf { it.isNotBlank() } ?: "?"
+        val state = HistoryState(threadTitle = threadTitle, ignoreSent = isIgnoreSentEnabled())
+        historyInProgress = true
+        Log.i(TAG, "HISTORY: starting thread='$threadTitle' ignoreSent=${state.ignoreSent}")
+        updateHistoryProgressNotification(state)
+        // Enumerate the initial visible batch, then step into the scroll loop.
+        doHistoryEnumerate(state) { doHistoryScroll(state) }
+    }
+
+    /**
+     * Enumerate whatever Reels are currently visible in `message_list`
+     * and insert new ones into Room. Updates the state counters on the
+     * main thread, then invokes [onDone] so the caller can decide
+     * whether to scroll again or stop.
+     */
+    private fun doHistoryEnumerate(state: HistoryState, onDone: () -> Unit) {
+        val root = findIgApplicationWindow()?.root ?: rootInActiveWindow
+        if (root == null || root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
+            Log.w(TAG, "HISTORY: IG no longer foreground during enumerate, stopping.")
+            finishHistory(state)
+            return
+        }
+        val messageList = root
+            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
+            .firstOrNull()
+        if (messageList == null) {
+            Log.w(TAG, "HISTORY: no message_list, stopping.")
+            finishHistory(state)
+            return
+        }
+        val entries = enumerateReels(messageList)
+        val kept = if (state.ignoreSent) entries.filter { it.direction == Direction.RECEIVED } else entries
+        val snapshot = kept.map { Snapshot(it.index, it.kind, it.direction, it.reelAuthor) }
+        val discoveredAt = System.currentTimeMillis()
+        serviceScope.launch {
+            val dao = AppDatabase.get(this@InstagramReaderService).reelDao()
+            var inserted = 0
+            var skipped = 0
+            for (s in snapshot) {
+                val existing = dao.countMatching(state.threadTitle, s.author, s.direction.name)
+                if (existing > 0) { skipped++; continue }
+                val row = ReelEntity(
+                    threadTitle = state.threadTitle,
+                    reelAuthor = s.author,
+                    dmSender = null,
+                    direction = s.direction.name,
+                    kind = s.kind,
+                    bubbleIndex = s.index,
+                    reelUrl = null,
+                    discoveredAt = discoveredAt,
+                )
+                val id = dao.insert(row)
+                if (id > 0) inserted++ else skipped++
+            }
+            val total = dao.count()
+            state.totalInserted += inserted
+            state.totalSkipped += skipped
+            if (inserted == 0) state.consecutiveEmpty++ else state.consecutiveEmpty = 0
+            Log.i(
+                TAG,
+                "HISTORY: scroll=${state.totalScrolls} inserted=$inserted skipped=$skipped " +
+                    "totalInsertedRun=${state.totalInserted} consecutiveEmpty=${state.consecutiveEmpty} totalInDb=$total"
+            )
+            mainHandler.post {
+                updateHistoryProgressNotification(state)
+                onDone()
+            }
+        }
+    }
+
+    /**
+     * Decide whether to scroll again, and if so, perform one backward
+     * scroll on the `message_list` and chain back into [doHistoryEnumerate].
+     */
+    private fun doHistoryScroll(state: HistoryState) {
+        if (state.consecutiveEmpty >= HISTORY_STOP_AFTER_N_EMPTY) {
+            Log.i(TAG, "HISTORY: stopping — ${state.consecutiveEmpty} consecutive empty scrolls.")
+            finishHistory(state)
+            return
+        }
+        if (state.totalScrolls >= HISTORY_MAX_SCROLLS) {
+            Log.i(TAG, "HISTORY: stopping — safety cap $HISTORY_MAX_SCROLLS scrolls hit.")
+            finishHistory(state)
+            return
+        }
+        val root = findIgApplicationWindow()?.root ?: rootInActiveWindow
+        if (root == null || root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
+            Log.w(TAG, "HISTORY: IG no longer foreground during scroll, stopping.")
+            finishHistory(state)
+            return
+        }
+        val messageList = root
+            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
+            .firstOrNull()
+        if (messageList == null) {
+            Log.w(TAG, "HISTORY: no message_list during scroll, stopping.")
+            finishHistory(state)
+            return
+        }
+
+        // Preferred path: framework scroll action.
+        val a11yOk = messageList.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
+        if (a11yOk) {
+            state.totalScrolls++
+            Log.i(
+                TAG,
+                "HISTORY: scroll ${state.totalScrolls}/$HISTORY_MAX_SCROLLS via ACTION_SCROLL_BACKWARD accepted"
+            )
+            mainHandler.postDelayed({
+                doHistoryEnumerate(state) { doHistoryScroll(state) }
+            }, HISTORY_SCROLL_SETTLE_MS)
+            return
+        }
+
+        // Fallback: dispatch a swipe DOWN inside the message_list. In IG's
+        // chat RecyclerView, dragging the visible content DOWN reveals
+        // older messages that were off-screen above.
+        val bounds = Rect().also { messageList.getBoundsInScreen(it) }
+        if (bounds.width() <= 0 || bounds.height() <= 0) {
+            Log.w(TAG, "HISTORY: message_list has empty bounds, stopping.")
+            finishHistory(state)
+            return
+        }
+        val startX = bounds.exactCenterX()
+        val startY = bounds.top + bounds.height() * 0.25f
+        val endY = bounds.top + bounds.height() * 0.85f
+        val path = Path().apply {
+            moveTo(startX, startY)
+            lineTo(startX, endY)
+        }
+        val stroke = GestureDescription.StrokeDescription(path, 0L, HISTORY_SCROLL_DURATION_MS)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+        val accepted = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(g: GestureDescription?) {
+                state.totalScrolls++
+                Log.i(
+                    TAG,
+                    "HISTORY: scroll ${state.totalScrolls}/$HISTORY_MAX_SCROLLS via gesture completed"
+                )
+                mainHandler.postDelayed({
+                    doHistoryEnumerate(state) { doHistoryScroll(state) }
+                }, HISTORY_SCROLL_SETTLE_MS)
+            }
+            override fun onCancelled(g: GestureDescription?) {
+                Log.w(TAG, "HISTORY: scroll gesture cancelled, stopping.")
+                finishHistory(state)
+            }
+        }, mainHandler)
+        if (!accepted) {
+            Log.w(TAG, "HISTORY: dispatchGesture refused, stopping.")
+            finishHistory(state)
+        }
+    }
+
+    private fun finishHistory(state: HistoryState) {
+        Log.i(
+            TAG,
+            "HISTORY: finished — thread='${state.threadTitle}' scrolls=${state.totalScrolls} " +
+                "totalInsertedRun=${state.totalInserted} totalSkippedRun=${state.totalSkipped}"
+        )
+        historyInProgress = false
+        postControlNotification()
+    }
+
+    /**
+     * Overwrite the persistent notification with a "A descobrir histórico…"
+     * status while [discoverReelsHistory] is running. Reverts to the normal
+     * button row via [postControlNotification] when the run finishes.
+     */
+    private fun updateHistoryProgressNotification(state: HistoryState) {
+        val builder = NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.notif_title))
+            .setContentText(
+                getString(
+                    R.string.notif_history_progress,
+                    state.totalScrolls,
+                    HISTORY_MAX_SCROLLS,
+                    state.totalInserted,
+                )
+            )
+            .setOngoing(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setShowWhen(false)
+            .setContentIntent(pendingActivity(
+                com.example.friendsreels.ui.feed.FeedActivity::class.java,
+                requestCode = 0,
+            ))
+            .setProgress(HISTORY_MAX_SCROLLS, state.totalScrolls, false)
+        try {
+            NotificationManagerCompat.from(this).notify(NOTIF_ID, builder.build())
+        } catch (e: SecurityException) {
+            Log.w(TAG, "updateHistoryProgressNotification: missing POST_NOTIFICATIONS", e)
+        }
+    }
+
     private data class Snapshot(
         val index: Int,
         val kind: String,
@@ -1393,7 +1643,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s27"
+        private const val BUILD_TAG = "build=s28"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -1433,6 +1683,18 @@ class InstagramReaderService : AccessibilityService() {
         /** Fast-skip interval used when we're just marking rows FAILED without touching IG. */
         private const val BATCH_STEP_FAST_SKIP_MS = 400L
 
+        // -----------------------------------------------------------------
+        // PoC-8 iteration 3 part B — history discovery (auto scroll)
+        // -----------------------------------------------------------------
+        /** Duration of the fallback swipe-down gesture when a11y scroll is refused. */
+        private const val HISTORY_SCROLL_DURATION_MS = 500L
+        /** Delay between the scroll landing and enumeration (RecyclerView needs a beat to settle). */
+        private const val HISTORY_SCROLL_SETTLE_MS = 800L
+        /** After this many consecutive scrolls with zero new inserts we assume we're at the top. */
+        private const val HISTORY_STOP_AFTER_N_EMPTY = 3
+        /** Hard cap on scrolls per run so we never loop forever. */
+        private const val HISTORY_MAX_SCROLLS = 30
+
         /** Placeholder text used by the PoC-6 mock reply broadcast. */
         const val MOCK_REPLY_TEXT = "👀"
 
@@ -1459,6 +1721,17 @@ class InstagramReaderService : AccessibilityService() {
          * knows to switch conversations before applying again.
          */
         const val ACTION_APPLY_PENDING = "com.example.friendsreels.ACTION_APPLY_PENDING"
+
+        /**
+         * Auto-scroll the current DM conversation upwards, enumerating
+         * Reels at every step, until three consecutive scrolls fail to
+         * insert any new row (approximation of "reached the top") or a
+         * safety cap of scrolls is hit. Uses `ACTION_SCROLL_BACKWARD` on
+         * the `message_list` when available (cleanest), falling back to a
+         * `dispatchGesture` swipe DOWN inside the list. See
+         * [discoverReelsHistory].
+         */
+        const val ACTION_DISCOVER_REELS_HISTORY = "com.example.friendsreels.ACTION_DISCOVER_REELS_HISTORY"
 
         /**
          * Broadcast sent by [com.example.friendsreels.ClipboardCaptureActivity]

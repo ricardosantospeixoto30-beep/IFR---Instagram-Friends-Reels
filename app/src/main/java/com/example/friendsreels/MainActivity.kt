@@ -71,6 +71,9 @@ class MainActivity : ComponentActivity() {
                         onReplyMock = { sendServiceBroadcast(InstagramReaderService.ACTION_REPLY_FIRST_REEL_MOCK) },
                         onCopyReelUrl = { sendServiceBroadcast(InstagramReaderService.ACTION_COPY_REEL_URL) },
                         onDiscoverReels = { sendServiceBroadcast(InstagramReaderService.ACTION_DISCOVER_REELS) },
+                        onDiscoverReelsHistory = {
+                            sendServiceBroadcast(InstagramReaderService.ACTION_DISCOVER_REELS_HISTORY)
+                        },
                         onOpenFeed = {
                             startActivity(
                                 Intent(this, com.example.friendsreels.ui.feed.FeedActivity::class.java)
@@ -115,6 +118,7 @@ private fun HomeScreen(
     onReplyMock: () -> Unit,
     onCopyReelUrl: () -> Unit,
     onDiscoverReels: () -> Unit,
+    onDiscoverReelsHistory: () -> Unit,
     onOpenFeed: () -> Unit,
     initialIgnoreSent: Boolean,
     onIgnoreSentChange: (Boolean) -> Unit,
@@ -196,6 +200,9 @@ private fun HomeScreen(
             }
             Button(onClick = onDiscoverReels, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.btn_discover_reels))
+            }
+            Button(onClick = onDiscoverReelsHistory, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.btn_discover_reels_history))
             }
             Button(onClick = onOpenFeed, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.btn_open_feed_new))

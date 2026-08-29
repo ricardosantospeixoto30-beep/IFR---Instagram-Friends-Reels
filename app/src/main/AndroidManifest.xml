@@ -48,6 +48,13 @@
             android:label="@string/feed_title"
             android:theme="@style/Theme.FriendsReels" />
 
+        <activity
+            android:name=".ui.player.ReelPlayerActivity"
+            android:exported="false"
+            android:label="@string/player_title"
+            android:theme="@style/Theme.FriendsReels"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize" />
+
         <service
             android:name=".service.InstagramReaderService"
             android:exported="false"
