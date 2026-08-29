@@ -1,36 +1,90 @@
-2026-08-29 02:54:44.947 18984-18984 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
-2026-08-29 02:54:44.948 18984-18984 IGReaderService         com.example.friendsreels             I  Action receiver registered (dump=com.example.friendsreels.ACTION_DUMP_TREE, dumpAll=com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS, list=com.example.friendsreels.ACTION_LIST_REELS, longpress=com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL, heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH, reply=com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK, open=com.example.friendsreels.ACTION_OPEN_REEL, openMore=com.example.friendsreels.ACTION_OPEN_REEL_AND_MORE, openShare=com.example.friendsreels.ACTION_OPEN_REEL_AND_SHARE, copyUrl=com.example.friendsreels.ACTION_COPY_REEL_URL, discover=com.example.friendsreels.ACTION_DISCOVER_REELS)
-2026-08-29 02:54:44.957 18984-18984 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-29 02:54:47.378 18984-18984 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
-2026-08-29 02:55:28.066 18984-18984 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-29 02:55:28.997 18984-18984 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-29 02:55:29.120 18984-18984 IGReaderService         com.example.friendsreels             I  OPEN_REEL: target index=2 kind=portrait direction=RECEIVED author=vittozao bounds=[147,287][593,1089] center=(370,688) afterOpen=TapShareAndCopyLink
-2026-08-29 02:55:29.123 18984-18984 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
-2026-08-29 02:55:29.211 18984-18984 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
-2026-08-29 02:55:31.413 18984-18984 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
-2026-08-29 02:55:33.547 18984-18984 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
-2026-08-29 02:55:33.548 18984-18984 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
-2026-08-29 02:55:33.633 18984-18984 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
-2026-08-29 02:55:34.268 18984-18984 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
-2026-08-29 02:55:34.367 18984-18984 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DbgARyHFIwZ/?igsi=MWl1aWRveWw1cndrMA=='
-2026-08-29 02:56:15.015 18984-18984 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='O Burro a Vaca e os Reis Magos'
-2026-08-29 02:56:23.025 18984-18984 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-29 02:56:23.897 18984-18984 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-29 02:56:23.923 18984-18984 IGReaderService         com.example.friendsreels             I  OPEN_REEL: target index=1 kind=portrait direction=RECEIVED author=play.nighthub bounds=[147,267][593,974] center=(370,620) afterOpen=TapShareAndCopyLink
-2026-08-29 02:56:23.925 18984-18984 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
-2026-08-29 02:56:24.010 18984-18984 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
-2026-08-29 02:56:26.211 18984-18984 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
-2026-08-29 02:56:28.296 18984-18984 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
-2026-08-29 02:56:28.300 18984-18984 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
-2026-08-29 02:56:28.382 18984-18984 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
-2026-08-29 02:56:29.020 18984-18984 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
-2026-08-29 02:56:29.107 18984-18984 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/Dchkv35zAoQ/?igsi=MWF4YmQ3cGd1d2ZzbA=='
-2026-08-29 02:57:46.374 18984-18984 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
-2026-08-29 02:57:51.540 18984-18984 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-29 02:57:52.439 18984-18984 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-29 02:57:52.452 18984-18984 IGReaderService         com.example.friendsreels             I  LONG_PRESS: sourcing tree from windows[APPLICATION] windowBounds=[0,0][1080,2378]
-2026-08-29 02:57:52.513 18984-18984 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target index=2 kind=portrait direction=RECEIVED author=relatable_sayyz bounds=[147,267][593,486] center=(370,376) afterLongPress=TapReaction
-2026-08-29 02:57:52.519 18984-18984 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-29 02:57:53.123 18984-18984 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-29 02:57:54.622 18984-18984 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '❤' (desc in [❤Reação, ❤Reaction])
-2026-08-29 02:57:54.874 18984-18984 IGReaderService         com.example.friendsreels             I  REACT: performAction(ACTION_CLICK) on emoji '❤' returned true bounds=[113,165][229,281]
+---------------------------- PROCESS STARTED (30575) for package com.example.friendsreels ----------------------------
+2026-08-29 03:16:48.492 30575-30575 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
+2026-08-29 03:16:48.493 30575-30575 IGReaderService         com.example.friendsreels             I  Action receiver registered (build=s24 heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH, reply=com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK, copyUrl=com.example.friendsreels.ACTION_COPY_REEL_URL, discover=com.example.friendsreels.ACTION_DISCOVER_REELS)
+2026-08-29 03:16:48.503 30575-30575 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-08-29 03:16:52.827 30575-30575 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
+2026-08-29 03:16:59.120 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 03:17:00.006 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 03:17:00.148 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: target index=2 kind=portrait direction=RECEIVED author=relatable_sayyz bounds=[147,344][593,1146] center=(370,745)
+2026-08-29 03:17:00.148 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: pendingCopy=PendingCopy(threadTitle=Pedro Sardoeira, direction=RECEIVED, reelAuthor=relatable_sayyz, kind=portrait, bubbleIndex=2, dmSender=null)
+2026-08-29 03:17:00.152 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-08-29 03:17:00.246 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-08-29 03:17:02.265 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-08-29 03:17:02.445 30575-30575 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1510][1059,1626]
+2026-08-29 03:17:04.458 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-08-29 03:17:04.461 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-08-29 03:17:04.549 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-08-29 03:17:05.182 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-08-29 03:17:05.271 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/Dcl1CZDvJFE/?igsi=djloczVrOXl5dmFo'
+2026-08-29 03:17:05.365 30575-31785 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=1 thread='Pedro Sardoeira' author=relatable_sayyz dmSender=Pedro Sardoeira totalInDb=1.
+2026-08-29 03:17:38.941 30575-30575 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='O Burro a Vaca e os Reis Magos'
+2026-08-29 03:17:42.248 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 03:17:43.121 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 03:17:43.141 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: target index=1 kind=portrait direction=RECEIVED author=play.nighthub bounds=[147,267][593,974] center=(370,620)
+2026-08-29 03:17:43.141 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: pendingCopy=PendingCopy(threadTitle=O Burro a Vaca e os Reis Magos, direction=RECEIVED, reelAuthor=play.nighthub, kind=portrait, bubbleIndex=1, dmSender=null)
+2026-08-29 03:17:43.143 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-08-29 03:17:43.230 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-08-29 03:17:45.251 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-08-29 03:17:45.431 30575-30575 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-08-29 03:17:47.433 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-08-29 03:17:47.434 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-08-29 03:17:47.522 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-08-29 03:17:48.157 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-08-29 03:17:48.241 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/Dchkv35zAoQ/?igsi=MWF4YmQ3cGd1d2ZzbA=='
+2026-08-29 03:17:48.257 30575-31785 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=2 thread='O Burro a Vaca e os Reis Magos' author=play.nighthub dmSender=Pedro Sardoeira totalInDb=2.
+2026-08-29 03:18:44.209 30575-30575 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
+2026-08-29 03:18:44.210 30575-30575 IGReaderService         com.example.friendsreels             I  Action receiver registered (build=s24 heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH, reply=com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK, copyUrl=com.example.friendsreels.ACTION_COPY_REEL_URL, discover=com.example.friendsreels.ACTION_DISCOVER_REELS)
+2026-08-29 03:18:44.217 30575-30575 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-08-29 03:18:46.572 30575-30575 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='O Burro a Vaca e os Reis Magos'
+2026-08-29 03:20:27.285 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 03:20:28.159 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 03:20:28.238 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: target index=1 kind=portrait direction=RECEIVED author=play.nighthub bounds=[147,267][593,974] center=(370,620)
+2026-08-29 03:20:28.238 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: pendingCopy=PendingCopy(threadTitle=O Burro a Vaca e os Reis Magos, direction=RECEIVED, reelAuthor=play.nighthub, kind=portrait, bubbleIndex=1, dmSender=null)
+2026-08-29 03:20:28.243 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-08-29 03:20:28.331 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-08-29 03:20:30.362 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-08-29 03:20:30.512 30575-30575 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-08-29 03:20:32.535 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-08-29 03:20:32.546 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-08-29 03:20:32.623 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-08-29 03:20:33.276 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-08-29 03:20:33.359 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/Dchkv35zAoQ/?igsi=MWF4YmQ3cGd1d2ZzbA=='
+2026-08-29 03:20:33.375 30575-31785 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-08-29 03:20:44.409 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 03:20:45.297 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 03:20:45.406 30575-31785 IGReaderService         com.example.friendsreels             I  DISCOVER: thread='O Burro a Vaca e os Reis Magos' visibleReceived=2 visibleSent=0 ignoreSent=true kept=2 inserted=1 skipped=1 totalInDb=3
+2026-08-29 03:21:23.722 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 03:21:24.632 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 03:21:24.672 30575-31785 IGReaderService         com.example.friendsreels             I  DISCOVER: thread='O Burro a Vaca e os Reis Magos' visibleReceived=2 visibleSent=0 ignoreSent=true kept=2 inserted=2 skipped=0 totalInDb=5
+2026-08-29 03:21:28.904 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 03:21:29.777 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 03:21:29.803 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: target index=1 kind=portrait direction=RECEIVED author=awnii_thezombiie bounds=[147,267][593,1068] center=(370,667)
+2026-08-29 03:21:29.803 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: pendingCopy=PendingCopy(threadTitle=O Burro a Vaca e os Reis Magos, direction=RECEIVED, reelAuthor=awnii_thezombiie, kind=portrait, bubbleIndex=1, dmSender=null)
+2026-08-29 03:21:29.805 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-08-29 03:21:29.889 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-08-29 03:21:31.921 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-08-29 03:21:32.091 30575-30575 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-08-29 03:21:34.102 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-08-29 03:21:34.104 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-08-29 03:21:34.191 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-08-29 03:21:34.813 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-08-29 03:21:34.898 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DZnU3qOqWDp/?igsi=OHp3dzV4NzdjZTVw'
+2026-08-29 03:21:34.910 30575-31785 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=7 thread='O Burro a Vaca e os Reis Magos' author=awnii_thezombiie dmSender=Pedro Sardoeira totalInDb=6.
+2026-08-29 03:22:52.663 30575-30575 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
+2026-08-29 03:22:56.847 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 03:22:57.703 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 03:22:57.744 30575-31788 IGReaderService         com.example.friendsreels             I  DISCOVER: thread='Pedro Sardoeira' visibleReceived=0 visibleSent=3 ignoreSent=false kept=3 inserted=2 skipped=1 totalInDb=8
+2026-08-29 03:23:14.393 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 03:23:15.274 30575-30575 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 03:23:15.363 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: target index=1 kind=portrait direction=SENT author=null bounds=[794,639][1017,1040] center=(905,839)
+2026-08-29 03:23:15.364 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: pendingCopy=PendingCopy(threadTitle=Pedro Sardoeira, direction=SENT, reelAuthor=null, kind=portrait, bubbleIndex=1, dmSender=null)
+2026-08-29 03:23:15.377 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-08-29 03:23:15.458 30575-30575 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-08-29 03:23:17.495 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-08-29 03:23:17.674 30575-30575 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-08-29 03:23:19.647 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-08-29 03:23:19.648 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-08-29 03:23:19.733 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-08-29 03:23:20.367 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-08-29 03:23:20.449 30575-30575 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/Dclk5XhNlSc/?igsi=aWxoNGdvcHU1MXBs'
+2026-08-29 03:23:20.463 30575-31788 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=10 thread='Pedro Sardoeira' author=null dmSender=Pedro Sardoeira totalInDb=9.
