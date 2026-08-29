@@ -622,3 +622,34 @@ Depois do PoC-7 fechar, arrancamos o PoC-8:
   4. Baixar shade → tocar **🔍** → Logcat `DISCOVER: thread='...' visible=N inserted=X ...`.
   5. Abrir a nossa app → tocar **"Ver feed (BD local)"** → confirmar que os cards aparecem com os dados certos (autor, thread, direction, kind, timestamp).
   6. Reportar tudo o que falhar (com Logcat).
+
+### 2026-08-29 — Sessão 22 (Ricardo + Copilot CLI) — feedback PoC-7/8 + ajustes
+
+- **Feedback do utilizador sobre o teste da sessão 21 (log em `docs/screen-dumps/feed.txt`):**
+  1. **Clipboard bridge ainda devolve vazio no OnePlus** (`COPY_LINK: ClipboardCaptureActivity returned empty text`) — mas o URL fica mesmo no clipboard do telemóvel (o utilizador consegue colar noutras apps). O bloqueio é apenas ao **nosso** `ClipboardManager.primaryClip`. Utilizador pediu para não perder tempo aqui agora e "apenas marcar que está a acontecer".
+  2. **Descoberta só pega no que está no ecrã.** Correto — é o comportamento por design nesta iteração; scroll automático das conversas fica para a próxima.
+  3. **Flag `ignoreSent` respeitada** — utilizador confirma que a descoberta segue o toggle (mete SENT na BD só quando o flag está a `false`). Comportamento OK.
+  4. **Não fica claro no card do feed QUEM enviou** — em DM 1-a-1 o `threadTitle` é o interlocutor, mas se o utilizador desliga a flag também aparecem os Reels que ele próprio partilhou, e "de Pedro Sardoeira" é confuso quando na verdade fui eu que enviei.
+- **Ajustes desta sessão:**
+  - **`discoverReels` (service):** filtro explícito por `Direction.RECEIVED` quando `isIgnoreSentEnabled()==true`, para o comportamento não depender de acidente/dedup. Log passa a incluir `visibleReceived`/`visibleSent`/`ignoreSent`/`kept`.
+  - **`FeedScreen ReelCard`:** a linha sob o `@autor` deixa de dizer só "de X". Agora:
+    - Se `direction=RECEIVED` → "**Recebido em <thread>**".
+    - Se `direction=SENT` → "**Enviado por mim em <thread>**" a cor lilás (`0xFFCE93D8`) para saltar à vista quando misturado com recebidos.
+    - Os badges "recebido"/"enviado" continuam presentes na primeira linha do card como sinal visual rápido.
+  - **`ClipboardCaptureActivity`:** leitura movida de `onCreate` para `onWindowFocusChanged(hasFocus=true)`, o único momento em que temos garantidamente window focus (e portanto foreground para efeitos de clipboard). Adicionado retry curto (3× 80 ms) para cobrir o caso em que o clip ainda não chegou. Se mesmo assim vier vazio, o log mostra `tryCaptureWithRetry: gave up`. **Não sabemos ainda se resolve** — utilizador vai validar na próxima sessão.
+- **Registado explicitamente em §5:**
+  - Descoberta só apanha os Reels visíveis no RecyclerView do momento (scroll automático fica para próxima iteração — o service precisa de fazer swipes verticais dentro do `message_list` e chamar `enumerateReels` a cada scroll até esgotar histórico).
+  - Identificação do membro que partilhou em grupos: ainda inviável a partir da conversa. **Via alternativa confirmada:** o Reel viewer (`sender_username_or_fullname`) expõe o nome humano — na próxima iteração podemos capturar este campo dentro do fluxo do PoC-7 e persistir em `ReelEntity.dmSender` (coluna nova).
+- **Limitações reforçadas em §5 (batching, foreground, agora + estas):**
+  - Sem batching de acções ainda — próxima iteração.
+  - Leitura do clipboard depende do foreground focus da Activity bridge (não confirmado funcionar em 100% dos dispositivos).
+- **Ficheiros alterados:**
+  - `InstagramReaderService.kt` — `discoverReels` filtra + log detalhado.
+  - `ClipboardCaptureActivity.kt` — leitura em `onWindowFocusChanged` com retry.
+  - `FeedScreen.kt` — texto do card por direction.
+  - `strings.xml` — `feed_received_in`, `feed_sent_in`.
+  - `PROJECT_PROGRESS.md`.
+- **Próximo passo do utilizador:** re-testar rapidamente (🔗 + 🔍 + Ver feed). Confirmar que:
+  - Cards de recebidos dizem "Recebido em <thread>" (normal) e enviados "Enviado por mim em <thread>" (lilás).
+  - Log da descoberta tem o breakdown `visibleReceived=X visibleSent=Y kept=Z inserted=N skipped=M`.
+  - Se o clipboard bridge passou a devolver o URL. Se não, ficamos com essa via para retomar depois.

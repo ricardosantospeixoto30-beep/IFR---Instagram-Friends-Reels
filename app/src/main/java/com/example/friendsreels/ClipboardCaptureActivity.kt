@@ -5,6 +5,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.example.friendsreels.service.InstagramReaderService
 
@@ -18,35 +20,65 @@ import com.example.friendsreels.service.InstagramReaderService
  * transparent Activity of our own app to the front, read the clipboard, and
  * finish immediately.
  *
- * The Activity uses `Theme.Translucent.NoTitleBar` and calls
- * `overridePendingTransition(0, 0)` so the visual disruption is minimal.
- * Result is delivered back to the service via a broadcast.
+ * Timing note: reading the clipboard in `onCreate` was too early on the
+ * OnePlus Nord 5 (Android 16) — the platform still considered us
+ * "background" and returned an empty clip. The clipboard becomes readable
+ * once we truly have window focus, which is signalled by
+ * [onWindowFocusChanged] with `hasFocus=true`. A small handler delay is
+ * added as a safety net for the retry.
  */
 class ClipboardCaptureActivity : Activity() {
+
+    private var captured = false
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         overridePendingTransition(0, 0)
-        captureAndFinish()
     }
 
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        captureAndFinish()
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && !captured) {
+            // The framework can still miss the clipboard for a few ms right
+            // after focus is granted. Give it one short retry cycle before
+            // giving up.
+            tryCaptureWithRetry(retriesLeft = 3)
+        }
     }
 
-    private fun captureAndFinish() {
-        val text = try {
+    private fun tryCaptureWithRetry(retriesLeft: Int) {
+        if (captured) return
+        val text = readClipboardOrNull()
+        if (!text.isNullOrBlank()) {
+            captured = true
+            deliverAndFinish(text)
+            return
+        }
+        if (retriesLeft <= 0) {
+            Log.w(TAG, "tryCaptureWithRetry: gave up, clipboard still empty.")
+            captured = true
+            deliverAndFinish(null)
+            return
+        }
+        handler.postDelayed({ tryCaptureWithRetry(retriesLeft - 1) }, RETRY_DELAY_MS)
+    }
+
+    private fun readClipboardOrNull(): String? {
+        return try {
             val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
             val clip = cm?.primaryClip
             if (clip != null && clip.itemCount > 0) {
                 clip.getItemAt(0).coerceToText(this)?.toString()
             } else null
         } catch (e: Exception) {
-            Log.w(TAG, "captureAndFinish: failed to read clipboard", e)
+            Log.w(TAG, "readClipboardOrNull: failed", e)
             null
         }
-        Log.i(TAG, "captureAndFinish: read clipboard -> ${text?.take(120)}")
+    }
+
+    private fun deliverAndFinish(text: String?) {
+        Log.i(TAG, "deliverAndFinish: read clipboard -> ${text?.take(120)}")
         val broadcast = Intent(InstagramReaderService.ACTION_CLIPBOARD_CAPTURED)
             .setPackage(packageName)
             .putExtra(InstagramReaderService.EXTRA_CLIPBOARD_TEXT, text)
@@ -55,7 +87,14 @@ class ClipboardCaptureActivity : Activity() {
         overridePendingTransition(0, 0)
     }
 
+    override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
+
     companion object {
         private const val TAG = "ClipboardCapture"
+        private const val RETRY_DELAY_MS = 80L
     }
 }
+

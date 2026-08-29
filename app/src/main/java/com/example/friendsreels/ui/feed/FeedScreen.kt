@@ -121,8 +121,16 @@ private fun ReelCard(reel: ReelEntity, onOpen: () -> Unit) {
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = stringResource(R.string.feed_shared_by, reel.threadTitle),
+                text = when (reel.direction) {
+                    "RECEIVED" -> stringResource(R.string.feed_received_in, reel.threadTitle)
+                    "SENT" -> stringResource(R.string.feed_sent_in, reel.threadTitle)
+                    else -> stringResource(R.string.feed_shared_by, reel.threadTitle)
+                },
                 style = MaterialTheme.typography.bodyMedium,
+                color = when (reel.direction) {
+                    "SENT" -> Color(0xFFCE93D8)
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
             )
             Spacer(Modifier.height(4.dp))
             Text(

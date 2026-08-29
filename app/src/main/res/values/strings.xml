@@ -56,7 +56,9 @@
     <string name="feed_empty_title">Feed vazio</string>
     <string name="feed_empty_hint">Abre uma conversa com Reels no Instagram e usa o botão 🔍 na notificação para descobrir os Reels visíveis.</string>
     <string name="feed_unknown_author">Autor desconhecido</string>
-    <string name="feed_shared_by">Partilhado em: %1$s</string>
+    <string name="feed_shared_by">de %1$s</string>
+    <string name="feed_received_in">Recebido em %1$s</string>
+    <string name="feed_sent_in">Enviado por mim em %1$s</string>
     <string name="feed_open_in_ig">Abrir no Instagram</string>
     <string name="feed_no_url_yet">URL ainda não capturado (usar 🔗)</string>
     <string name="feed_open_failed">Não foi possível abrir o Reel</string>

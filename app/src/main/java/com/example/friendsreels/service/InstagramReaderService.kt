@@ -948,13 +948,21 @@ class InstagramReaderService : AccessibilityService() {
         }
 
         val threadTitle = lastKnownConversationTitle?.takeIf { it.isNotBlank() } ?: "?"
-        val entries = enumerateReels(messageList)
-        if (entries.isEmpty()) {
-            Log.i(TAG, "DISCOVER: no Reels visible in thread='$threadTitle'.")
+        val ignoreSent = isIgnoreSentEnabled()
+        val allEntries = enumerateReels(messageList)
+        val visibleReceived = allEntries.count { it.direction == Direction.RECEIVED }
+        val visibleSent = allEntries.size - visibleReceived
+        val kept = if (ignoreSent) allEntries.filter { it.direction == Direction.RECEIVED } else allEntries
+        if (kept.isEmpty()) {
+            Log.i(
+                TAG,
+                "DISCOVER: no Reels to persist for thread='$threadTitle' " +
+                    "(visibleReceived=$visibleReceived visibleSent=$visibleSent ignoreSent=$ignoreSent)."
+            )
             return
         }
         // Snapshot into plain data so we can leave the a11y thread.
-        val snapshot = entries.map {
+        val snapshot = kept.map {
             Snapshot(
                 index = it.index,
                 kind = it.kind,
@@ -988,7 +996,8 @@ class InstagramReaderService : AccessibilityService() {
             val total = dao.count()
             Log.i(
                 TAG,
-                "DISCOVER: thread='$threadTitle' visible=${snapshot.size} inserted=$inserted skipped=$skipped totalInDb=$total"
+                "DISCOVER: thread='$threadTitle' visibleReceived=$visibleReceived visibleSent=$visibleSent " +
+                    "ignoreSent=$ignoreSent kept=${snapshot.size} inserted=$inserted skipped=$skipped totalInDb=$total"
             )
         }
     }
