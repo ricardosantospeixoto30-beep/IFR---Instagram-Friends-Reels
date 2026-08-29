@@ -21,9 +21,16 @@ import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.friendsreels.R
+import com.example.friendsreels.data.AppDatabase
+import com.example.friendsreels.data.ReelEntity
 import com.example.friendsreels.instagram.Direction
 import com.example.friendsreels.instagram.DmReelEntry
 import com.example.friendsreels.instagram.IgSelectors
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * Accessibility service used to read and drive Instagram screens.
@@ -71,6 +78,7 @@ class InstagramReaderService : AccessibilityService() {
 
     private var actionReceiver: BroadcastReceiver? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * Header title of the last Instagram conversation the user visibly opened.
@@ -115,6 +123,7 @@ class InstagramReaderService : AccessibilityService() {
         unregisterActionReceiver()
         cancelControlNotification()
         mainHandler.removeCallbacksAndMessages(null)
+        serviceScope.cancel()
     }
 
     // ---------------------------------------------------------------------
@@ -147,6 +156,7 @@ class InstagramReaderService : AccessibilityService() {
                     ACTION_COPY_REEL_URL ->
                         runInInstagram { openFirstReelViewer(AfterOpenViewer.TapShareAndCopyLink) }
                     ACTION_CLIPBOARD_CAPTURED -> handleClipboardCaptured(intent)
+                    ACTION_DISCOVER_REELS -> runInInstagram { discoverReels() }
                 }
             }
         }
@@ -163,6 +173,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_OPEN_REEL_AND_SHARE)
             addAction(ACTION_COPY_REEL_URL)
             addAction(ACTION_CLIPBOARD_CAPTURED)
+            addAction(ACTION_DISCOVER_REELS)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -177,7 +188,8 @@ class InstagramReaderService : AccessibilityService() {
                 "list=$ACTION_LIST_REELS, longpress=$ACTION_LONG_PRESS_FIRST_REEL, " +
                 "heart=$ACTION_REACT_HEART, laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
                 "open=$ACTION_OPEN_REEL, openMore=$ACTION_OPEN_REEL_AND_MORE, " +
-                "openShare=$ACTION_OPEN_REEL_AND_SHARE, copyUrl=$ACTION_COPY_REEL_URL)"
+                "openShare=$ACTION_OPEN_REEL_AND_SHARE, copyUrl=$ACTION_COPY_REEL_URL, " +
+                "discover=$ACTION_DISCOVER_REELS)"
         )
     }
 
@@ -906,6 +918,88 @@ class InstagramReaderService : AccessibilityService() {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // PoC-8 — Persist discovered Reels into Room
+    // ---------------------------------------------------------------------
+
+    /**
+     * Enumerate every Reel currently visible in the open conversation and
+     * insert new ones into the Room database (see `data/ReelEntity`).
+     * Deduplication is by `(threadTitle, reelAuthor, direction)` — good
+     * enough while we don't have the canonical URL for every Reel.
+     */
+    private fun discoverReels() {
+        val igWindow = findIgApplicationWindow()
+        val root = igWindow?.root ?: rootInActiveWindow
+        if (root == null) {
+            Log.w(TAG, "DISCOVER requested but no Instagram root node available.")
+            return
+        }
+        if (root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
+            Log.w(TAG, "DISCOVER ignored: foreground is ${root.packageName}, expected ${IgSelectors.IG_PACKAGE}.")
+            return
+        }
+        val messageList = root
+            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
+            .firstOrNull()
+        if (messageList == null) {
+            Log.w(TAG, "DISCOVER: no message_list found. Are you on a conversation screen?")
+            return
+        }
+
+        val threadTitle = lastKnownConversationTitle?.takeIf { it.isNotBlank() } ?: "?"
+        val entries = enumerateReels(messageList)
+        if (entries.isEmpty()) {
+            Log.i(TAG, "DISCOVER: no Reels visible in thread='$threadTitle'.")
+            return
+        }
+        // Snapshot into plain data so we can leave the a11y thread.
+        val snapshot = entries.map {
+            Snapshot(
+                index = it.index,
+                kind = it.kind,
+                direction = it.direction,
+                author = it.reelAuthor,
+            )
+        }
+        val discoveredAt = System.currentTimeMillis()
+        serviceScope.launch {
+            val dao = AppDatabase.get(this@InstagramReaderService).reelDao()
+            var inserted = 0
+            var skipped = 0
+            for (s in snapshot) {
+                val existing = dao.countMatching(threadTitle, s.author, s.direction.name)
+                if (existing > 0) {
+                    skipped++
+                    continue
+                }
+                val row = ReelEntity(
+                    threadTitle = threadTitle,
+                    reelAuthor = s.author,
+                    direction = s.direction.name,
+                    kind = s.kind,
+                    bubbleIndex = s.index,
+                    reelUrl = null,
+                    discoveredAt = discoveredAt,
+                )
+                val id = dao.insert(row)
+                if (id > 0) inserted++ else skipped++
+            }
+            val total = dao.count()
+            Log.i(
+                TAG,
+                "DISCOVER: thread='$threadTitle' visible=${snapshot.size} inserted=$inserted skipped=$skipped totalInDb=$total"
+            )
+        }
+    }
+
+    private data class Snapshot(
+        val index: Int,
+        val kind: String,
+        val direction: Direction,
+        val author: String?,
+    )
+
     /**
      * Enumerate every `message_content` inside [messageList] that contains a
      * Reel share (portrait or generic XMA container). Direction is inferred
@@ -1102,6 +1196,7 @@ class InstagramReaderService : AccessibilityService() {
         const val ACTION_OPEN_REEL_AND_MORE = "com.example.friendsreels.ACTION_OPEN_REEL_AND_MORE"
         const val ACTION_OPEN_REEL_AND_SHARE = "com.example.friendsreels.ACTION_OPEN_REEL_AND_SHARE"
         const val ACTION_COPY_REEL_URL = "com.example.friendsreels.ACTION_COPY_REEL_URL"
+        const val ACTION_DISCOVER_REELS = "com.example.friendsreels.ACTION_DISCOVER_REELS"
 
         /**
          * Broadcast sent by [com.example.friendsreels.ClipboardCaptureActivity]
@@ -1183,6 +1278,11 @@ class InstagramReaderService : AccessibilityService() {
                 0,
                 getString(R.string.notif_action_copy_url),
                 pendingBroadcast(ACTION_COPY_REEL_URL, requestCode = 9)
+            )
+            .addAction(
+                0,
+                getString(R.string.notif_action_discover),
+                pendingBroadcast(ACTION_DISCOVER_REELS, requestCode = 10)
             )
             .addAction(
                 0,

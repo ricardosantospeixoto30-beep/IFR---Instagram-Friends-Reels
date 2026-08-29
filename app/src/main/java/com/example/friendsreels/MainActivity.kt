@@ -76,6 +76,12 @@ class MainActivity : ComponentActivity() {
                         onOpenReelAndMore = { sendServiceBroadcast(InstagramReaderService.ACTION_OPEN_REEL_AND_MORE) },
                         onOpenReelAndShare = { sendServiceBroadcast(InstagramReaderService.ACTION_OPEN_REEL_AND_SHARE) },
                         onCopyReelUrl = { sendServiceBroadcast(InstagramReaderService.ACTION_COPY_REEL_URL) },
+                        onDiscoverReels = { sendServiceBroadcast(InstagramReaderService.ACTION_DISCOVER_REELS) },
+                        onOpenFeed = {
+                            startActivity(
+                                Intent(this, com.example.friendsreels.ui.feed.FeedActivity::class.java)
+                            )
+                        },
                         initialIgnoreSent = prefs.getBoolean(
                             InstagramReaderService.PREF_IGNORE_SENT,
                             InstagramReaderService.PREF_IGNORE_SENT_DEFAULT,
@@ -120,6 +126,8 @@ private fun HomeScreen(
     onOpenReelAndMore: () -> Unit,
     onOpenReelAndShare: () -> Unit,
     onCopyReelUrl: () -> Unit,
+    onDiscoverReels: () -> Unit,
+    onOpenFeed: () -> Unit,
     initialIgnoreSent: Boolean,
     onIgnoreSentChange: (Boolean) -> Unit,
 ) {
@@ -215,6 +223,12 @@ private fun HomeScreen(
             }
             Button(onClick = onCopyReelUrl, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.btn_copy_reel_url))
+            }
+            Button(onClick = onDiscoverReels, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.btn_discover_reels))
+            }
+            Button(onClick = onOpenFeed, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.btn_open_feed_new))
             }
         }
     }

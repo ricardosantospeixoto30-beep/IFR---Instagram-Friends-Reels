@@ -1,0 +1,44 @@
+package com.example.friendsreels.data
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface ReelDao {
+
+    /**
+     * Insert a new Reel; returns -1 if a row with the same `reelUrl`
+     * unique index already exists.
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(reel: ReelEntity): Long
+
+    /**
+     * Existence check used when we don't have a URL yet: dedup by
+     * (thread + author + direction). Not perfect (collapses multiple
+     * Reels from the same author in the same thread) but good enough
+     * for the PoC-8 first iteration.
+     */
+    @Query(
+        "SELECT COUNT(*) FROM reels " +
+            "WHERE threadTitle = :thread " +
+            "AND ((reelAuthor IS NULL AND :author IS NULL) OR reelAuthor = :author) " +
+            "AND direction = :direction"
+    )
+    suspend fun countMatching(thread: String, author: String?, direction: String): Int
+
+    @Query("SELECT * FROM reels ORDER BY discoveredAt DESC")
+    fun observeAll(): Flow<List<ReelEntity>>
+
+    @Query("SELECT COUNT(*) FROM reels")
+    suspend fun count(): Int
+
+    @Query("DELETE FROM reels")
+    suspend fun clearAll()
+
+    @Query("UPDATE reels SET seenAt = :epochMs WHERE id = :id AND seenAt IS NULL")
+    suspend fun markSeen(id: Long, epochMs: Long)
+}

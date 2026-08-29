@@ -7,8 +7,8 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-7 🟡 fluxo completo `ACTION_COPY_REEL_URL` implementado (sessão 19). Aguarda validação no OnePlus (URL a aparecer no Logcat).
-**Última atualização:** 2025-08-29 (sessão 19)
+**Fase atual:** Fase 1 (PoC) — PoC-8 🟡 iteração 1 (Room + descoberta + feed simples). Aguarda validação no OnePlus (PoC-7 clipboard bridge + descoberta em conversa + feed lista as entries).
+**Última atualização:** 2025-08-29 (sessão 21)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
@@ -193,8 +193,8 @@ Já entregue no primeiro commit:
 - ✅ PoC-4 — direção RECEIVED/SENT validada em DM 1-a-1 e em grupo (sessões 12→14). Limitação de grupos (nome do membro remetente não é textualizado pela a11y layer) registada em §5.
 - ✅ PoC-5 — reagir ao 1.º Reel com ❤ e 😂 (filtra por RECEIVED por defeito)
 - ✅ PoC-6 — responder ao 1.º Reel recebido com texto mock "👀" (validado no OnePlus, sessão 16)
-- 🟡 PoC-7 — **em curso** — exploração do Reel viewer implementada (sessão 16). Aguarda dump para saber onde está o "Copiar link".
-- 🔲 PoC-8 — feed vertical, Room DB, MVVM (+ **batching** de acções — ver §5)
+- 🟢 PoC-7 — código completo (viewer → Partilhar → Copiar → clipboard bridge). Validação end-to-end acontece na próxima sessão em conjunto com o PoC-8.
+- 🟡 PoC-8 — **iteração 1 implementada (sessão 21)** — Room + `ACTION_DISCOVER_REELS` + feed vertical simples. ExoPlayer + batching + scroll automático das conversas ficam para iterações seguintes.
 
 ### 6.1 Próxima sessão — validar `ACTION_COPY_REEL_URL` + preparar PoC-8
 
@@ -574,3 +574,51 @@ Depois do PoC-7 fechar, arrancamos o PoC-8:
   COPY_LINK: Reel URL = 'https://www.instagram.com/reel/…'
   ```
   Depois de confirmares o URL correcto, o PoC-7 fica **fechado** e passamos ao PoC-8.
+
+### 2026-08-29 — Sessão 21 (Ricardo + Copilot CLI) — PoC-8 iteração 1 (Room + descoberta + feed simples)
+
+- **Combinado com o utilizador:** o teste do clipboard bridge do PoC-7 fica adiado; validamos tudo junto com o PoC-8 na próxima sessão de testes.
+- **Novo módulo `data/`** com o setup mínimo de Room:
+  - `ReelEntity`: id auto, `threadTitle`, `reelAuthor`, `direction`, `kind`, `bubbleIndex`, `reelUrl` (nullable, preenchido depois pelo PoC-7 quando integrado por Reel), `discoveredAt`, `seenAt`. Index único em `reelUrl` (dedup canónico assim que tivermos URL).
+  - `ReelDao`: `insert(OnConflict=IGNORE)`, `countMatching(thread, author, direction)` para dedup enquanto não temos URL, `observeAll()` como Flow ordenado por `discoveredAt DESC`, `markSeen`, `clearAll`, `count`.
+  - `AppDatabase`: singleton Room 2.6.1 + KSP (já vinha nas dependências).
+- **Novo `ACTION_DISCOVER_REELS`** no service (broadcast + botão 🔍 na notificação + "Descobrir Reels desta conversa" na app):
+  - Reaproveita 100% `enumerateReels()` do PoC-4.
+  - Snapshot dos entries para `data class Snapshot` (evita usar `AccessibilityNodeInfo` fora da thread a11y).
+  - `serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)` novo, cancelado em `onDestroy`.
+  - Para cada entry: `countMatching(threadTitle, reelAuthor, direction)` → se 0, insert; se >0, skip.
+  - Loga `DISCOVER: thread='...' visible=N inserted=X skipped=Y totalInDb=Z`.
+  - `threadTitle` vem de `lastKnownConversationTitle` (capturado no `onAccessibilityEvent` desde a sessão 8); fallback `?` se ainda não visto.
+- **Novo módulo `ui/feed/`** com:
+  - `FeedViewModel(AndroidViewModel)`: expõe `reels: StateFlow<List<ReelEntity>>` via `dao.observeAll().stateIn(...)` + `markSeen(id)` + `clearAll()`.
+  - `FeedScreen()`: `Scaffold` + `TopAppBar` + `LazyColumn` (16 dp padding, 12 dp entre cards). Cada `ReelCard` mostra badges (RECEIVED verde / SENT roxo) + autor (`@username`) + `Partilhado em: <thread>` + timestamp `dd/MM HH:mm`. Botão "Abrir no Instagram" tenta deep-link via `Intent.ACTION_VIEW` com `setPackage("com.instagram.android")`, fallback para browser, fallback para Toast; desabilitado se `reelUrl == null` mostrando "URL ainda não capturado (usar 🔗)". Empty state amigável quando o DB está vazio.
+  - `FeedActivity(ComponentActivity)`: entry point, tema dark.
+- **UX flow:**
+  1. Utilizador abre uma conversa no IG com Reels visíveis.
+  2. Baixa shade → toca 🔍 (Descobrir) → service enumera + insere em Room. Toast? Não — só logcat. UX visível é abrir o feed a seguir.
+  3. Opcionalmente toca 🔗 num Reel específico para capturar o URL (`ACTION_COPY_REEL_URL`). O URL fica no clipboard **mas ainda não é gravado por Reel** — só é logado. Integração completa (associar URL ao `ReelEntity` correcto) fica para a próxima iteração.
+  4. Abre a app → "Ver feed (BD local)" → aparecem os cards.
+- **Ficheiros criados/alterados:**
+  - `data/AppDatabase.kt` (novo).
+  - `data/ReelEntity.kt` (novo).
+  - `data/ReelDao.kt` (novo).
+  - `ui/feed/FeedActivity.kt` (novo).
+  - `ui/feed/FeedViewModel.kt` (novo).
+  - `ui/feed/FeedScreen.kt` (novo).
+  - `AndroidManifest.xml` — activity `.ui.feed.FeedActivity` registada (exported=false).
+  - `InstagramReaderService.kt` — imports Room/Coroutines, `serviceScope`, `discoverReels()`, `Snapshot`, `ACTION_DISCOVER_REELS`, botão 🔍 na notificação.
+  - `MainActivity.kt` — botões "Descobrir" e "Ver feed".
+  - `strings.xml` — strings da feed (título, empty state, badges, botões).
+  - `PROJECT_PROGRESS.md`.
+- **Limitações conhecidas nesta iteração:**
+  - Dedup por (thread, author, direction) — colapsa múltiplos Reels do mesmo autor no mesmo thread. Vai ser substituído por dedup por URL quando integrarmos o PoC-7 por Reel.
+  - Sem ExoPlayer — o feed não reproduz o vídeo. Motivo: o URL público do Reel do IG não é directamente reproduzível sem sessão autenticada; ficará resolvido no PoC-8 iteração seguinte, provavelmente com fallback "abrir no IG nativo" (que já temos).
+  - Sem batching de acções ainda — as reacções/respostas continuam a acontecer 1×1 via notificação. Fila fica para a próxima iteração.
+  - `ACTION_COPY_REEL_URL` ainda não escreve o URL na `ReelEntity` correspondente — só loga. Integração é o próximo passo assim que fizermos a associação Reel↔row.
+- **Próximo passo do utilizador (para uma sessão de teste completa PoC-7 + PoC-8):**
+  1. Puxar repo, correr no OnePlus. Aceitar permissão de notificações se necessária.
+  2. Abrir uma conversa no IG com vários Reels recebidos.
+  3. Baixar shade → tocar **🔗** → validar Logcat `COPY_LINK: Reel URL = '<url>'` e clipboard.
+  4. Baixar shade → tocar **🔍** → Logcat `DISCOVER: thread='...' visible=N inserted=X ...`.
+  5. Abrir a nossa app → tocar **"Ver feed (BD local)"** → confirmar que os cards aparecem com os dados certos (autor, thread, direction, kind, timestamp).
+  6. Reportar tudo o que falhar (com Logcat).

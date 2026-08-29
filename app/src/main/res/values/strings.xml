@@ -23,6 +23,8 @@
     <string name="btn_open_reel_more">Abrir 1.º Reel + tocar Mais (+ dump)</string>
     <string name="btn_open_reel_share">Abrir 1.º Reel + tocar Partilhar (+ dump)</string>
     <string name="btn_copy_reel_url">Copiar URL do 1.º Reel (viewer → Partilhar → Copiar)</string>
+    <string name="btn_discover_reels">Descobrir Reels desta conversa</string>
+    <string name="btn_open_feed_new">Ver feed (BD local)</string>
     <string name="toggle_ignore_sent">Ignorar Reels enviados por mim</string>
     <string name="toggle_ignore_sent_help">Quando ativado, o alvo das reações é o primeiro Reel recebido visível (marcado com o avatar do remetente). Desativa para permitir reagir aos teus próprios Reels na conversa.</string>
 
@@ -37,6 +39,7 @@
     <string name="notif_action_open_more">⋮</string>
     <string name="notif_action_open_share">↗</string>
     <string name="notif_action_copy_url">🔗</string>
+    <string name="notif_action_discover">🔍</string>
     <string name="notif_action_list">Listar</string>
     <string name="notif_action_dump">Dump</string>
 
@@ -47,4 +50,14 @@
     <string name="settings_include_groups">Incluir grupos</string>
     <string name="settings_import_history">Importar histórico antigo</string>
     <string name="settings_invert_swipe">Inverter direção do swipe</string>
+
+    <!-- PoC-8 Feed -->
+    <string name="feed_title">Feed</string>
+    <string name="feed_empty_title">Feed vazio</string>
+    <string name="feed_empty_hint">Abre uma conversa com Reels no Instagram e usa o botão 🔍 na notificação para descobrir os Reels visíveis.</string>
+    <string name="feed_unknown_author">Autor desconhecido</string>
+    <string name="feed_shared_by">Partilhado em: %1$s</string>
+    <string name="feed_open_in_ig">Abrir no Instagram</string>
+    <string name="feed_no_url_yet">URL ainda não capturado (usar 🔗)</string>
+    <string name="feed_open_failed">Não foi possível abrir o Reel</string>
 </resources>

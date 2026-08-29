@@ -42,6 +42,12 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <activity
+            android:name=".ui.feed.FeedActivity"
+            android:exported="false"
+            android:label="@string/feed_title"
+            android:theme="@style/Theme.FriendsReels" />
+
         <service
             android:name=".service.InstagramReaderService"
             android:exported="false"
