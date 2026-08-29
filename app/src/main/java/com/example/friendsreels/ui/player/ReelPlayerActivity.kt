@@ -58,9 +58,21 @@ import com.example.friendsreels.R
  * `net::ERR_UNKNOWN_URL_SCHEME` the user saw on the first attempt in
  * session 28). We intercept those non-http redirects in
  * [FriendsReelsWebViewClient.shouldOverrideUrlLoading] and refuse them
- * so the WebView stays on the HTTP page. If the initial HTTP page
- * itself fails, we surface a friendly error overlay with a big
- * "Abrir no Instagram nativo" button — the guaranteed fallback.
+ * so the WebView stays on the HTTP page.
+ *
+ * Even with the redirect swallowed, loading the plain share URL only
+ * gets us to Instagram's login wall / "Continuar na web" landing (the
+ * behaviour observed in session 29). To bypass that we rewrite the URL
+ * into IG's official **embed** form via [toEmbedUrl]:
+ *
+ *     https://www.instagram.com/reel/<shortcode>/?igsh=…
+ *  → https://www.instagram.com/reel/<shortcode>/embed
+ *
+ * The embed URL is what other sites use to render Reels inline; it
+ * skips the app-upsell chrome and autoplays the video. If the rewrite
+ * cannot extract a shortcode we fall back to the original URL. If the
+ * WebView still fails, an error overlay with a big "Abrir no Instagram
+ * nativo" button covers the failure — the guaranteed fallback.
  */
 class ReelPlayerActivity : ComponentActivity() {
 
@@ -88,10 +100,11 @@ private fun PlayerScreen(url: String?) {
     val context = LocalContext.current
     var loadError by remember { mutableStateOf<String?>(null) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    val embedUrl = url?.let(::toEmbedUrl)
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.player_title)) }) },
     ) { padding ->
-        if (url.isNullOrBlank()) {
+        if (embedUrl.isNullOrBlank()) {
             EmptyPlayer(padding)
             return@Scaffold
         }
@@ -104,7 +117,7 @@ private fun PlayerScreen(url: String?) {
                         onReceivedError = { errorText -> loadError = errorText },
                     ).apply {
                         webViewRef = this
-                        loadUrl(url)
+                        loadUrl(embedUrl)
                     }
                 },
                 update = { /* the URL is loaded once in factory */ },
@@ -112,10 +125,11 @@ private fun PlayerScreen(url: String?) {
             loadError?.let { err ->
                 LoadErrorOverlay(
                     error = err,
-                    url = url,
+                    url = embedUrl,
+                    originalUrl = url,
                     onRetry = {
                         loadError = null
-                        webViewRef?.loadUrl(url)
+                        webViewRef?.loadUrl(embedUrl)
                     },
                     onOpenInIg = {
                         openInInstagram(context, url)
@@ -137,6 +151,7 @@ private fun EmptyPlayer(padding: PaddingValues) {
 private fun LoadErrorOverlay(
     error: String,
     url: String,
+    originalUrl: String,
     onRetry: () -> Unit,
     onOpenInIg: () -> Unit,
 ) {
@@ -165,6 +180,13 @@ private fun LoadErrorOverlay(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
             )
+            if (url != originalUrl) {
+                Text(
+                    text = originalUrl,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                )
+            }
             Spacer(Modifier.height(20.dp))
             Button(onClick = onOpenInIg, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.feed_open_in_ig_native))
@@ -254,5 +276,33 @@ private fun openInInstagram(context: android.content.Context, url: String) {
     try {
         context.startActivity(browser)
     } catch (_: Exception) { /* nothing else we can do */ }
+}
+
+/**
+ * Rewrite a canonical Instagram Reel share URL into the official
+ * **embed** form, which skips the "Open in app" landing and renders
+ * the video with an autoplay-friendly minimal chrome (the same layout
+ * that 3rd-party sites embed).
+ *
+ * Handles both singular (`/reel/`) and plural (`/reels/`) path
+ * variants, and preserves nothing else (query params, trailing paths,
+ * fragment). If we can't find a shortcode we return the input
+ * unchanged — the WebViewClient will still swallow app-redirects and,
+ * if the page fails, the error overlay covers us with the native
+ * fallback button.
+ *
+ * Examples:
+ *  - `https://www.instagram.com/reel/DMabc123/?igsh=xyz==`
+ *      → `https://www.instagram.com/reel/DMabc123/embed`
+ *  - `https://www.instagram.com/reels/DMabc123/`
+ *      → `https://www.instagram.com/reel/DMabc123/embed`
+ *  - `https://random-shortener.com/xyz`
+ *      → `https://random-shortener.com/xyz` (unchanged, embed unknown)
+ */
+internal fun toEmbedUrl(rawUrl: String): String {
+    val regex = Regex("""instagram\.com/reels?/([A-Za-z0-9_-]+)""")
+    val match = regex.find(rawUrl) ?: return rawUrl
+    val shortcode = match.groupValues[1]
+    return "https://www.instagram.com/reel/$shortcode/embed"
 }
 
