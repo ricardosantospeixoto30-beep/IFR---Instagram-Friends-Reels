@@ -1,7 +1,6 @@
 package com.example.friendsreels
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -12,7 +11,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,21 +24,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.friendsreels.service.InstagramReaderService
+import com.example.friendsreels.ui.settings.SettingsActivity
 
+/**
+ * Home screen focused on the vision (spec §3): the user should barely
+ * spend time here — the primary CTA is "Abrir o meu feed". Everything
+ * PoC-diagnostic (react/reply/copy URL from the current IG conversation)
+ * lives behind the Settings screen so it doesn't compete with the
+ * primary action.
+ */
 class MainActivity : ComponentActivity() {
 
     private val requestNotificationPermission =
@@ -49,16 +52,26 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ensureNotificationPermission()
-        val prefs = getSharedPreferences(InstagramReaderService.PREFS_NAME, Context.MODE_PRIVATE)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     HomeScreen(
+                        onOpenFeed = {
+                            startActivity(
+                                Intent(this, com.example.friendsreels.ui.feed.FeedActivity::class.java)
+                            )
+                        },
                         onEnableAccessibility = {
                             startActivity(
                                 Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             )
+                        },
+                        onDiscoverReels = {
+                            sendServiceBroadcast(InstagramReaderService.ACTION_DISCOVER_REELS)
+                        },
+                        onDiscoverReelsHistory = {
+                            sendServiceBroadcast(InstagramReaderService.ACTION_DISCOVER_REELS_HISTORY)
                         },
                         onOpenInstagram = {
                             val launch = packageManager.getLaunchIntentForPackage("com.instagram.android")
@@ -66,27 +79,8 @@ class MainActivity : ComponentActivity() {
                                 startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                             }
                         },
-                        onReactHeart = { sendServiceBroadcast(InstagramReaderService.ACTION_REACT_HEART) },
-                        onReactLaugh = { sendServiceBroadcast(InstagramReaderService.ACTION_REACT_LAUGH) },
-                        onReplyMock = { sendServiceBroadcast(InstagramReaderService.ACTION_REPLY_FIRST_REEL_MOCK) },
-                        onCopyReelUrl = { sendServiceBroadcast(InstagramReaderService.ACTION_COPY_REEL_URL) },
-                        onDiscoverReels = { sendServiceBroadcast(InstagramReaderService.ACTION_DISCOVER_REELS) },
-                        onDiscoverReelsHistory = {
-                            sendServiceBroadcast(InstagramReaderService.ACTION_DISCOVER_REELS_HISTORY)
-                        },
-                        onOpenFeed = {
-                            startActivity(
-                                Intent(this, com.example.friendsreels.ui.feed.FeedActivity::class.java)
-                            )
-                        },
-                        initialIgnoreSent = prefs.getBoolean(
-                            InstagramReaderService.PREF_IGNORE_SENT,
-                            InstagramReaderService.PREF_IGNORE_SENT_DEFAULT,
-                        ),
-                        onIgnoreSentChange = { enabled ->
-                            prefs.edit()
-                                .putBoolean(InstagramReaderService.PREF_IGNORE_SENT, enabled)
-                                .apply()
+                        onOpenSettings = {
+                            startActivity(Intent(this, SettingsActivity::class.java))
                         },
                     )
                 }
@@ -111,19 +105,13 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun HomeScreen(
+    onOpenFeed: () -> Unit,
     onEnableAccessibility: () -> Unit,
-    onOpenInstagram: () -> Unit,
-    onReactHeart: () -> Unit,
-    onReactLaugh: () -> Unit,
-    onReplyMock: () -> Unit,
-    onCopyReelUrl: () -> Unit,
     onDiscoverReels: () -> Unit,
     onDiscoverReelsHistory: () -> Unit,
-    onOpenFeed: () -> Unit,
-    initialIgnoreSent: Boolean,
-    onIgnoreSentChange: (Boolean) -> Unit,
+    onOpenInstagram: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
-    var ignoreSent by remember { mutableStateOf(initialIgnoreSent) }
     Scaffold { padding ->
         Column(
             modifier = Modifier
@@ -132,80 +120,58 @@ private fun HomeScreen(
                 .padding(24.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text = stringResource(R.string.home_title),
-                style = MaterialTheme.typography.headlineMedium
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = stringResource(R.string.home_empty),
-                style = MaterialTheme.typography.bodyMedium
+                text = stringResource(R.string.home_tagline),
+                style = MaterialTheme.typography.bodyMedium,
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
 
-            Button(onClick = onEnableAccessibility, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_enable_accessibility))
+            Button(onClick = onOpenFeed, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.home_primary_open_feed))
             }
-            OutlinedButton(onClick = onOpenInstagram, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_open_instagram))
+            Text(
+                text = stringResource(R.string.home_primary_hint),
+                style = MaterialTheme.typography.bodySmall,
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+            Text(
+                text = stringResource(R.string.home_discovery_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(R.string.home_discovery_hint),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedButton(onClick = onDiscoverReels, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.btn_discover_reels))
+            }
+            OutlinedButton(onClick = onDiscoverReelsHistory, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.btn_discover_reels_history))
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
             Text(
-                text = stringResource(R.string.poc_tools_title),
-                style = MaterialTheme.typography.titleMedium
+                text = stringResource(R.string.home_setup_title),
+                style = MaterialTheme.typography.titleMedium,
             )
-            Text(
-                text = stringResource(R.string.poc_tools_help),
-                style = MaterialTheme.typography.bodySmall
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.padding(end = 12.dp)) {
-                    Text(
-                        text = stringResource(R.string.toggle_ignore_sent),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.toggle_ignore_sent_help),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(
-                    checked = ignoreSent,
-                    onCheckedChange = {
-                        ignoreSent = it
-                        onIgnoreSentChange(it)
-                    },
-                )
+            OutlinedButton(onClick = onEnableAccessibility, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.btn_enable_accessibility))
             }
-
-            Button(onClick = onReactHeart, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_react_heart))
+            OutlinedButton(onClick = onOpenInstagram, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.btn_open_instagram))
             }
-            Button(onClick = onReactLaugh, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_react_laugh))
-            }
-            Button(onClick = onReplyMock, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_reply_reel))
-            }
-            Button(onClick = onCopyReelUrl, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_copy_reel_url))
-            }
-            Button(onClick = onDiscoverReels, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_discover_reels))
-            }
-            Button(onClick = onDiscoverReelsHistory, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_discover_reels_history))
-            }
-            Button(onClick = onOpenFeed, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_open_feed_new))
+            TextButton(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.home_open_settings))
             }
         }
     }

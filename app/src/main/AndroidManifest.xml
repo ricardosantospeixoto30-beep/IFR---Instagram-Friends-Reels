@@ -49,6 +49,12 @@
             android:theme="@style/Theme.FriendsReels" />
 
         <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_title"
+            android:theme="@style/Theme.FriendsReels" />
+
+        <activity
             android:name=".ui.player.ReelPlayerActivity"
             android:exported="false"
             android:label="@string/player_title"

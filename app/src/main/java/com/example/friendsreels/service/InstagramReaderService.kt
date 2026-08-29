@@ -1620,23 +1620,55 @@ class InstagramReaderService : AccessibilityService() {
         }
 
         val scrolled = messageList.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
-        Log.i(
-            TAG,
-            "LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted=$scrolled " +
-                "scrollsLeft=$scrollsLeft author=$wantedAuthor"
-        )
-        if (!scrolled) {
-            // ACTION_SCROLL_BACKWARD only fires when the RecyclerView has more
-            // content to reveal upwards. A refusal here means we're at the top
-            // of the conversation and the target simply isn't in this thread
-            // any more (deleted? forwarded from elsewhere?). Give up cleanly.
-            Log.w(TAG, "LOCATE: a11y scroll refused — assumed top of conversation reached.")
+        if (scrolled) {
+            Log.i(
+                TAG,
+                "LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted " +
+                    "scrollsLeft=$scrollsLeft author=$wantedAuthor"
+            )
+            mainHandler.postDelayed({
+                locateReelWithScroll(target, scrollsLeft - 1, onDone)
+            }, LOCATE_SCROLL_SETTLE_MS)
+            return
+        }
+
+        // Fallback: dispatch a swipe DOWN inside the message_list to
+        // reveal older messages. Same technique used by discoverReelsHistory
+        // when the a11y scroll action is refused.
+        val bounds = Rect().also { messageList.getBoundsInScreen(it) }
+        if (bounds.width() <= 0 || bounds.height() <= 0) {
+            Log.w(TAG, "LOCATE: message_list has empty bounds; giving up.")
             onDone(null)
             return
         }
-        mainHandler.postDelayed({
-            locateReelWithScroll(target, scrollsLeft - 1, onDone)
-        }, LOCATE_SCROLL_SETTLE_MS)
+        val startX = bounds.exactCenterX()
+        val startY = bounds.top + bounds.height() * 0.25f
+        val endY = bounds.top + bounds.height() * 0.85f
+        val path = Path().apply {
+            moveTo(startX, startY)
+            lineTo(startX, endY)
+        }
+        val stroke = GestureDescription.StrokeDescription(path, 0L, LOCATE_SWIPE_DURATION_MS)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+        val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(g: GestureDescription?) {
+                Log.i(
+                    TAG,
+                    "LOCATE: swipe fallback completed scrollsLeft=$scrollsLeft author=$wantedAuthor"
+                )
+                mainHandler.postDelayed({
+                    locateReelWithScroll(target, scrollsLeft - 1, onDone)
+                }, LOCATE_SCROLL_SETTLE_MS)
+            }
+            override fun onCancelled(g: GestureDescription?) {
+                Log.w(TAG, "LOCATE: swipe fallback cancelled by system; giving up.")
+                onDone(null)
+            }
+        }, mainHandler)
+        if (!dispatched) {
+            Log.w(TAG, "LOCATE: swipe fallback rejected by dispatchGesture; giving up.")
+            onDone(null)
+        }
     }
 
     /**
@@ -1973,7 +2005,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s34"
+        private const val BUILD_TAG = "build=s35"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -2056,6 +2088,8 @@ class InstagramReaderService : AccessibilityService() {
         private const val BATCH_MAX_SCROLLS = 20
         /** Delay after a `ACTION_SCROLL_BACKWARD` before re-enumerating. */
         private const val LOCATE_SCROLL_SETTLE_MS = 800L
+        /** Duration of the fallback swipe DOWN when a11y scroll is refused. */
+        private const val LOCATE_SWIPE_DURATION_MS = 500L
 
         // -----------------------------------------------------------------
         // PoC-8 iteration 3 part B — history discovery (auto scroll)
@@ -2125,6 +2159,15 @@ class InstagramReaderService : AccessibilityService() {
          */
         const val PREF_IGNORE_SENT = "ignore_sent_reels"
         const val PREF_IGNORE_SENT_DEFAULT = true
+
+        /**
+         * When true, the feed's VerticalPager swaps its swipe direction:
+         * swipe UP goes to the previous Reel, swipe DOWN goes to the next.
+         * Default false — matches the native Reels feed direction (spec
+         * §3 "Comportamento padrão"). Toggle exposed in `SettingsActivity`.
+         */
+        const val PREF_INVERT_SWIPE = "invert_swipe_direction"
+        const val PREF_INVERT_SWIPE_DEFAULT = false
 
         private const val NOTIF_CHANNEL_ID = "friends_reels_controls"
         private const val NOTIF_ID = 1001

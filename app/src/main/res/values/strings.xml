@@ -3,25 +3,30 @@
     <string name="accessibility_service_label">Friends Reels — Instagram Reader</string>
     <string name="accessibility_service_description">Reads Instagram DM conversations to discover Reels shared by your friends. Runs only when you tap Sync.</string>
 
+    <!-- Home screen -->
     <string name="home_title">Friends Reels</string>
-    <string name="home_empty">Ainda não importaste nenhum Reel. Esta é a área de PoC — usa os botões abaixo para testar a integração com o Instagram.</string>
+    <string name="home_tagline">Todos os Reels que os teus amigos te enviaram, num único feed.</string>
+    <string name="home_primary_open_feed">▶ Abrir o meu feed</string>
+    <string name="home_primary_hint">Vê os Reels dos teus amigos como um feed vertical: swipe para navegar, ❤ / 😂 para reagir, 💬 para responder.</string>
+    <string name="home_discovery_title">Descobrir Reels</string>
+    <string name="home_discovery_hint">Abre uma conversa no Instagram e usa um dos botões abaixo (ou os da notificação persistente) para importar Reels para o feed.</string>
+    <string name="home_setup_title">Configuração</string>
+    <string name="home_open_settings">⚙ Definições</string>
+
+    <!-- Setup / diagnostic buttons -->
     <string name="btn_enable_accessibility">Ativar serviço de acessibilidade</string>
     <string name="btn_open_instagram">Abrir Instagram</string>
     <string name="btn_open_feed">Abrir feed</string>
     <string name="btn_open_settings">Definições</string>
     <string name="btn_sync">Sincronizar Reels</string>
-
-    <string name="poc_tools_title">Ferramentas de PoC</string>
-    <string name="poc_tools_help">Fluxo recomendado: abre a conversa no Instagram e usa os botões da notificação persistente do Friends Reels (baixa a barra). Assim o Instagram fica na conversa. Os botões abaixo funcionam mas trocam de app, o que pode fazer o IG voltar ao inbox.</string>
     <string name="btn_react_heart">Reagir com ❤ ao 1.º Reel</string>
     <string name="btn_react_laugh">Reagir com 😂 ao 1.º Reel</string>
     <string name="btn_reply_reel">Responder com 👀 ao 1.º Reel</string>
     <string name="btn_copy_reel_url">Copiar URL do 1.º Reel (viewer → Partilhar → Copiar)</string>
-    <string name="btn_discover_reels">Descobrir Reels desta conversa</string>
+    <string name="btn_discover_reels">🔍 Descobrir Reels desta conversa</string>
     <string name="btn_open_feed_new">Ver feed (BD local)</string>
-    <string name="toggle_ignore_sent">Ignorar Reels enviados por mim</string>
-    <string name="toggle_ignore_sent_help">Quando ativado, o alvo das reações é o primeiro Reel recebido visível (marcado com o avatar do remetente). Desativa para permitir reagir aos teus próprios Reels na conversa.</string>
 
+    <!-- Persistent notification -->
     <string name="notif_channel_name">Ações rápidas do Reels</string>
     <string name="notif_channel_description">Notificação persistente com botões para reagir ao Reel visível no Instagram.</string>
     <string name="notif_title">Friends Reels</string>
@@ -32,7 +37,24 @@
     <string name="notif_action_copy_url">🔗</string>
     <string name="notif_action_discover">🔍</string>
 
+    <!-- Settings screen -->
     <string name="settings_title">Definições</string>
+    <string name="settings_done">Concluído</string>
+    <string name="settings_ignore_sent_title">Ignorar Reels enviados por mim</string>
+    <string name="settings_ignore_sent_subtitle">Quando ativado, as reações e respostas só se aplicam a Reels que amigos enviaram, nunca aos que enviaste tu.</string>
+    <string name="settings_invert_swipe_title">Inverter direção do swipe</string>
+    <string name="settings_invert_swipe_subtitle">Padrão: swipe para cima passa para o próximo Reel. Ativado: swipe para cima volta ao anterior.</string>
+    <string name="settings_placeholder_selection_title">Seleção de conversas</string>
+    <string name="settings_placeholder_selection_body">Em breve: escolher pessoas e grupos a incluir/excluir (modo "Apenas selecionados" ou "Excluir selecionados") — spec §8.</string>
+    <string name="settings_diagnostics_title">Ferramentas de diagnóstico</string>
+    <string name="settings_diagnostics_body">Botões que disparam broadcasts directos ao serviço. Úteis para debug — o fluxo normal usa o feed e a notificação persistente.</string>
+
+    <!-- Legacy tools strings — kept for backward-compat with any places still referencing them -->
+    <string name="home_empty">Ainda não importaste nenhum Reel.</string>
+    <string name="poc_tools_title">Ferramentas de PoC</string>
+    <string name="poc_tools_help">Fluxo recomendado: abrir o feed e usar as ações no ecrã. As ferramentas de diagnóstico ficam nas Definições.</string>
+    <string name="toggle_ignore_sent">Ignorar Reels enviados por mim</string>
+    <string name="toggle_ignore_sent_help">Ver detalhe nas Definições.</string>
     <string name="settings_selection_mode">Modo de seleção</string>
     <string name="settings_include_only">Incluir apenas os selecionados</string>
     <string name="settings_exclude_selected">Excluir os selecionados</string>
@@ -40,21 +62,55 @@
     <string name="settings_import_history">Importar histórico antigo</string>
     <string name="settings_invert_swipe">Inverter direção do swipe</string>
 
-    <!-- PoC-8 Feed -->
-    <string name="feed_title">Feed</string>
+    <!-- Feed screen -->
+    <string name="feed_title">Friends Reels</string>
     <string name="feed_empty_title">Feed vazio</string>
-    <string name="feed_empty_hint">Abre uma conversa com Reels no Instagram e usa o botão 🔍 na notificação para descobrir os Reels visíveis.</string>
+    <string name="feed_empty_hint">Abre uma conversa com Reels no Instagram e usa o botão 🔍 na notificação (ou na Home) para descobrir os Reels visíveis.</string>
     <string name="feed_unknown_author">Autor desconhecido</string>
     <string name="feed_shared_by">de %1$s</string>
     <string name="feed_received_in">Recebido em %1$s</string>
     <string name="feed_received_from">Recebido de %1$s</string>
     <string name="feed_received_from_in">Recebido de %1$s em %2$s</string>
     <string name="feed_sent_in">Enviado por mim em %1$s</string>
+    <string name="feed_discovered_at">Descoberto a %1$s</string>
     <string name="feed_open_in_ig">Abrir no Instagram</string>
     <string name="feed_no_url_yet">URL ainda não capturado (usar 🔗)</string>
+    <string name="feed_no_url_yet_hint">Este Reel ainda não tem URL capturado. Volta ao Instagram, abre a conversa, e usa o botão 🔗 na notificação para capturar o URL antes de o poderes reproduzir aqui.</string>
     <string name="feed_open_failed">Não foi possível abrir o Reel</string>
+    <string name="feed_open_thread_hint">Instagram aberto. Vai manualmente para a conversa \"%1$s\".</string>
+    <string name="feed_play_in_app">▶ Ver Reel aqui</string>
+    <string name="feed_open_in_ig_native">↗ Abrir no Instagram nativo</string>
 
-    <!-- PoC-8 iteração 3 — batching de acções -->
+    <!-- Feed — state chips -->
+    <string name="feed_chip_received">recebido</string>
+    <string name="feed_chip_sent">enviado</string>
+    <string name="feed_chip_seen">visto</string>
+    <string name="feed_chip_reacted_heart">❤ reagido</string>
+    <string name="feed_chip_reacted_laugh">😂 reagido</string>
+    <string name="feed_chip_replied">💬 respondido</string>
+
+    <!-- Feed — actions -->
+    <string name="feed_action_react">reagir</string>
+    <string name="feed_action_reply">responder</string>
+    <string name="feed_action_queued">na fila</string>
+    <string name="feed_failed_actions_notice">%1$d ação(ões) falhou(aram) para este Reel. Vê o Logcat para o motivo.</string>
+
+    <!-- Feed — 3-dot menu -->
+    <string name="feed_menu_content_desc">Mais opções</string>
+    <string name="feed_menu_open_in_ig">Abrir Reel no Instagram nativo</string>
+    <string name="feed_menu_open_thread_in_ig">Abrir conversa no Instagram</string>
+    <string name="feed_menu_cancel_pending">Cancelar acções pendentes deste Reel</string>
+    <string name="feed_menu_settings">Definições</string>
+
+    <!-- Feed — reply dialog -->
+    <string name="feed_reply_dialog_title">Responder ao Reel</string>
+    <string name="feed_reply_dialog_hint">A tua resposta será enfileirada. Vai ser enviada como resposta à mensagem original do Reel na conversa quando tocares em ▶ Aplicar fila.</string>
+    <string name="feed_reply_dialog_label">Escreve a tua resposta</string>
+    <string name="feed_reply_dialog_send">Enfileirar resposta</string>
+    <string name="feed_reply_dialog_cancel">Cancelar</string>
+    <string name="feed_reply_empty_toast">Escreve algo antes de enviar</string>
+
+    <!-- Feed — legacy batching UI -->
     <string name="feed_queue_heart">Enfileirar ❤</string>
     <string name="feed_queue_laugh">Enfileirar 😂</string>
     <string name="feed_queue_reply">Enfileirar 👀</string>
@@ -67,20 +123,18 @@
     <string name="feed_apply_pending_none">Sem acções pendentes</string>
     <string name="feed_clear_terminal">Limpar histórico de ações concluídas</string>
     <string name="feed_cancel_pending">✕ Cancelar acções pendentes deste Reel</string>
-    <string name="feed_apply_hint">Abre a conversa relevante no Instagram antes de aplicar. Nesta iteração só corremos as ações da conversa activa.</string>
+    <string name="feed_apply_hint">Batching a arrancar. O Instagram vai abrir automaticamente na conversa correcta.</string>
 
     <string name="notif_action_apply">▶</string>
     <string name="notif_apply_progress">A aplicar %1$d/%2$d…</string>
 
-    <!-- PoC-8 iteração 3-B — history discovery (auto scroll) -->
-    <string name="btn_discover_reels_history">Descobrir histórico (scroll auto)</string>
+    <!-- History discovery -->
+    <string name="btn_discover_reels_history">📥 Descobrir histórico (scroll auto)</string>
     <string name="notif_history_progress">A descobrir histórico… scroll %1$d/%2$d, %3$d novos Reels</string>
 
-    <!-- PoC-8 iteração 3-C — WebView player -->
+    <!-- Player -->
     <string name="player_title">Reel</string>
     <string name="player_missing_url">Sem URL para reproduzir.</string>
     <string name="player_error_title">Não foi possível carregar o Reel na app</string>
     <string name="player_retry">↻ Tentar de novo</string>
-    <string name="feed_play_in_app">▶ Ver Reel aqui</string>
-    <string name="feed_open_in_ig_native">↗ Abrir no Instagram nativo</string>
 </resources>

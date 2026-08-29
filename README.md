@@ -36,16 +36,23 @@ Depois de o a11y service estar activo, aparece uma notificação persistente **"
 
 Tocar **no corpo** da notificação abre o feed local.
 
-Se precisares dos primitivos directos (reagir com ❤/😂, responder com 👀, tudo aplicado ao 1.º Reel recebido visível), ou de descobrir todo o histórico de uma conversa via scroll automático, abre a app **Friends Reels** — os botões estão no ecrã principal, incluindo **"Descobrir histórico (scroll auto)"**.
+Se precisares dos primitivos directos (reagir com ❤/😂, responder com 👀, tudo aplicado ao 1.º Reel recebido visível), ou de descobrir todo o histórico de uma conversa via scroll automático, abre a app **Friends Reels** → **⚙ Definições** → secção "Ferramentas de diagnóstico".
 
 ## Fluxo recomendado
 
 1. Abrir uma conversa com Reels no Instagram.
-2. Puxar a barra de notificações → tocar **🔍** (só Reels visíveis) OU abrir a app e tocar **"Descobrir histórico (scroll auto)"** (percorre a conversa para trás até 30 scrolls). A app persiste em BD tudo o que encontrar.
-3. Para cada Reel que queres enriquecer com URL, ir até ele estar no topo e tocar **🔗**.
-4. Abrir o feed (tocar no corpo da notif, ou botão "Ver feed" na app). Podes ver o Reel dentro da app com **"▶ Ver Reel aqui"** (embed com autoplay) ou saltar para o IG nativo com **"↗ Abrir no Instagram nativo"**.
-5. Em cada card, tocar **Enfileirar ❤ / 😂 / 👀** conforme quiseres. Reacções e reply são dedup por card. Botão **✕ Cancelar acções pendentes deste Reel** limpa os pendentes desse card.
-6. Voltar ao Instagram (opcional — o batching agora navega entre conversas E procura o Reel específico dentro da conversa via scroll), tocar **▶** na notificação. O executor agrupa a fila por conversa, visita cada thread uma vez, e dentro dela scrolla para trás até encontrar o Reel exacto (matching por `reelAuthor`) antes de reagir/responder.
+2. Puxar a barra de notificações → tocar **🔍** (só Reels visíveis) OU abrir a app e tocar **"📥 Descobrir histórico (scroll auto)"** (percorre a conversa para trás até 30 scrolls). A app persiste em BD tudo o que encontrar.
+3. Para cada Reel que queres enriquecer com URL, ir até ele estar no topo e tocar **🔗** na notificação.
+4. Abrir a app → **"▶ Abrir o meu feed"**. Feed vertical full-screen: swipe up/down entre Reels. Cada card mostra chips com o estado (`recebido/enviado`, `visto`, `❤/😂 reagido`, `💬 respondido`), autor, remetente na DM, data, e botão central para ver o Reel (embed com autoplay). Menu **⋮** com "Abrir Reel/conversa no Instagram nativo", "Cancelar pendentes", "Definições".
+5. Tocar em **❤ / 😂** → enfileira a reacção nesse Reel. Tocar em **💬** → abre dialog de resposta com texto configurável. Toast confirma "Ação enfileirada".
+6. Voltar ao Instagram (opcional — o batching navega entre conversas E procura o Reel específico dentro da thread via scroll), tocar **▶** na notificação. O executor agrupa a fila por conversa, visita cada thread uma vez, e dentro dela scrolla para trás até encontrar o Reel exacto antes de reagir/responder.
+
+## Definições (⚙)
+
+- **Ignorar Reels enviados por mim** — quando ligado, as reacções e respostas só se aplicam a Reels que amigos enviaram.
+- **Inverter direção do swipe** — swipe UP passa a voltar ao Reel anterior (padrão: swipe UP = próximo Reel).
+- **Seleção de conversas** — placeholder, próxima iteração.
+- **Ferramentas de diagnóstico** — broadcasts directos para debug (equivalentes a `adb shell am broadcast`).
 
 ## Broadcasts (opcional — testes via `adb`)
 
@@ -69,4 +76,4 @@ Todos os dumps de referência estão em `docs/screen-dumps/`.
 
 Ver `PROJECT_PROGRESS.md` — secção **"Estado atual"** e o último log de sessão.
 
-Resumo: PoCs 1→7 concluídos e validados. PoC-8 iterações 1, 2 e 3 (parte A batching, parte B history-scroll, parte C player WebView com embed + autoplay) fechadas. PoC-9 iter 1 (navegação entre conversas via `header_title` na inbox) validada em device (s34). PoC-8 iter 4 (localizar Reel específico dentro da thread por `reelAuthor` + scroll backwards) implementada e aguarda validação em device.
+Resumo: PoCs 1→7 concluídos. PoC-8 iterações 1-3 (batching, history-scroll, player embed) e iter 4 (localizar Reel por autor + scroll) fechadas. PoC-9 iter 1 (nav cross-thread) validada em device. **Sessão 35 (iteração grande)** entregou o feed VerticalPager full-screen (spec §3), reply real com texto (§5), estados por Reel (§7), menu 3-pontinhos (§12), ecrã Definições (§11), Home limpa. Aguarda validação end-to-end — instruções passo-a-passo em `PROJECT_PROGRESS.md` §8.

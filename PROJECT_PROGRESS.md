@@ -7,39 +7,45 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC). **PoC-9 iter 1 validada em device** (nav cross-thread funciona). **PoC-8 iter 4 implementada** (session 34) — batching localiza o Reel específico por `reelAuthor` + scroll backwards se estiver fora do ecrã. Aguarda validação em device.
-**Última atualização:** 2025-08-29 (sessão 34)
+**Fase atual:** Fase 1 (PoC → MVP). **Sessão 35 (iteração grande)** — feed reescrito para VerticalPager full-screen alinhado com a visão (spec §3), reply real com texto do utilizador (spec §5), menu 3-pontinhos (spec §12), ecrã de Definições (spec §11), Home limpa focada no feed, estados por Reel derivados (SEEN/REACTED/REPLIED, spec §7), fallback swipe no `locateReelWithScroll`. Aguarda validação end-to-end em device.
+**Última atualização:** 2025-08-29 (sessão 35)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s34`.
+**HEAD actual:** `build=s35`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Verifica no arranque do service que o Logcat mostra `Action receiver registered (build=s34 ...)`. Se aparecer outra tag é APK antigo — reinstala.
+1. **Pull** do repo. Verifica no arranque que Logcat mostra `Action receiver registered (build=s35 ...)`.
 2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" — se PoC-8 iter 4 validar bem, próxima é UX polish + PoC-10 (URL matching robusto).
-    - Último log de sessão em §7 (s34 adicionou `locateReelWithScroll` para PoC-8 iter 4; s33 introduziu `navigateToThreadAsync` PoC-9 iter 1).
-3. **Ficheiros-chave (pontos de entrada para cada área):**
-    - `service/InstagramReaderService.kt` — motor a11y, todos os broadcasts, executor de batching (`applyPendingActions` → `runBatchStep` → `executeBatchStep` → `locateReelWithScroll` → `dispatchLongPressOn`), navegação entre conversas (`navigateToThreadAsync`, `clickInboxRow`, `clickDirectTab`, `currentHeaderTitle`, `isInboxVisible`), history-scroll geral (`discoverReelsHistory`).
-    - `instagram/IgSelectors.kt` — IDs/labels do IG (inbox rows por prefix de `contentDescription`, conversa, viewer, context menu, share sheet).
-    - `data/` — Room v3 (`ReelEntity`, `ReelDao`, `PendingActionEntity`, `PendingActionDao`, `AppDatabase`).
-    - `ui/feed/` — Compose feed com cards, batching UI e bottom bar.
-    - `ui/player/ReelPlayerActivity.kt` — WebView com `FriendsReelsWebViewClient` (intercepta `instagram://`, injecta JS para autoplay) e `toEmbedUrl()` para reescrever URLs em `.../reel/<code>/embed`.
-    - `ClipboardCaptureActivity.kt` — bridge para ler clipboard em Android 10+.
-    - Dumps de referência: `docs/screen-dumps/reel dump.txt` (Reel viewer), `reel view more.txt` (share sheet), `feed.txt` (último log de teste do utilizador).
-4. **Constraints do desenvolvimento:**
-    - Testes só no OnePlus Nord 5 / Android 16 do utilizador (não há device no ambiente do agente). Cada iteração exige `git commit && git push` — minimizar rondas.
-    - macOS deste ambiente não tem Android SDK, só validar sintaxe. Se precisares mesmo de correr Gradle: `sdk use java 21.0.7-tem`.
-    - Cada refactor visível deve bumpar `BUILD_TAG` (companion do `InstagramReaderService`) — dá ao utilizador confirmação no Logcat.
+    - §6 "Próximos passos concretos".
+    - Último log de sessão em §7 (s35 fez a iteração grande alinhada à visão; s34 fez PoC-8 iter 4 com scroll; s33 fez PoC-9).
+3. **Ficheiros-chave:**
+    - `service/InstagramReaderService.kt` — motor a11y, batching (`applyPendingActions` → `runBatchStep` → `executeBatchStep` → `locateReelWithScroll` → `dispatchLongPressOn`), navegação (`navigateToThreadAsync`), history-scroll (`discoverReelsHistory`). Constantes de preferências: `PREF_IGNORE_SENT`, `PREF_INVERT_SWIPE`.
+    - `ui/feed/FeedScreen.kt` — feed VerticalPager, `ReelPage` full-screen com hero+metadata+actions, 3-pontinhos, reply dialog.
+    - `ui/feed/FeedViewModel.kt` — `ReelUiState` derivado (SEEN, PENDING_*, REACTED_*, REPLIED, failedActions).
+    - `ui/settings/SettingsActivity.kt` — Definições + Ferramentas de diagnóstico.
+    - `MainActivity.kt` — Home limpa: CTA "▶ Abrir o meu feed", secções Descoberta e Configuração.
+    - `ui/player/ReelPlayerActivity.kt` — WebView com `toEmbedUrl()` + autoplay JS.
+    - `instagram/IgSelectors.kt` — IDs/labels do IG.
+    - `data/` — Room v3 (`ReelEntity`, `PendingActionEntity`, DAOs).
+    - Dumps: `docs/screen-dumps/reel dump.txt`, `feed.txt` (última corrida de testes).
+4. **Constraints:**
+    - Testes só no OnePlus Nord 5 / Android 16 do utilizador. Iterações grandes preferidas para minimizar rondas.
+    - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
+    - Cada refactor visível deve bumpar `BUILD_TAG`.
 5. **UX actual em device:**
-    - **Notificação persistente:** 3 botões — **🔍 Descobrir** (Reels visíveis), **🔗 Copiar URL** (enriquecer 1.º Reel com URL + dmSender), **▶ Aplicar fila** (correr batching — navega entre conversas E procura o Reel específico dentro da thread). Tocar no corpo abre o feed.
-    - **Ecrã da app:** primitivos directos (❤, 😂, 👀, 🔗, 🔍) + toggle "Ignorar Reels enviados" + botão **"Descobrir histórico (scroll auto)"** + **"Ver feed"**.
-    - **Feed:** cards com badges, **"▶ Ver Reel aqui"** (player embed com autoplay + som), **"↗ Abrir no Instagram nativo"** (fallback), 3 botões de enfileirar (**"Enfileirar ❤/😂/👀"**, dedup por kind), **"✕ Cancelar acções pendentes deste Reel"** quando há PENDING, bottom bar **"Aplicar N acções no Instagram"** + **"Limpar histórico de ações concluídas"**.
+    - **Home:** protagonismo ao botão **"▶ Abrir o meu feed"**. Secções secundárias: Descobrir (🔍 conversa aberta / 📥 histórico), Configuração (a11y toggle, abrir IG, ⚙ Definições).
+    - **Feed:** full-screen swipe (VerticalPager). Cada página tem hero central com play button que abre o player embed, metadata (autor, remetente, data), 3 acções (❤ 😂 💬) que enfileiram, e menu 3-pontinhos (abrir Reel/conversa no IG, cancelar pendentes, Definições). Chips no topo: `recebido/enviado`, `visto`, `❤/😂 reagido`, `💬 respondido`.
+    - **Reply:** dialog com campo de texto (default "👀"), botão "Enfileirar resposta". Texto vai para o `payload` da PendingAction e o service usa-o no `ACTION_SET_TEXT` do composer do IG.
+    - **Definições:** toggles (`ignorar Reels enviados`, `inverter direção do swipe`) + placeholder para seleção de conversas + Ferramentas de diagnóstico (broadcasts directos).
+    - **Notificação persistente:** 3 botões (🔍 🔗 ▶) inalterados.
 6. **Limitações conhecidas:**
-    - Matching por `reelAuthor` — se dois Reels partilhados na mesma conversa forem do mesmo criador IG, o executor bate no bubble MAIS ANTIGO visível/scrollado desse autor. Colisões possíveis mas aceitáveis para MVP. Fix futuro: guardar `reelUrl` durante o discover (obriga a abrir o viewer) e matching estrito por URL.
-    - Cap de 20 scrolls por step. Conversas com centenas de mensagens acima do target podem falhar — mitigação: correr **"Descobrir histórico"** primeiro para trazer o alvo à vista, ou re-abrir a conversa perto do alvo antes de aplicar.
-    - Cosmético: ordem dos badges no topo do card é fixa (❤ → 😂 → 👀), não segue `createdAt`. TODO.
-    - Navegação por `header_title` é frágil se dois threads tiverem o mesmo título exacto (não deve acontecer em prática). Deep-link por `thread_id` fica como upgrade futuro.
+    - Matching por `reelAuthor` no locate — 2 Reels do mesmo criador na mesma conversa colidem (top-most vence). Fix futuro: match estrito por `reelUrl`.
+    - Cap de 20 scrolls por step. Conversas muito longas podem falhar — mitigação: correr "Descobrir histórico" primeiro.
+    - Seleção de conversas (spec §8) — placeholder no ecrã Definições, ainda por implementar.
+    - Consulta de respostas anteriores dentro da app (spec §5) — não temos sync da conversa para dentro da BD; o utilizador tem de abrir o IG para ver.
+    - Cosmético: ordem dos badges no topo do card é fixa (❤ → 😂 → 💬), não segue `createdAt`. TODO.
+    - Navegação por `header_title` é frágil se dois threads tiverem o mesmo título exacto.
 
 ---
 
@@ -212,44 +218,23 @@ Já entregue no primeiro commit:
 - ✅ PoC-8 iter 3 parte B — `ACTION_DISCOVER_REELS_HISTORY` com `ACTION_SCROLL_BACKWARD` (fallback: swipe DOWN via gesture); stop em 3 scrolls empty ou cap de 30
 - ✅ PoC-8 iter 3 parte C — player embed (`.../reel/<code>/embed`) com JS injection para autoplay (unmuted → fallback muted); WebViewClient intercepta `instagram://` e `intent://` redirects; overlay de erro com fallback nativo
 - ✅ PoC-9 iter 1 — batching navega entre conversas via `header_title` na inbox (validado em device na s34)
-- 🚧 PoC-8 iter 4 — batching localiza o Reel específico por `reelAuthor` + `ACTION_SCROLL_BACKWARD` até 20× se não estiver visível. Aguarda validação em device.
+- ✅ PoC-8 iter 4 — batching localiza o Reel específico por `reelAuthor` + `ACTION_SCROLL_BACKWARD` até 20× + fallback swipe DOWN (s35). Aguarda validação em device.
+- ✅ **s35 (iteração grande) — feed alinhado com a visão (spec §3-§12):** VerticalPager full-screen, reply real com texto do utilizador (spec §5), estados por Reel derivados (SEEN/REACTED/REPLIED, spec §7), menu 3-pontinhos (spec §12), `SettingsActivity` com toggles + placeholder para seleção (spec §11/§8), Home limpa focada em "▶ Abrir o meu feed". Aguarda validação em device.
 
-### 6.1 Próxima sessão — validar PoC-8 iter 4 + polish
+### 6.1 Próxima sessão — validação end-to-end da s35 + próximos passos
 
-**Passo 1 (obrigatório):** validar PoC-8 iter 4 em device.
+**Objectivo desta ronda de testes:** validar que a app já se sente próxima da visão (feed vertical, reagir, responder com texto real, estados por Reel, menu 3-pontinhos, definições) E que os fixes de batching PoC-8 iter 4 (localização por autor + scroll backwards + fallback swipe) da s34 continuam a funcionar.
 
-- **Teste L1 — batching com Reel visível no arranque (sanity, mesmo comportamento antigo).** Enfileirar uma reacção no Reel MAIS RECENTE de uma conversa X (o que está mais próximo do fim). Abrir IG na conversa X (o Reel deve estar visível no ecrã). Tocar **▶ Aplicar fila**. Esperado no logcat:
-  - `LOCATE: matched reelId=… author=… at index=… bounds=… (scrollsLeft=20, visibleReceived=N)`
-  - Sem qualquer `ACTION_SCROLL_BACKWARD`.
-  - Depois: `LONG_PRESS: target index=…` normal, reacção aplicada.
+Ver §8 (nova secção "Instruções para o Ricardo — testes end-to-end da s35") no fim deste ficheiro.
 
-- **Teste L2 — batching com Reel FORA do ecrã (o cenário que falhava na s33).** Enfileirar uma reacção num Reel ANTIGO (perto do topo da BD). Abrir IG na conversa X (o Reel NÃO está visível — está scrollado acima). Tocar **▶ Aplicar fila**. Esperado:
-  - `LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted=true scrollsLeft=20`
-  - Uma ou mais linhas semelhantes (scrollsLeft=19, 18, …) até um `LOCATE: matched reelId=…`.
-  - Depois: `LONG_PRESS` normal + reacção.
-  - Se scrollar todo o caminho até esgotar 20 scrolls: `LOCATE: could not find … after 20 scrolls` → step FAILED com mensagem `Reel do @autor não encontrado após 20 scrolls (reelId=…)`. Aceitável se a BD tinha Reels antigos que já não estão no histórico da conversa (removidos, forwarded, etc.).
+### 6.2 Depois da s35 (roadmap)
 
-- **Teste L3 — batching múltiplos steps, mesma conversa, diferentes Reels.** Enfileirar 3 acções em 3 cards diferentes (Reels de autores diferentes) da mesma conversa. **▶ Aplicar fila**. Esperado: cada step localiza o seu autor correcto; scroll é preservado entre steps (não faz reset).
-
-- **Teste L4 — batching cross-thread, cada thread com Reel fora do ecrã.** Enfileirar 1 acção antiga na thread X e 1 acção antiga na thread Y. **▶ Aplicar fila**. Esperado:
-  - Nav para X → `LOCATE` com scroll → `LONG_PRESS` em X.
-  - Nav para Y → `LOCATE` com scroll → `LONG_PRESS` em Y.
-
-**Se algum teste falhar** (o step fica preso em LOCATE com `could not find` mesmo com o Reel supostamente na conversa):
-- **Hipótese A — autor errado guardado na BD.** Ver o `LOCATE: … authors=[list]` na linha de give-up e comparar com o esperado. Se o autor real estiver na lista mas não bater com `target.reelAuthor`, o problema é upstream (o discover capturou o autor errado). Diagnóstico: DUMP da conversa + comparar.
-- **Hipótese B — o Reel não está no histórico da conversa** (foi apagado, ou o utilizador confundiu Reels de threads diferentes). Aceitável — é o comportamento correcto: FAILED com mensagem clara.
-- **Hipótese C — `ACTION_SCROLL_BACKWARD` refused cedo demais** (o cap dos 20 é curto, ou a lista não aceita scroll). Ver `LOCATE: a11y scroll refused` — pode ser preciso o fallback de swipe-DOWN (já implementado em `discoverReelsHistory`, podemos reusar).
-
-**Passo 2 (se PoC-8 iter 4 validar):** UX polish + próximos PoCs.
-
-### 6.2 Polish e próximos passos
-
-- **UX do badge order** (quirk s28): ordenar por `createdAt` em vez de posição fixa alfabética.
-- **Match estrito por URL** *(PoC-10 tentativo)*: enriquecer todos os Reels descobertos com URL (não só quando o utilizador toca 🔗). Requer opening the viewer para cada Reel, o que é lento — talvez fazer só sob demand quando `reelAuthor` colide (múltiplos Reels do mesmo criador na mesma conversa).
-- **Fallback de swipe no LOCATE** — se `ACTION_SCROLL_BACKWARD` refused, reusar o mesmo `dispatchGesture` de swipe-DOWN do `discoverReelsHistory` para forçar scroll manual.
-- **Toast do IG "Ligação copiada":** substituir por absorção silenciosa se possível, ou aceitar como cost of doing business.
-- **Tuning de latência:** reduzir `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS`, `NAV_STEP_SETTLE_MS`, `LOCATE_SCROLL_SETTLE_MS` progressivamente agora que o batching mascara parte da lentidão.
-- **Deep-link `instagram://direct/t/<thread_id>` como substituto do fallback por título** — precisa de investigar onde o IG expõe o `thread_id`. Só compensa se a navegação por título mostrar cases de erro em produção.
+- **Seleção de conversas (spec §8)** — placeholder actual no ecrã Definições. Implementar: nova entidade Room `TrackedThread(threadTitle, mode: INCLUDE|EXCLUDE, addedAt)` + UI de gestão + filtro no `observeAll()` do feed. **Prioridade alta** para MVP.
+- **Match estrito por URL** — enriquecer todos os Reels no discover (obriga a abrir o viewer para cada Reel, lento). Só compensa se o matching por `reelAuthor` mostrar colisões reais em uso.
+- **Sync de reacção actual (spec §7 "Reagido = reacção existe agora")** — passo de refresh que percorre a conversa e lê o `message_reactions_pill_container`, cruzando com `pending_actions.DONE`. Se a pill sumiu, remover o estado `REACTED_*`.
+- **UX polish:** ordem dos chips por `createdAt`, thumbnails no feed (agora só temos "▶" central).
+- **Tuning de latência:** `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS`, `NAV_STEP_SETTLE_MS`, `LOCATE_SCROLL_SETTLE_MS`.
+- **Deep-link `instagram://direct/t/<thread_id>`** — só se o fallback por título mostrar problemas em produção.
 
 ---
 
@@ -1031,3 +1016,183 @@ Já entregue no primeiro commit:
 - **Testes propostos (na §6.1):** L1 (Reel visível — sanity), L2 (Reel fora do ecrã — o cenário que falhava na s33), L3 (múltiplos steps mesma conversa, autores diferentes), L4 (cross-thread com Reels antigos em ambas).
 - **Limitação conhecida deste iter (documentada em Estado atual):** matching por `reelAuthor` — 2 Reels do mesmo criador IG partilhados na mesma conversa colidem (o top-most vence). Fix futuro é matching estrito por `reelUrl`, mas obriga a abrir o viewer para cada Reel durante o discover (lento). Fica para PoC-10.
 - **Nada mudou** nas primitivas isoladas PoC-3/5/6/7, no history-scroll `discoverReelsHistory`, no player, na notificação, ou na navegação PoC-9. Só o executor de batching + o pipeline de long-press.
+
+### 2026-08-29 — Sessão 35 (Ricardo + Copilot CLI) — iteração grande alinhada à visão
+
+- **Feedback do utilizador na s34:** "de momento a aplicação está extremamente longe do que era a visão para a mesma". Pediu para fazer uma iteração grande sem testes intermédios, entregando um sistema mais próximo da spec, e depois pedir testes end-to-end.
+- **Fizemos numa só iteração:**
+  1. **Fallback swipe no `locateReelWithScroll`.** Se `ACTION_SCROLL_BACKWARD` for refused (topo do RecyclerView), o service faz swipe DOWN (mesma técnica de `discoverReelsHistory`) em vez de desistir imediatamente. Robustez extra para PoC-8 iter 4.
+  2. **`FeedViewModel` — estados derivados por Reel.** Novo `ReelUiState(seen, pendingHeart/Laugh/Reply, reactedHeart/Laugh, replied, failedActions)` produzido por `combine(reelDao.observeAll(), pendingDao.observeAll())`. Deriva SEEN/REACTED/REPLIED da spec §7 a partir da tabela `pending_actions` (row DONE = reagido/respondido). `enqueueReply` deixa de ter texto fixo — recebe `text: String` do dialog.
+  3. **Feed reescrito para `VerticalPager` full-screen (spec §3).** Cada Reel ocupa o ecrã inteiro. Hero central com botão play que abre `ReelPlayerActivity` (o WebView embed que já tínhamos). Metadata block com autor (@), remetente na DM, thread, data. Chips no topo: `recebido/enviado`, `visto`, `❤ reagido`, `😂 reagido`, `💬 respondido`. Row de acções `❤ / 😂 / 💬`.
+  4. **Reply real com dialog (spec §5).** Toque em `💬 responder` abre `AlertDialog` com `OutlinedTextField` pré-preenchido com "👀". Botão "Enfileirar resposta" só activo com texto não-vazio. O texto vai para `PendingActionEntity.payload` e o service usa-o no `ACTION_SET_TEXT` do composer (já funcionava desde a s15, mas até agora só o mock fixo era enviado).
+  5. **Menu 3-pontinhos (spec §12).** Ícone `MoreVert` no topo direito de cada page. Dropdown com "Abrir Reel no Instagram nativo", "Abrir conversa no Instagram", "Cancelar acções pendentes deste Reel", "Definições". O "abrir conversa" traz o IG à frente e mostra um Toast com o nome da thread (não conseguimos navegar directamente sem thread_id — spec §12 aceita fallback).
+  6. **`SettingsActivity` novo (spec §11).** Toggles: "Ignorar Reels enviados por mim" (`PREF_IGNORE_SENT`), "Inverter direção do swipe" (`PREF_INVERT_SWIPE` novo). Placeholder para "Seleção de conversas" (spec §8 — próxima iteração). Secção "Ferramentas de diagnóstico" com os broadcasts directos que estavam antes na Home.
+  7. **`FeedActivity` lê `PREF_INVERT_SWIPE`** — passa flag ao `FeedScreen`. Quando ativado, `orderedReels = reels.asReversed()`.
+  8. **Home limpa.** Protagonismo ao `▶ Abrir o meu feed`. Secção Descoberta com `🔍 Descobrir Reels desta conversa` + `📥 Descobrir histórico`. Secção Configuração com `Ativar serviço de acessibilidade`, `Abrir Instagram`, `⚙ Definições`. Sai a poluição de 7 botões de diagnóstico (agora estão nas Definições).
+  9. **`BUILD_TAG` bumped para `build=s35`.** Sem alteração de schema Room. Novos `PREF_INVERT_SWIPE` + `PREF_INVERT_SWIPE_DEFAULT` na companion.
+- **Ficheiros novos:**
+  - `ui/settings/SettingsActivity.kt`
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — swipe fallback no locate + `PREF_INVERT_SWIPE` + `BUILD_TAG=s35`
+  - `ui/feed/FeedScreen.kt` — reescrito de LazyColumn para VerticalPager, novo `ReelPage`, `ReplyDialog`, 3-pontinhos
+  - `ui/feed/FeedViewModel.kt` — `ReelUiState` derivado, `enqueueReply(text)` guarda o texto
+  - `ui/feed/FeedActivity.kt` — lê `PREF_INVERT_SWIPE` e passa ao Composable
+  - `MainActivity.kt` — Home reestruturada
+  - `AndroidManifest.xml` — declara `SettingsActivity`
+  - `res/values/strings.xml` — dezenas de strings novas (home_*, feed_chip_*, feed_action_*, feed_menu_*, feed_reply_dialog_*, settings_*, home_open_settings, etc.). Strings antigas mantidas com o mesmo id para não partir referências.
+  - `PROJECT_PROGRESS.md` — Estado atual, quick start, §6/6.1/6.2 reescritas, este log, §8 nova com passos dos testes end-to-end
+- **Validação em ambiente do agente:** kotlinc parse-check sobre todos os ficheiros Kotlin tocados — nenhum erro real de sintaxe (só erros semânticos esperados por classpath Android em falta).
+- **Testes end-to-end propostos em §8.** Instruções passo-a-passo com os nomes exactos dos botões que o utilizador precisa de tocar. Modelo do utilizador: correr toda a bateria uma vez, capturar Logcat, e reportar visualmente o que aconteceu.
+
+---
+
+## 8. Instruções para o Ricardo — testes end-to-end da s35
+
+**Prep (1×):**
+1. Pull do repo.
+2. Rebuild + reinstalar o APK no OnePlus Nord 5.
+3. Abrir a app **Friends Reels**. Deve aparecer a nova Home limpa: um botão grande **"▶ Abrir o meu feed"** e mais dois grupos por baixo (Descobrir Reels, Configuração).
+4. Ver o Logcat com filtro `IGReaderService`. Confirmar `Action receiver registered (build=s35 ...)`. Se aparecer outra tag é APK antigo — reinstala.
+5. Ir a **Configuração → Ativar serviço de acessibilidade** se ainda não estiver activo. Aceitar. Voltar à Home.
+
+### Bateria de testes (correr por ordem)
+
+#### Teste E1 — Descoberta base de Reels (sanity, mesmo comportamento antigo)
+
+**Passos:**
+1. Abrir o Instagram, ir para uma conversa X que tenha Reels partilhados por amigos.
+2. Baixar a barra de notificações. Na notificação **"Friends Reels"** tocar em **🔍**.
+3. Espera ~2s. Baixar novamente e tocar em **🔍** algumas vezes mais se quiseres subir a contagem.
+4. (Opcional) Para descobrir todo o histórico da conversa: voltar à app Friends Reels e tocar **"📥 Descobrir histórico (scroll auto)"**. Aguardar até ~30s (ele faz até 30 scrolls).
+5. Voltar à app Friends Reels e tocar **"▶ Abrir o meu feed"**.
+
+**O que verificar:**
+- ✅ Aparece o novo feed full-screen: fundo escuro, um Reel por ecrã, chips no topo (recebido/enviado), autor grande no meio, metadata em baixo, três acções `❤/😂/💬`.
+- ✅ Podes fazer **swipe up/down** entre Reels.
+- ✅ Se o Reel tem URL, aparece um botão de play grande no meio.
+- ❓ Se aparecer "URL ainda não capturado", precisas de correr o teste E2 primeiro para esse Reel.
+
+**Se falhar:** enviar Logcat entre `Action receiver registered` e o momento em que abriste o feed.
+
+#### Teste E2 — Capturar URL do 1.º Reel de uma conversa
+
+**Passos:**
+1. Voltar ao Instagram, ficar numa conversa onde tenhas um Reel RECEBIDO visível no ecrã.
+2. Baixar a notificação e tocar em **🔗**. O IG vai abrir o Reel, ir à partilha, copiar a ligação, e voltar. Podes ver a animação.
+3. Voltar à app Friends Reels → **▶ Abrir o meu feed**.
+
+**O que verificar:**
+- ✅ O Reel deve agora ter o botão de play habilitado (o embed URL foi guardado).
+- ✅ Se puxares o menu **3-pontinhos** no topo direito e escolheres **"Abrir Reel no Instagram nativo"**, o IG abre nesse Reel específico.
+
+**Se falhar:** procurar no Logcat as linhas `COPY_LINK: ...`. Se `Reel URL = '...'` apareceu, foi guardado; se apareceu `ClipboardCaptureActivity` mas nenhum URL, o clipboard estava vazio (o IG não copiou).
+
+#### Teste E3 — Reagir a um Reel via feed (fluxo principal da visão)
+
+**Passos:**
+1. No feed, ir até um Reel com URL. Tocar no botão **❤** da action row (em baixo).
+2. Deve aparecer um Toast "Ação enfileirada" e o botão fica marcado como "na fila".
+3. Repetir com **😂** noutro Reel.
+4. **Não abrir o Instagram manualmente.** Deixa como está.
+5. Baixar a notificação e tocar em **▶** (Aplicar fila).
+
+**O que verificar (visualmente):**
+- ✅ Feed some, IG vem à frente automaticamente (`runInInstagram`).
+- ✅ IG navega para a conversa correcta se ainda não estiver lá.
+- ✅ Se o Reel não estiver no ecrã do IG, o service scrolla para trás até encontrar (`LOCATE: target not visible, ACTION_SCROLL_BACKWARD ...`) — podes ver o scroll a acontecer no ecrã.
+- ✅ Ao encontrar, faz long-press no bubble certo e escolhe a reacção correcta.
+- ✅ No fim, volta à conversa. Podes voltar ao feed — os chips do card mudaram: aparece **"❤ reagido"** ou **"😂 reagido"** no topo do card.
+
+**O que verificar no Logcat** (secção mais importante):
+```
+APPLY_PENDING: starting drain (currentThread='...')
+APPLY_PENDING: resolved N step(s) across M thread(s) to run
+APPLY_PENDING: step 1/N ... needs navigation ...   (se necessário)
+NAV: attempt K stage=... target='...'
+NAV: arrived at '...'
+APPLY_PENDING: step 1/N actionId=... kind=REACT_HEART ... author=...
+LOCATE: matched reelId=... author=... at index=... bounds=...
+   OR
+LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=...
+LOCATE: matched reelId=... after scrolling
+LONG_PRESS: target index=... author=... bounds=...
+LONG_PRESS: dispatchGesture accepted=true
+REACT: performAction(ACTION_CLICK) on emoji '❤' returned true
+```
+
+**Se falhar** (o chip não aparece, ou o Toast diz "0 acções aplicadas"): capturar Logcat completo do momento em que carregaste em ▶.
+
+#### Teste E4 — Responder a um Reel com texto real (spec §5)
+
+**Passos:**
+1. No feed, tocar no botão **💬** (responder).
+2. Deve abrir um **dialog "Responder ao Reel"** com um campo de texto pré-preenchido com **"👀"**.
+3. Apaga o "👀" e escreve algo como **"Que fixe! 🙌"**.
+4. Toca **"Enfileirar resposta"**.
+5. Toast "Ação enfileirada". Fecha o dialog.
+6. Baixa a notif e toca **▶ Aplicar fila**.
+
+**O que verificar:**
+- ✅ O IG abre a conversa correcta, faz long-press no Reel correcto, escolhe **"Responder"**, escreve **exactamente o texto que digitaste** (não o "👀" hard-coded), e envia.
+- ✅ No feed, o chip **"💬 respondido"** aparece no card.
+
+**Logcat esperado:**
+```
+REPLY: performAction(ACTION_SET_TEXT text='Que fixe! 🙌') returned true
+REPLY: send button click returned true
+```
+
+**Se falhar:** confirmar se o texto que aparece no `ACTION_SET_TEXT text='...'` é o que digitaste.
+
+#### Teste E5 — Menu 3-pontinhos (spec §12)
+
+**Passos:**
+1. No feed, tocar no ícone **⋮** no canto superior direito de qualquer Reel.
+2. Deve aparecer um dropdown com 4 opções: **"Abrir Reel no Instagram nativo"**, **"Abrir conversa no Instagram"**, **"Cancelar acções pendentes deste Reel"** (só activa se tiver pendentes), **"Definições"**.
+3. Testar cada uma:
+   - **"Abrir Reel no Instagram nativo"** → IG abre no Reel específico (só disponível se o Reel tem URL).
+   - **"Abrir conversa no Instagram"** → IG abre. Aparece um Toast a dizer para ires manualmente para a conversa X.
+   - **"Definições"** → abre o ecrã de Definições.
+
+**O que verificar:**
+- ✅ Todas as opções fazem o que anunciam.
+- ✅ "Cancelar" só está activo se houver acções pendentes para esse Reel.
+
+#### Teste E6 — Definições (spec §11)
+
+**Passos:**
+1. Home → **⚙ Definições** OU 3-pontinhos → **Definições**.
+2. Alternar **"Inverter direção do swipe"** para ON.
+3. Voltar ao feed.
+
+**O que verificar:**
+- ✅ Ordem dos Reels invertida no feed (swipe UP agora vai para o Reel anterior).
+- ✅ Voltar às Definições, desligar. Voltar ao feed. Ordem normal.
+
+Também testar:
+4. Nas Definições, tocar num dos botões de **"Ferramentas de diagnóstico"** (ex.: **"Reagir com ❤ ao 1.º Reel"**). Deve mandar o broadcast — comportamento igual aos botões antigos da Home.
+
+#### Teste E7 — Batching cross-thread + Reel fora do ecrã (regressão da s34)
+
+**Passos:**
+1. Enfileirar via feed: **❤** no Reel MAIS ANTIGO (que descobriste) da conversa X, **😂** no Reel MAIS ANTIGO da conversa Y.
+2. Abrir IG e ficar em qualquer sítio menos as duas conversas (Home, ou outra conversa Z).
+3. Baixar notif → **▶ Aplicar fila**.
+
+**O que verificar:**
+- ✅ IG navega para X (o grupo com createdAt mais antigo entre as enqueue).
+- ✅ Dentro de X, faz scroll até chegar ao Reel antigo (`LOCATE: target not visible, ACTION_SCROLL_BACKWARD ...` várias vezes).
+- ✅ Aplica reacção correcta em X.
+- ✅ Depois navega para Y, repete o scroll+react.
+- ✅ No feed, ambos os cards têm chip de "reagido".
+
+**Se falhar em algum step** (Reel não encontrado após 20 scrolls):
+- Se o Reel de facto já não está na conversa: FAILED com mensagem clara é aceitável.
+- Se está mas o service não o encontra: ver a linha `LOCATE: could not find ... authors=[list]` — o autor real deve aparecer nessa lista. Reportar essa linha.
+
+---
+
+**Como enviar os resultados:**
+- Copiar o Logcat filtrado `IGReaderService` desde o `Action receiver registered (build=s35 ...)` até ao fim.
+- Colar no ficheiro `docs/screen-dumps/feed.txt` (substituir o antigo).
+- Descrever brevemente o que aconteceu visualmente em cada teste (E1 a E7), especialmente onde não bateu com o esperado.
