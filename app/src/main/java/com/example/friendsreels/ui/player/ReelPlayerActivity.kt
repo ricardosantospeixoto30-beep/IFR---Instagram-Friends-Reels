@@ -226,7 +226,7 @@ private fun buildWebView(
 /**
  * WebViewClient for Instagram Reel URLs.
  *
- * Two responsibilities:
+ * Three responsibilities:
  * 1. **Block non-http redirects.** Instagram's public web page pushes a
  *    `intent://…` or `instagram://reels_share/…` redirect as soon as it
  *    detects a mobile browser. The WebView cannot handle those schemes
@@ -240,6 +240,17 @@ private fun buildWebView(
  *    error card with a "Abrir no Instagram nativo" fallback button.
  *    Sub-resource errors (like the video CDN dropping a single asset)
  *    are ignored so we don't wipe the page for every 404 on an image.
+ * 3. **Force autoplay via JS.** Even with
+ *    `mediaPlaybackRequiresUserGesture = false`, Chrome/WebView's
+ *    autoplay policy still blocks videos with sound unless the origin
+ *    has been interacted with before. The embed page therefore renders
+ *    with a paused video until the user taps it (session-30
+ *    observation). We work around this by injecting a small JS payload
+ *    on `onPageFinished` that iterates every `<video>` element and
+ *    calls `play()` — trying unmuted first for sound, falling back to
+ *    muted (which Chrome always allows) if the unmuted call is
+ *    rejected. Re-runs after a short delay because the IG embed
+ *    creates the `<video>` node asynchronously after page load.
  */
 private class FriendsReelsWebViewClient(
     private val onError: (String) -> Unit,
@@ -261,6 +272,42 @@ private class FriendsReelsWebViewClient(
         if (!isMainFrame) return
         val description = error?.description?.toString() ?: "Unknown error"
         onError(description)
+    }
+
+    override fun onPageFinished(view: WebView?, url: String?) {
+        super.onPageFinished(view, url)
+        view?.evaluateJavascript(FORCE_AUTOPLAY_JS, null)
+    }
+
+    companion object {
+        /**
+         * Iterates every `<video>` in the page (top-level + nested
+         * `<iframe>` when same-origin permits) and forces play. Tries
+         * unmuted first, falls back to muted on rejection because
+         * Chrome always allows muted autoplay. Runs three times over
+         * ~2 s because IG's embed inserts the video element
+         * asynchronously and may recreate it as the page hydrates.
+         */
+        private const val FORCE_AUTOPLAY_JS = """
+            (function() {
+              function tryPlayAll() {
+                var vids = document.getElementsByTagName('video');
+                for (var i = 0; i < vids.length; i++) {
+                  var v = vids[i];
+                  var attempt = v.play();
+                  if (attempt && typeof attempt.catch === 'function') {
+                    attempt.catch(function() {
+                      v.muted = true;
+                      v.play();
+                    });
+                  }
+                }
+              }
+              tryPlayAll();
+              setTimeout(tryPlayAll, 600);
+              setTimeout(tryPlayAll, 1500);
+            })();
+        """
     }
 }
 

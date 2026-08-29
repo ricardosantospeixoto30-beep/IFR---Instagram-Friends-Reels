@@ -7,13 +7,13 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-8 iter 3 partes A ✅ e B ✅ validadas. Parte C teve dois testes até agora: s28 `ERR_UNKNOWN_URL_SCHEME`, s29 mostrou o landing wall do IG ("Continuar na web"). Fix na s30 usa o URL de **embed oficial** (`.../reel/<code>/embed`) que skips a landing e faz autoplay. **Aguarda re-validação em device.**
-**Última atualização:** 2025-08-29 (sessão 30)
+**Fase atual:** Fase 1 (PoC) — PoC-8 iter 3 partes A ✅ e B ✅. Parte C atinge embed sem landing wall (s30 confirmado), só falta autoplay do vídeo (s31 injecta JS após onPageFinished para forçar `video.play()`). **Aguarda re-validação em device do autoplay.**
+**Última atualização:** 2025-08-29 (sessão 31)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. HEAD = `build=s30` (sessão 30 — player usa URL de embed oficial em vez do URL cru). Verificar que ao arrancar o service loga `Action receiver registered (build=s30 ...)` — se aparecer outra tag é APK antigo.
+1. **Pull** do repo. HEAD = `build=s31` (sessão 31 — JS injection para forçar autoplay do vídeo no player). Verificar que ao arrancar o service loga `Action receiver registered (build=s31 ...)` — se aparecer outra tag é APK antigo.
 2. **Notificação persistente actual** (s29, unchanged desde s27): 3 botões — **🔍 Descobrir**, **🔗 Copiar URL**, **▶ Aplicar fila**. Tocar no corpo abre o feed. Reactions/reply directas ficam no ecrã da app.
 3. **Ler primeiro:**
     - Esta secção "Estado atual".
@@ -203,15 +203,15 @@ Já entregue no primeiro commit:
 - ✅ PoC-8 iter 2 — integração PoC-7↔PoC-8: URL + `dmSender` persistidos, dedup 3-way (promote → insert → backfill)
 - 🚧 PoC-8 iter 3 parte A (sessões 26 + 27) — batching de acções: tabela `pending_actions` + botões de enfileirar no feed + botão `✕ Cancelar` por card + executor `ACTION_APPLY_PENDING` com delays por-kind + notificação persistente reduzida a 3 botões (🔍 🔗 ▶) + `contentIntent` a abrir o feed. **Validado pelo utilizador na s28** ("dos testes que mencionaste funciona tudo"). Quirk conhecido: ordem dos badges no topo do card não segue a ordem de enfileirar (é sempre ❤ → 😂 → 👀 alfabético/ordinal, não createdAt). Cosmético — não bloqueia. Anotado como TODO para futuro.
 - ✅ PoC-8 iter 3 parte B (sessão 28, validada s29) — `ACTION_DISCOVER_REELS_HISTORY`. Utilizador testou 3 corridas em conversa "Pedro Sardoeira" (log em `docs/screen-dumps/feed.txt`): (1) histórico curto → parou em `3 consecutive empty scrolls`, (2) run longo → cap de 30 scrolls, 36 novos Reels em 39 totais, (3) interrompido → `IG no longer foreground during enumerate`. Todos os stop conditions funcionam.
-- 🚧 PoC-8 iter 3 parte C (s28 → fix s29 → fix s30) — player WebView. **s28:** `net::ERR_UNKNOWN_URL_SCHEME` (IG redireciona para `instagram://reels_share/…`). **s29:** interceptor de schemes ≠ http(s), mas o WebView caía na landing "Continuar na web" do IG mobile (só se vê o Reel depois de tocar "Continuar na web" — inaceitável). **s30:** URL rewrite para o formato oficial de embed (`.../reel/<code>/embed`) — o mesmo que sites externos usam para incorporar Reels. Sem landing, com autoplay. **Aguarda re-validação em device.**
+- 🚧 PoC-8 iter 3 parte C (s28 → fix s29 → fix s30 → fix s31) — player WebView. **s28:** `net::ERR_UNKNOWN_URL_SCHEME`. **s29:** interceptor de schemes ≠ http(s) + overlay de erro. **s30:** URL rewrite para `.../reel/<code>/embed` (skip landing "Continuar na web"). **s31:** injecção JS após `onPageFinished` para forçar `video.play()` (Chrome/WebView bloqueia autoplay com som sem gesto do utilizador — na s30 o vídeo ficava parado e obrigava a um tap manual). Ordem: tenta com som, fallback muted (que Chrome sempre permite). Runs a 0/600/1500ms porque o embed do IG cria o `<video>` async. **Aguarda re-validação em device.**
 
 ### 6.1 Próxima sessão — validação B/C, depois PoC-9 (navegação entre conversas)
 
-**Contexto:** partes A e B do PoC-8 iter 3 validadas em device. Parte C (player) foi fixed na s29 mas ainda aguarda re-teste. Assumindo que essa validação passa, arrancar para o PoC-9.
+**Contexto:** partes A e B do PoC-8 iter 3 validadas em device. Parte C tem 4 iterações (s28 → s29 → s30 → s31) — na s30 o embed URL passou a mostrar o player em vez da landing, na s31 injectamos JS para autoplay. Aguarda re-teste.
 
 **Teste que ainda falta correr:**
 
-- **C1 (repeat, com fix da s29):** no feed, tocar **"▶ Ver Reel aqui"**. Espera-se ou (a) o Reel carrega dentro da app, OU (b) aparece o overlay de erro com **"↗ Abrir no Instagram nativo"** + **"↻ Tentar de novo"** — em vez do ecrã genérico `net::ERR_UNKNOWN_URL_SCHEME` da s28.
+- **C1 (s31):** no feed, tocar **"▶ Ver Reel aqui"**. Espera-se autoplay do vídeo. Se ficar muted é aceitável (fallback do Chrome). Se ficar pausado, reportar para investigarmos o markup do embed.
 
 **Prioridades assim que C1 for validado:**
 
@@ -918,3 +918,22 @@ Já entregue no primeiro commit:
     - **(b) Se falhar:** aparece o overlay de erro com o embed URL e o URL original — reportar para vermos se é problema de shortcode ou de regex.
     - **(c) Se aparecer landing ou "Continuar na web":** o IG mudou o comportamento do endpoint de embed — precisamos ir para o Plan B (§6.1).
   - "↗ Abrir no Instagram nativo" (no card ou no overlay) — deve abrir o IG oficial com o URL original.
+
+### 2026-08-29 — Sessão 31 (Ricardo + Copilot CLI) — parte C: autoplay via JS
+
+- **Resultado da s30 em device:** utilizador confirmou "agora realmente mostra como se estivesse no insta no computador". A landing "Continuar na web" desapareceu — o embed URL é o mecanismo certo. Único problema restante: "o vídeo não dá auto play, é preciso eu clicar nele e ele começa a dar". Ou seja: parte visual/UX perfeita, só falta autoplay.
+- **Causa:** Chrome/WebView tem uma política de autoplay que bloqueia vídeos com som sem interacção prévia do utilizador com o domínio. `settings.mediaPlaybackRequiresUserGesture = false` sozinho não chega porque a política do Chrome é mais estrita. O vídeo aparece como poster/pausado até um tap. Um tap arranca porque conta como gesto.
+- **Fix (s31):** injectar JS após `onPageFinished` que force `video.play()` em todos os `<video>` da página.
+  - Estratégia: tenta unmuted primeiro (para som), se falhar dá `.catch()` que mete `muted = true` e volta a tentar (Chrome sempre permite autoplay muted).
+  - Corre 3× (0ms, 600ms, 1500ms após onPageFinished) porque o embed do IG cria o `<video>` async — se corrermos só uma vez no `onPageFinished`, o `<video>` ainda pode não existir.
+  - JS embutido como const na companion do `FriendsReelsWebViewClient` para não poluir o Kotlin.
+- **`BUILD_TAG` bumped para `build=s31`.** Sem alteração de schema. Só o `FriendsReelsWebViewClient` mudou.
+- **Ficheiros alterados:**
+  - `ui/player/ReelPlayerActivity.kt` — `FriendsReelsWebViewClient` ganha `onPageFinished` + companion `FORCE_AUTOPLAY_JS`.
+  - `service/InstagramReaderService.kt` — só `BUILD_TAG` bumped.
+  - `PROJECT_PROGRESS.md` — estado atual, PoCs, quick start, este log.
+- **Teste proposto (só um):**
+  - Feed → **"▶ Ver Reel aqui"**. Esperado:
+    - **(a) Ideal:** vídeo faz autoplay **com som** dentro de ~1s. Parte C fechada 🎉
+    - **(b) Aceitável:** vídeo faz autoplay **muted** — houve fallback pelo Chrome bloquear com som. Utilizador pode dar unmute com um tap. Também é aceitável para o MVP.
+    - **(c) Ainda pausado:** reportar — significa que o JS não conseguiu tocar o elemento. Vamos precisar de investigar o markup do embed do IG (possivelmente o `<video>` está dentro de um `<iframe>` cross-origin em vez de directamente no `document`).
