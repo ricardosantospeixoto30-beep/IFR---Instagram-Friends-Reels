@@ -38,12 +38,12 @@ Tocar **no corpo** da notificação abre o feed local.
 
 Se precisares dos primitivos directos (reagir com ❤/😂, responder com 👀, tudo aplicado ao 1.º Reel recebido visível), ou de descobrir todo o histórico de uma conversa via scroll automático, abre a app **Friends Reels** — os botões estão no ecrã principal, incluindo **"Descobrir histórico (scroll auto)"**.
 
-## Fluxo recomendado (batching de acções — desde a sessão 26)
+## Fluxo recomendado
 
 1. Abrir uma conversa com Reels no Instagram.
 2. Puxar a barra de notificações → tocar **🔍** (só Reels visíveis) OU abrir a app e tocar **"Descobrir histórico (scroll auto)"** (percorre a conversa para trás até 30 scrolls). A app persiste em BD tudo o que encontrar.
 3. Para cada Reel que queres enriquecer com URL, ir até ele estar no topo e tocar **🔗**.
-4. Abrir o feed (tocar no corpo da notif, ou botão "Ver feed" na app). Podes ver o Reel dentro da app com **"▶ Ver Reel aqui"** (WebView) ou saltar para o Instagram nativo com **"↗ Abrir no Instagram nativo"**.
+4. Abrir o feed (tocar no corpo da notif, ou botão "Ver feed" na app). Podes ver o Reel dentro da app com **"▶ Ver Reel aqui"** (embed com autoplay) ou saltar para o IG nativo com **"↗ Abrir no Instagram nativo"**.
 5. Em cada card, tocar **Enfileirar ❤ / 😂 / 👀** conforme quiseres. Reacções e reply são dedup por card. Botão **✕ Cancelar acções pendentes deste Reel** limpa os pendentes desse card.
 6. Voltar ao Instagram, **certificar-se de que a conversa correcta está aberta**, tocar **▶** na notificação. O executor corre a fila em série. Rows para outras conversas ficam `FAILED` até a navegação por thread_id existir (PoC-9).
 
@@ -69,4 +69,4 @@ Todos os dumps de referência estão em `docs/screen-dumps/`.
 
 Ver `PROJECT_PROGRESS.md` — secção **"Estado atual"** e o último log de sessão.
 
-Resumo: PoCs 1→7 concluídos e validados no OnePlus Nord 5. PoC-8 iter 1, 2 e 3 (parte A batching, parte B history-scroll, parte C player WebView) implementadas. Próximos passos são a validação de B/C em device e depois PoC-9 (navegação entre conversas para o executor de batching poder tratar múltiplas threads num único pass).
+Resumo: PoCs 1→7 concluídos e validados. PoC-8 iterações 1, 2 e 3 (parte A batching, parte B history-scroll, parte C player WebView com embed + autoplay) todas fechadas. Próximo passo é o PoC-9 (navegação entre conversas para o executor de batching poder correr rows de múltiplas threads num único pass).

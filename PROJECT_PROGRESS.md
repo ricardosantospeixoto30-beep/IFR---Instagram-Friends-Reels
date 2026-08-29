@@ -7,32 +7,38 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-8 iter 3 partes A ✅ e B ✅. Parte C atinge embed sem landing wall (s30 confirmado), só falta autoplay do vídeo (s31 injecta JS após onPageFinished para forçar `video.play()`). **Aguarda re-validação em device do autoplay.**
-**Última atualização:** 2025-08-29 (sessão 31)
+**Fase atual:** Fase 1 (PoC). **PoC-8 iteração 3 concluída** — batching de acções (parte A), scroll auto de descoberta histórica (parte B) e player WebView com embed + autoplay (parte C) validados em device.
+**Última atualização:** 2025-08-29 (sessão 32)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
+**HEAD actual:** `build=s31`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. HEAD = `build=s31` (sessão 31 — JS injection para forçar autoplay do vídeo no player). Verificar que ao arrancar o service loga `Action receiver registered (build=s31 ...)` — se aparecer outra tag é APK antigo.
-2. **Notificação persistente actual** (s29, unchanged desde s27): 3 botões — **🔍 Descobrir**, **🔗 Copiar URL**, **▶ Aplicar fila**. Tocar no corpo abre o feed. Reactions/reply directas ficam no ecrã da app.
-3. **Ler primeiro:**
+1. **Pull** do repo. Verifica no arranque do service que o Logcat mostra `Action receiver registered (build=s31 ...)`. Se aparecer outra tag é APK antigo — reinstala.
+2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" — próxima é PoC-8 iter 3 parte B (scroll auto) + parte C (player WebView).
-    - Últimos logs de sessão em §7 (sessões 20 → 27).
-3. **Ficheiros-chave a rever antes de mexer código:**
-    - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor a11y + gestos + integração PoC-7↔PoC-8 (`pendingCopy`, `enrichPendingCopyFromViewer`, `persistCopiedReel`) + **executor de batching PoC-8 iter 3 (`applyPendingActions`, `runBatchStep`)**.
-    - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG (conversa, viewer, context menu, share sheet).
-    - `app/src/main/java/com/example/friendsreels/data/*` — Room (`ReelEntity`, `ReelDao`, `AppDatabase`, **`PendingActionEntity`**, **`PendingActionDao`**). Schema actual v3.
-    - `app/src/main/java/com/example/friendsreels/ui/feed/*` — Compose feed vertical + **botões de enfileirar por card + bottom bar "Aplicar N acções"**.
-    - `app/src/main/java/com/example/friendsreels/ClipboardCaptureActivity.kt` — bridge para ler clipboard (foreground em Android 10+).
-    - Dumps de referência mais recentes: `docs/screen-dumps/reel dump.txt` (Reel viewer), `docs/screen-dumps/reel view more.txt` (share sheet), `docs/screen-dumps/feed.txt` (últimos logs de teste).
-4. **Constraints do desenvolvimento** (importantes, não esquecer):
-    - Todos os testes são feitos pelo utilizador num **OnePlus Nord 5 / Android 16**, num **PC separado com Android Studio**. Cada iteração exige `git commit && git push`. Minimizar rondas.
-    - macOS deste ambiente **não tem Android SDK** — não é possível fazer build local, só validar sintaxe. Utilizador é sempre quem valida em device.
-    - Java do sistema é 25 (parte Gradle 8.10.2). Se precisares mesmo de correr Gradle: `sdk use java 21.0.7-tem`.
-    - Sempre que fizer refactor grande, bump do `BUILD_TAG` na companion do `InstagramReaderService` — dá ao utilizador uma forma visual de confirmar que APK está a correr.
-5. **UX de teste actual:** notificação persistente "Friends Reels" com 5 botões: ❤ / 😂 / 👀 / 🔗 / 🔍. Preferir sempre estes ao ecrã da app (a troca de foreground pela app pode tirar o IG da conversa). Ecrã da app tem os mesmos botões + toggle "Ignorar Reels enviados por mim" + "Ver feed (BD local)".
-6. **Comportamento validado:** o feed persiste Reels via 🔍 (rápido, sem URL) ou 🔗 (com URL + `dmSender` capturado do Reel viewer). Ordem 🔗→🔍 e 🔍→🔗 estão ambas cobertas por dedup/promoção (ver `persistCopiedReel` no service).
+    - §6 "Próximos passos concretos" — a próxima é **PoC-9** (navegar entre conversas para o executor de batching poder correr rows de múltiplas threads num único pass).
+    - Último log de sessão em §7 (s31 fechou a parte C; s32 fez limpeza de docs).
+3. **Ficheiros-chave (pontos de entrada para cada área):**
+    - `service/InstagramReaderService.kt` — motor a11y, todos os broadcasts, executor de batching (`applyPendingActions`), history-scroll (`discoverReelsHistory`).
+    - `instagram/IgSelectors.kt` — IDs/labels do IG (conversa, viewer, context menu, share sheet).
+    - `data/` — Room v3 (`ReelEntity`, `ReelDao`, `PendingActionEntity`, `PendingActionDao`, `AppDatabase`).
+    - `ui/feed/` — Compose feed com cards, batching UI e bottom bar.
+    - `ui/player/ReelPlayerActivity.kt` — WebView com `FriendsReelsWebViewClient` (intercepta `instagram://`, injecta JS para autoplay) e `toEmbedUrl()` para reescrever URLs em `.../reel/<code>/embed`.
+    - `ClipboardCaptureActivity.kt` — bridge para ler clipboard em Android 10+.
+    - Dumps de referência: `docs/screen-dumps/reel dump.txt` (Reel viewer), `reel view more.txt` (share sheet), `feed.txt` (último log de teste do utilizador).
+4. **Constraints do desenvolvimento:**
+    - Testes só no OnePlus Nord 5 / Android 16 do utilizador (não há device no ambiente do agente). Cada iteração exige `git commit && git push` — minimizar rondas.
+    - macOS deste ambiente não tem Android SDK, só validar sintaxe. Se precisares mesmo de correr Gradle: `sdk use java 21.0.7-tem`.
+    - Cada refactor visível deve bumpar `BUILD_TAG` (companion do `InstagramReaderService`) — dá ao utilizador confirmação no Logcat.
+5. **UX actual em device:**
+    - **Notificação persistente:** 3 botões — **🔍 Descobrir** (Reels visíveis), **🔗 Copiar URL** (enriquecer 1.º Reel com URL + dmSender), **▶ Aplicar fila** (correr batching). Tocar no corpo abre o feed.
+    - **Ecrã da app:** primitivos directos (❤, 😂, 👀, 🔗, 🔍) + toggle "Ignorar Reels enviados" + botão **"Descobrir histórico (scroll auto)"** + **"Ver feed"**.
+    - **Feed:** cards com badges, **"▶ Ver Reel aqui"** (player embed com autoplay + som), **"↗ Abrir no Instagram nativo"** (fallback), 3 botões de enfileirar (**"Enfileirar ❤/😂/👀"**, dedup por kind), **"✕ Cancelar acções pendentes deste Reel"** quando há PENDING, bottom bar **"Aplicar N acções no Instagram"** + **"Limpar histórico de ações concluídas"**.
+6. **Limitações conhecidas (relevantes para PoC-9 / iter 4):**
+    - Executor de batching só corre rows cuja `threadTitle` bate certo com a conversa activa; outras ficam `FAILED`. Precisa de navegação por `thread_id` (PoC-9).
+    - Todas as reacções/replies batem no **1.º Reel recebido visível** — se enfileirares para 2 Reels diferentes, ambas atacam o mesmo bubble. Precisa de targeting por `reelAuthor`/`reelUrl` + scroll até o Reel visível (iter 4).
+    - Cosmético: ordem dos badges no topo do card é fixa (❤ → 😂 → 👀), não segue `createdAt`. TODO.
 
 ---
 
@@ -190,41 +196,40 @@ Já entregue no primeiro commit:
 
 ## 6. Próximos passos concretos
 
-**Estado dos PoCs após sessão 26:**
+**Estado dos PoCs após sessão 32:**
 
 - ✅ PoC-1 — skeleton (compila, corre, a11y service ativa)
-- ✅ PoC-2 — mapeamento inicial (dumps guardados em `docs/screen-dumps/`)
+- ✅ PoC-2 — mapeamento inicial (dumps em `docs/screen-dumps/`)
 - ✅ PoC-3 — long-press dirigido ao bubble via `dispatchGesture`
-- ✅ PoC-4 — direção RECEIVED/SENT validada em DM 1-a-1 e em grupo (sessões 12→14). Limitação de "nome do membro em grupo" no bubble resolvida indirectamente via `sender_username_or_fullname` do Reel viewer (sessão 23) — capturado no fluxo `ACTION_COPY_REEL_URL`.
+- ✅ PoC-4 — direção RECEIVED/SENT validada em DM 1-a-1 e em grupo. Nome do membro em grupo capturado via `sender_username_or_fullname` do Reel viewer.
 - ✅ PoC-5 — reagir com ❤ e 😂 (filtra por RECEIVED por defeito)
 - ✅ PoC-6 — responder ao 1.º Reel recebido com texto mock "👀"
-- ✅ PoC-7 — copiar URL do Reel via viewer→Partilhar→Copiar ligação→clipboard bridge (`ClipboardCaptureActivity` com `onWindowFocusChanged`)
-- ✅ PoC-8 iter 1 — Room + `ACTION_DISCOVER_REELS` + feed vertical simples
+- ✅ PoC-7 — copiar URL do Reel via viewer → Partilhar → Copiar ligação → clipboard bridge (`ClipboardCaptureActivity`)
+- ✅ PoC-8 iter 1 — Room + `ACTION_DISCOVER_REELS` + feed vertical
 - ✅ PoC-8 iter 2 — integração PoC-7↔PoC-8: URL + `dmSender` persistidos, dedup 3-way (promote → insert → backfill)
-- 🚧 PoC-8 iter 3 parte A (sessões 26 + 27) — batching de acções: tabela `pending_actions` + botões de enfileirar no feed + botão `✕ Cancelar` por card + executor `ACTION_APPLY_PENDING` com delays por-kind + notificação persistente reduzida a 3 botões (🔍 🔗 ▶) + `contentIntent` a abrir o feed. **Validado pelo utilizador na s28** ("dos testes que mencionaste funciona tudo"). Quirk conhecido: ordem dos badges no topo do card não segue a ordem de enfileirar (é sempre ❤ → 😂 → 👀 alfabético/ordinal, não createdAt). Cosmético — não bloqueia. Anotado como TODO para futuro.
-- ✅ PoC-8 iter 3 parte B (sessão 28, validada s29) — `ACTION_DISCOVER_REELS_HISTORY`. Utilizador testou 3 corridas em conversa "Pedro Sardoeira" (log em `docs/screen-dumps/feed.txt`): (1) histórico curto → parou em `3 consecutive empty scrolls`, (2) run longo → cap de 30 scrolls, 36 novos Reels em 39 totais, (3) interrompido → `IG no longer foreground during enumerate`. Todos os stop conditions funcionam.
-- 🚧 PoC-8 iter 3 parte C (s28 → fix s29 → fix s30 → fix s31) — player WebView. **s28:** `net::ERR_UNKNOWN_URL_SCHEME`. **s29:** interceptor de schemes ≠ http(s) + overlay de erro. **s30:** URL rewrite para `.../reel/<code>/embed` (skip landing "Continuar na web"). **s31:** injecção JS após `onPageFinished` para forçar `video.play()` (Chrome/WebView bloqueia autoplay com som sem gesto do utilizador — na s30 o vídeo ficava parado e obrigava a um tap manual). Ordem: tenta com som, fallback muted (que Chrome sempre permite). Runs a 0/600/1500ms porque o embed do IG cria o `<video>` async. **Aguarda re-validação em device.**
+- ✅ PoC-8 iter 3 parte A — batching: `pending_actions` + enfileirar/cancelar por card + executor `ACTION_APPLY_PENDING` com delays por-kind + notificação de 3 botões (🔍 🔗 ▶) + `contentIntent` para o feed
+- ✅ PoC-8 iter 3 parte B — `ACTION_DISCOVER_REELS_HISTORY` com `ACTION_SCROLL_BACKWARD` (fallback: swipe DOWN via gesture); stop em 3 scrolls empty ou cap de 30
+- ✅ PoC-8 iter 3 parte C — player embed (`.../reel/<code>/embed`) com JS injection para autoplay (unmuted → fallback muted); WebViewClient intercepta `instagram://` e `intent://` redirects; overlay de erro com fallback nativo
 
-### 6.1 Próxima sessão — validação B/C, depois PoC-9 (navegação entre conversas)
+### 6.1 Próxima sessão — PoC-9 (navegação entre conversas)
 
-**Contexto:** partes A e B do PoC-8 iter 3 validadas em device. Parte C tem 4 iterações (s28 → s29 → s30 → s31) — na s30 o embed URL passou a mostrar o player em vez da landing, na s31 injectamos JS para autoplay. Aguarda re-teste.
+O executor de batching hoje só corre rows cuja `threadTitle` bate certo com a conversa activa em IG; as outras ficam `FAILED` com hint "Conversa activa é 'X' mas a acção pertence a 'Y'". Para o batching valer a pena de verdade, precisamos de abrir a thread correcta antes de correr cada grupo de rows.
 
-**Teste que ainda falta correr:**
+**Abordagens a investigar (por ordem de preferência):**
 
-- **C1 (s31):** no feed, tocar **"▶ Ver Reel aqui"**. Espera-se autoplay do vídeo. Se ficar muted é aceitável (fallback do Chrome). Se ficar pausado, reportar para investigarmos o markup do embed.
+1. **Deep-link `instagram://direct/t/<thread_id>`.** Já é conhecido que o IG aceita este scheme. O problema é que ainda não temos um `thread_id` estável a persistir. Investigação necessária: dump da inbox (Direct) e da conversa para procurar um `thread_id` exposto nalgum atributo do XMA container, no header, ou no URL da activity que a a11y consegue ler.
+2. **Navegação por `header_title`.** Fallback frágil (o utilizador pode renomear grupos, dois utilizadores com o mesmo nome, etc.) mas serve para PoC. Fluxo: abrir inbox → enumerar linhas → matching por `contentDescription` que começa com o `threadTitle` → tap.
+3. **Schema:** adicionar `threadId: String?` ao `ReelEntity` (nullable, backfill à medida que descobrimos). DB v3 → v4 com destructive migration.
 
-**Prioridades assim que C1 for validado:**
+**Depois do PoC-9 fica:**
 
-1. **PoC-9 — navegação entre conversas.** Actualmente o executor de batching só funciona com a conversa activa em IG. Precisamos de resolver como abrir uma thread específica a partir do inbox — provavelmente lendo `thread_id` no XMA ou tentando o deep-link `instagram://direct/t/<thread_id>`.
-2. **PoC-8 iter 4 — targeting por Reel específico.** Hoje todas as reacções/replies do batch caem no 1.º Reel recebido visível. Precisamos de identificar o bubble certo pelo `reelAuthor` ou `reelUrl` guardado na fila, e scrollar dentro da conversa até ele estar visível antes de long-press.
-3. **UX do badge order** (quirk anotado na s28): ordenar os badges no topo do card por `createdAt` do PendingAction, em vez de posição fixa alfabética.
-4. **Plan B para o player (se C1 continuar a falhar):** baixar o URL para HTML próprio com `<video>` embutido, OU aceitar o player só como experiência opcional e voltar a fazer do "Abrir no Instagram nativo" o botão primary do card.
+- **PoC-8 iter 4 — targeting por Reel específico.** Reacções/replies do batch caem sempre no 1.º Reel recebido visível. Precisa de identificar o bubble certo por `reelAuthor` ou `reelUrl` guardado na fila + scroll dentro da conversa até o Reel aparecer.
+- **UX do badge order** (quirk s28): ordenar por `createdAt` em vez de posição fixa alfabética.
 
-### 6.2 Além do PoC-8
+### 6.2 Além do PoC-9
 
-- **PoC-9 (não numerado ainda):** navegar do inbox para as conversas com Reels não descobertos automaticamente — precisamos de resolver o `thread_id` de forma persistente. Idealmente lêmos algo da árvore da inbox que sirva como identificador estável; caso contrário, chegamos pela `header_title` (frágil se o utilizador renomear grupos).
-- **MVP-only:** substituir o toast do IG "Ligação copiada" (que ainda aparece) por absorção silenciosa se possível (baixar prioridade da notificação do IG?), ou aceitar como cost of doing business.
-- **Tuning de latência** (feedback do utilizador em várias sessões): reduzir `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS` progressivamente após termos batching a mascarar a lentidão.
+- **Toast do IG "Ligação copiada":** substituir por absorção silenciosa se possível, ou aceitar como cost of doing business.
+- **Tuning de latência:** reduzir `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS` progressivamente agora que o batching mascara parte da lentidão.
 
 ---
 
@@ -937,3 +942,12 @@ Já entregue no primeiro commit:
     - **(a) Ideal:** vídeo faz autoplay **com som** dentro de ~1s. Parte C fechada 🎉
     - **(b) Aceitável:** vídeo faz autoplay **muted** — houve fallback pelo Chrome bloquear com som. Utilizador pode dar unmute com um tap. Também é aceitável para o MVP.
     - **(c) Ainda pausado:** reportar — significa que o JS não conseguiu tocar o elemento. Vamos precisar de investigar o markup do embed do IG (possivelmente o `<video>` está dentro de um `<iframe>` cross-origin em vez de directamente no `document`).
+
+### 2026-08-29 — Sessão 32 (Ricardo + Copilot CLI) — parte C fechada + limpeza de docs
+
+- **Parte C validada** — utilizador confirmou "funciona abre e começa a dar e está a dar com som". Autoplay unmuted pela JS injection da s31 correu como esperado. **PoC-8 iteração 3 concluída por inteiro (A ✅ B ✅ C ✅).**
+- **Limpeza de documentação:**
+  - `PROJECT_PROGRESS.md` — "Estado atual" reduzido a uma linha. Quick start reescrito (a numeração estava partida, mencionava "5 botões" na notif desde a s27 e "sessões 20→27" nos ficheiros-chave). §6 lista de PoCs consolidada: entradas 🚧 das partes A/B/C removidas, resumo condensado numa linha por parte. §6.1 redirecciona para PoC-9 (navegação entre conversas) em vez de repetir testes já corridos. §6.2 encolhido — o item "PoC-9" saiu daqui (subiu para §6.1 como próximo passo real).
+  - `README.md` — actualizado no fim desta sessão (sem `build=sNN` no corpo, só pointer para o PROJECT_PROGRESS).
+- **`BUILD_TAG` mantido em `build=s31`** — nada mudou em código.
+- **Próximo passo (na próxima sessão):** PoC-9 (deep-link `instagram://direct/t/<thread_id>` ou navegação por `header_title` a partir da inbox). Ver §6.1 para plano.
