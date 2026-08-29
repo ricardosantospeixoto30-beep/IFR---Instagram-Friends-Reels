@@ -13,15 +13,9 @@
 
     <string name="poc_tools_title">Ferramentas de PoC</string>
     <string name="poc_tools_help">Fluxo recomendado: abre a conversa no Instagram e usa os botões da notificação persistente do Friends Reels (baixa a barra). Assim o Instagram fica na conversa. Os botões abaixo funcionam mas trocam de app, o que pode fazer o IG voltar ao inbox.</string>
-    <string name="btn_long_press_reel">Long-press no 1.º Reel (+ dump de janelas)</string>
-    <string name="btn_dump_all_windows">Dump de todas as janelas</string>
-    <string name="btn_list_reels">Listar Reels na conversa (log)</string>
     <string name="btn_react_heart">Reagir com ❤ ao 1.º Reel</string>
     <string name="btn_react_laugh">Reagir com 😂 ao 1.º Reel</string>
     <string name="btn_reply_reel">Responder com 👀 ao 1.º Reel</string>
-    <string name="btn_open_reel">Abrir 1.º Reel no viewer (+ dump)</string>
-    <string name="btn_open_reel_more">Abrir 1.º Reel + tocar Mais (+ dump)</string>
-    <string name="btn_open_reel_share">Abrir 1.º Reel + tocar Partilhar (+ dump)</string>
     <string name="btn_copy_reel_url">Copiar URL do 1.º Reel (viewer → Partilhar → Copiar)</string>
     <string name="btn_discover_reels">Descobrir Reels desta conversa</string>
     <string name="btn_open_feed_new">Ver feed (BD local)</string>
@@ -35,13 +29,8 @@
     <string name="notif_action_heart">❤</string>
     <string name="notif_action_laugh">😂</string>
     <string name="notif_action_reply">👀</string>
-    <string name="notif_action_open">Abrir</string>
-    <string name="notif_action_open_more">⋮</string>
-    <string name="notif_action_open_share">↗</string>
     <string name="notif_action_copy_url">🔗</string>
     <string name="notif_action_discover">🔍</string>
-    <string name="notif_action_list">Listar</string>
-    <string name="notif_action_dump">Dump</string>
 
     <string name="settings_title">Definições</string>
     <string name="settings_selection_mode">Modo de seleção</string>

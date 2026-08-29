@@ -35,44 +35,39 @@ import kotlinx.coroutines.launch
 /**
  * Accessibility service used to read and drive Instagram screens.
  *
- * All operations are broadcast-triggered so we can invoke them from `adb` or
- * from a button inside the app. The public actions are declared in the
- * companion object at the bottom of this file.
+ * All operations are broadcast-triggered so we can invoke them from `adb`,
+ * from a button inside the app, or from the persistent control notification
+ * posted in [postControlNotification]. The public actions are declared in
+ * the companion object at the bottom of this file.
  *
- * PoC-2 (dump): dumps the currently active window (or every window) to
- * logcat. Actions: ACTION_DUMP_TREE, ACTION_DUMP_ALL_WINDOWS.
+ * Active surface (session-24 cleanup — exploratory buttons removed):
  *
- * PoC-3 (long-press): finds the visible Reel bubble in the currently open
- * Instagram conversation and dispatches a long-press gesture centered on the
- * bubble. Uses AccessibilityService.dispatchGesture so we can control both
- * the location and the duration (short enough to open the IG context menu
- * while staying under the OxygenOS "Portal de conteúdo" threshold).
- * Action: ACTION_LONG_PRESS_FIRST_REEL.
+ * PoC-4/5 (react): after long-pressing the first RECEIVED Reel bubble in
+ * the visible conversation, clicks a preset emoji on the reaction row.
+ * Reactions default to `Direction.RECEIVED` only, controlled by the
+ * persisted `ignore_sent_reels` preference.
+ * Actions: [ACTION_REACT_HEART], [ACTION_REACT_LAUGH].
  *
- * PoC-5 (react): after the long-press opens the reaction row, clicks the
- * requested emoji ImageView. The reaction is applied to the underlying DM
- * message on Instagram's side and persists after we close the conversation.
- * Actions: ACTION_REACT_HEART, ACTION_REACT_LAUGH.
+ * PoC-6 (reply): same long-press flow but picks "Responder" from the
+ * context menu popup, types the fixed [MOCK_REPLY_TEXT] into the composer
+ * via ACTION_SET_TEXT, then clicks Send (with a `dispatchGesture` fallback
+ * if Compose refuses the a11y click).
+ * Action: [ACTION_REPLY_FIRST_REEL_MOCK].
  *
- * PoC-4 (identify sender): before dispatching any action, every message
- * bubble inside `message_list` is enumerated with its Direction (RECEIVED
- * vs SENT) inferred from the presence of `sender_avatar`. Reactions default
- * to Direction.RECEIVED only, controlled by the persisted
- * `ignore_sent_reels` preference. The listing can also be dumped to logcat
- * via ACTION_LIST_REELS.
+ * PoC-7 (copy URL): taps the bubble to open the Reel viewer, reads
+ * `sender_username_or_fullname` to capture the human sender (matters for
+ * groups), clicks Partilhar → "Copiar ligação", bridges the clipboard
+ * read via the invisible ClipboardCaptureActivity (Android 10+ blocks
+ * clipboard reads for background apps), and persists a fully enriched
+ * [ReelEntity] into Room. Returns the user to the conversation with two
+ * BACK gestures.
+ * Action: [ACTION_COPY_REEL_URL] + internal [ACTION_CLIPBOARD_CAPTURED].
  *
- * PoC-6 (reply): after the long-press opens the context menu popup, clicks
- * the "Reply" item, types a fixed mock text into the composer via
- * ACTION_SET_TEXT, and clicks the send button. Falls back to a diagnostic
- * dump if the send button cannot be found so we can capture the missing
- * resource id from the user's device. Action: ACTION_REPLY_FIRST_REEL_MOCK.
- *
- * PoC-7 (open reel viewer for URL discovery): dispatches a short tap on
- * the first Reel bubble to open Instagram's Reel viewer, then dumps every
- * window so we can discover which node inside the viewer surfaces the
- * shareable URL (Share button, ⋮ menu, `contentDescription`, etc.). This
- * is the exploration step of PoC-7; actual URL extraction is added once
- * the viewer's UI is mapped. Action: ACTION_OPEN_REEL.
+ * PoC-8 (discover + feed): enumerates every Reel bubble currently visible
+ * in the open conversation, respects the `ignoreSent` flag, and inserts
+ * new rows into Room (deduplicating by `(threadTitle, reelAuthor,
+ * direction)` until we have a URL, then by URL unique index).
+ * Action: [ACTION_DISCOVER_REELS].
  */
 class InstagramReaderService : AccessibilityService() {
 
@@ -152,11 +147,6 @@ class InstagramReaderService : AccessibilityService() {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 when (intent?.action) {
-                    ACTION_DUMP_TREE -> runInInstagram { dumpActiveWindow("adb") }
-                    ACTION_DUMP_ALL_WINDOWS -> runInInstagram { dumpAllWindows("adb") }
-                    ACTION_LIST_REELS -> runInInstagram { listReels() }
-                    ACTION_LONG_PRESS_FIRST_REEL ->
-                        runInInstagram { longPressFirstReel(afterLongPress = AfterLongPress.DumpAllWindows) }
                     ACTION_REACT_HEART ->
                         runInInstagram { longPressFirstReel(afterLongPress = AfterLongPress.TapReaction("❤")) }
                     ACTION_REACT_LAUGH ->
@@ -165,29 +155,16 @@ class InstagramReaderService : AccessibilityService() {
                         runInInstagram {
                             longPressFirstReel(afterLongPress = AfterLongPress.ReplyWithText(MOCK_REPLY_TEXT))
                         }
-                    ACTION_OPEN_REEL -> runInInstagram { openFirstReelViewer(AfterOpenViewer.DumpNow) }
-                    ACTION_OPEN_REEL_AND_MORE ->
-                        runInInstagram { openFirstReelViewer(AfterOpenViewer.TapMoreAndDump) }
-                    ACTION_OPEN_REEL_AND_SHARE ->
-                        runInInstagram { openFirstReelViewer(AfterOpenViewer.TapShareAndDump) }
-                    ACTION_COPY_REEL_URL ->
-                        runInInstagram { openFirstReelViewer(AfterOpenViewer.TapShareAndCopyLink) }
+                    ACTION_COPY_REEL_URL -> runInInstagram { openFirstReelViewer() }
                     ACTION_CLIPBOARD_CAPTURED -> handleClipboardCaptured(intent)
                     ACTION_DISCOVER_REELS -> runInInstagram { discoverReels() }
                 }
             }
         }
         val filter = IntentFilter().apply {
-            addAction(ACTION_DUMP_TREE)
-            addAction(ACTION_DUMP_ALL_WINDOWS)
-            addAction(ACTION_LIST_REELS)
-            addAction(ACTION_LONG_PRESS_FIRST_REEL)
             addAction(ACTION_REACT_HEART)
             addAction(ACTION_REACT_LAUGH)
             addAction(ACTION_REPLY_FIRST_REEL_MOCK)
-            addAction(ACTION_OPEN_REEL)
-            addAction(ACTION_OPEN_REEL_AND_MORE)
-            addAction(ACTION_OPEN_REEL_AND_SHARE)
             addAction(ACTION_COPY_REEL_URL)
             addAction(ACTION_CLIPBOARD_CAPTURED)
             addAction(ACTION_DISCOVER_REELS)
@@ -201,12 +178,9 @@ class InstagramReaderService : AccessibilityService() {
         actionReceiver = receiver
         Log.i(
             TAG,
-            "Action receiver registered (dump=$ACTION_DUMP_TREE, dumpAll=$ACTION_DUMP_ALL_WINDOWS, " +
-                "list=$ACTION_LIST_REELS, longpress=$ACTION_LONG_PRESS_FIRST_REEL, " +
-                "heart=$ACTION_REACT_HEART, laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
-                "open=$ACTION_OPEN_REEL, openMore=$ACTION_OPEN_REEL_AND_MORE, " +
-                "openShare=$ACTION_OPEN_REEL_AND_SHARE, copyUrl=$ACTION_COPY_REEL_URL, " +
-                "discover=$ACTION_DISCOVER_REELS)"
+            "Action receiver registered ($BUILD_TAG heart=$ACTION_REACT_HEART, " +
+                "laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
+                "copyUrl=$ACTION_COPY_REEL_URL, discover=$ACTION_DISCOVER_REELS)"
         )
     }
 
@@ -441,27 +415,20 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     // ---------------------------------------------------------------------
-    // PoC-7 — Open the Reel viewer (URL discovery step)
+    // PoC-7 — Open the Reel viewer, tap Partilhar, click Copiar ligação
     //
-    // The context menu opened by the long-press does NOT reliably include
-    // "Copy link" for shared Reels (confirmed in the session-6 dump). Our
-    // best chance at grabbing the shareable URL is to open the Reel inside
-    // Instagram's native viewer (tap the bubble) and then locate the Share
-    // / ⋮ / "Copy link" entry point that lives there. This function does
-    // the first half — tap + settle + dump — so we can map the viewer's
-    // UI. Actual URL extraction is added in the next iteration once the
-    // dump reveals the correct resource ids.
+    // Deep-tap on the visible Reel bubble opens Instagram's native viewer.
+    // Once the viewer settles we read `sender_username_or_fullname` (the
+    // human sender of the Reel in the DM, critical for group threads),
+    // then click Partilhar. The IG share sheet has a "Copiar ligação"
+    // entry in `direct_external_reshare_row`; we click it, wait for the
+    // clipboard to be written, and bridge the read through the invisible
+    // ClipboardCaptureActivity (background reads are blocked on API 29+).
+    // Finally the URL + captured context are persisted into Room and two
+    // BACK gestures return the user to the conversation.
     // ---------------------------------------------------------------------
 
-    /** What to do after the Reel viewer has (probably) opened. */
-    private sealed class AfterOpenViewer {
-        object DumpNow : AfterOpenViewer()
-        object TapMoreAndDump : AfterOpenViewer()
-        object TapShareAndDump : AfterOpenViewer()
-        object TapShareAndCopyLink : AfterOpenViewer()
-    }
-
-    private fun openFirstReelViewer(afterOpen: AfterOpenViewer) {
+    private fun openFirstReelViewer() {
         val igWindow = findIgApplicationWindow()
         val root = igWindow?.root ?: rootInActiveWindow
         if (root == null) {
@@ -497,27 +464,23 @@ class InstagramReaderService : AccessibilityService() {
         Log.i(
             TAG,
             "OPEN_REEL: target index=${target.index} kind=${target.kind} direction=${target.direction} " +
-                "author=${target.reelAuthor} bounds=${bounds.toShortString()} center=(${bounds.centerX()},${bounds.centerY()}) " +
-                "afterOpen=${afterOpen::class.simpleName}"
+                "author=${target.reelAuthor} bounds=${bounds.toShortString()} center=(${bounds.centerX()},${bounds.centerY()})"
         )
         if (windowBounds != null && !windowBounds.contains(bounds.centerX(), bounds.centerY())) {
             Log.w(TAG, "OPEN_REEL: bubble center outside IG window bounds — refusing to tap off-screen.")
             return
         }
 
-        // Stash context for the eventual copy-link flow so we can persist a
-        // fully enriched Row once the clipboard is captured. If this open
-        // isn't for copy-link, we leave pendingCopy alone.
-        if (afterOpen is AfterOpenViewer.TapShareAndCopyLink) {
-            pendingCopy = PendingCopy(
-                threadTitle = lastKnownConversationTitle?.takeIf { it.isNotBlank() } ?: "?",
-                direction = target.direction,
-                reelAuthor = target.reelAuthor,
-                kind = target.kind,
-                bubbleIndex = target.index,
-            )
-            Log.i(TAG, "COPY_LINK: pendingCopy=$pendingCopy")
-        }
+        // Stash context so we can persist a fully enriched Row once the
+        // clipboard capture broadcast comes back in `handleClipboardCaptured`.
+        pendingCopy = PendingCopy(
+            threadTitle = lastKnownConversationTitle?.takeIf { it.isNotBlank() } ?: "?",
+            direction = target.direction,
+            reelAuthor = target.reelAuthor,
+            kind = target.kind,
+            bubbleIndex = target.index,
+        )
+        Log.i(TAG, "COPY_LINK: pendingCopy=$pendingCopy")
 
         val path = Path().apply { moveTo(bounds.exactCenterX(), bounds.exactCenterY()) }
         val stroke = GestureDescription.StrokeDescription(path, 0L, TAP_DURATION_MS)
@@ -533,60 +496,16 @@ class InstagramReaderService : AccessibilityService() {
         Log.i(TAG, "OPEN_REEL: dispatchGesture accepted=$dispatched duration=${TAP_DURATION_MS}ms")
 
         val delay = TAP_DURATION_MS + REEL_VIEWER_SETTLE_MS
-        when (afterOpen) {
-            AfterOpenViewer.DumpNow ->
-                mainHandler.postDelayed({ dumpAllWindows("after-reel-tap") }, delay)
-            AfterOpenViewer.TapMoreAndDump ->
-                mainHandler.postDelayed({ tapMoreInReelViewer() }, delay)
-            AfterOpenViewer.TapShareAndDump ->
-                mainHandler.postDelayed({ tapShareInReelViewer(AfterShare.DumpNow) }, delay)
-            AfterOpenViewer.TapShareAndCopyLink ->
-                mainHandler.postDelayed({ tapShareInReelViewer(AfterShare.ClickCopyLink) }, delay)
-        }
+        mainHandler.postDelayed({ tapShareInReelViewer() }, delay)
     }
 
     /**
-     * Click the ⋮ button on the Reel viewer (right-hand action strip) to
-     * open the bottom sheet that (very likely) contains "Copy link". After
-     * settle, dump every window so we can capture the sheet layout.
-     * The sheet may live in a separate window layered on top of the viewer,
-     * which is why we always dump ALL windows here.
+     * Click the "Partilhar" (share) button on the Reel viewer. Before the
+     * click, capture `sender_username_or_fullname` (the human sender of the
+     * Reel in the DM — critical for group threads). After the share sheet
+     * settles, chain into [clickCopyLinkInShareSheet].
      */
-    private fun tapMoreInReelViewer() {
-        val moreId = IgSelectors.id(IgSelectors.ReelViewer.UFI_MORE_BUTTON)
-        val moreNode = findFirstNodeAcrossWindows { it.viewIdResourceName == moreId }
-        if (moreNode == null) {
-            Log.w(TAG, "MORE_IN_VIEWER: '${IgSelectors.ReelViewer.UFI_MORE_BUTTON}' not found. Viewer failed to open?")
-            dumpAllWindows("more-not-found")
-            return
-        }
-        val bounds = Rect().also { moreNode.getBoundsInScreen(it) }
-        // Some Compose action buttons expose the icon as non-clickable child of
-        // a clickable ancestor. The current dump shows the ImageView itself as
-        // clickable, but stay defensive.
-        val target = if (moreNode.isClickable) moreNode else findClickableAncestor(moreNode) ?: moreNode
-        val ok = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-        Log.i(
-            TAG,
-            "MORE_IN_VIEWER: performAction(ACTION_CLICK) on 'Mais' returned $ok bounds=${bounds.toShortString()}"
-        )
-        mainHandler.postDelayed({ dumpAllWindows("after-viewer-more") }, MORE_MENU_SETTLE_MS)
-    }
-
-    /** What to do once the IG share sheet has finished loading. */
-    private sealed class AfterShare {
-        object DumpNow : AfterShare()
-        object ClickCopyLink : AfterShare()
-    }
-
-    /**
-     * Click the "Partilhar" (share) button on the Reel viewer. This is our
-     * Plan B for URL discovery after we confirmed the ⋮ bottom sheet does
-     * not contain "Copy link" (session 17). The share sheet exposes a
-     * "Copiar ligação" entry in the external reshare row
-     * (`direct_external_reshare_row`).
-     */
-    private fun tapShareInReelViewer(afterShare: AfterShare) {
+    private fun tapShareInReelViewer() {
         // While the viewer is stable (right before we tap Share), grab the
         // human sender from `sender_username_or_fullname`. This is what
         // lets us know WHO shared the Reel — critical in group DMs where
@@ -607,15 +526,8 @@ class InstagramReaderService : AccessibilityService() {
             TAG,
             "SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned $ok bounds=${bounds.toShortString()}"
         )
-        // The IG share sheet is bigger and takes noticeably longer to load
-        // than the ⋮ bottom sheet (it fetches the friends grid). Give it
-        // extra time before running the follow-up step.
-        when (afterShare) {
-            AfterShare.DumpNow ->
-                mainHandler.postDelayed({ dumpAllWindows("after-viewer-share") }, SHARE_SHEET_SETTLE_MS)
-            AfterShare.ClickCopyLink ->
-                mainHandler.postDelayed({ clickCopyLinkInShareSheet() }, SHARE_SHEET_SETTLE_MS)
-        }
+        // The IG share sheet fetches the friends grid — give it time.
+        mainHandler.postDelayed({ clickCopyLinkInShareSheet() }, SHARE_SHEET_SETTLE_MS)
     }
 
     /**
@@ -979,52 +891,7 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     // ---------------------------------------------------------------------
-    // PoC-4 — Enumerate Reel bubbles + detect sender direction
-    // ---------------------------------------------------------------------
-
-    /**
-     * List every Reel bubble currently visible on the open conversation, with
-     * direction (RECEIVED / SENT) and original Reel author. Result is logged.
-     * Used as the read-only entry point for PoC-4 verification.
-     */
-    private fun listReels() {
-        val igWindow = findIgApplicationWindow()
-        val root = igWindow?.root ?: rootInActiveWindow
-        if (root == null) {
-            Log.w(TAG, "LIST_REELS requested but no Instagram root node available.")
-            return
-        }
-        if (root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
-            Log.w(TAG, "LIST_REELS ignored: foreground is ${root.packageName}, expected ${IgSelectors.IG_PACKAGE}.")
-            return
-        }
-        val messageList = root
-            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
-            .firstOrNull()
-        if (messageList == null) {
-            Log.w(TAG, "LIST_REELS: no message_list found. Are you on a conversation screen?")
-            return
-        }
-
-        val entries = enumerateReels(messageList)
-        val received = entries.count { it.direction == Direction.RECEIVED }
-        val sent = entries.size - received
-        Log.i(
-            TAG,
-            "LIST_REELS: found ${entries.size} Reel bubble(s) — received=$received sent=$sent " +
-                "conversation='$lastKnownConversationTitle' ignoreSent=${isIgnoreSentEnabled()}"
-        )
-        entries.forEach { r ->
-            Log.i(
-                TAG,
-                "LIST_REELS[${r.index}]: dir=${r.direction} kind=${r.kind} " +
-                    "author=${r.reelAuthor ?: "?"} bounds=${r.bounds.toShortString()}"
-            )
-        }
-    }
-
-    // ---------------------------------------------------------------------
-    // PoC-8 — Persist discovered Reels into Room
+    // PoC-4/8 — Enumerate Reel bubbles and persist to Room
     // ---------------------------------------------------------------------
 
     /**
@@ -1285,13 +1152,21 @@ class InstagramReaderService : AccessibilityService() {
 
     companion object {
         private const val TAG = "IGReaderService"
+
+        /**
+         * Bumped every time we change the shape of the service (new actions,
+         * removed actions, DB schema tweaks). Utility for the user to
+         * confirm which build is actually running on the device — it shows
+         * up at the top of every `Action receiver registered` log line.
+         */
+        private const val BUILD_TAG = "build=s24"
+
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
         private const val COMPOSER_SETTLE_MS = 900L // context menu closes + reply preview + composer focus
         private const val SEND_SETTLE_MS = 500L // wait for the voice/gallery strip to become the Send button
         private const val TAP_DURATION_MS = 80L // short click gesture for opening a Reel bubble
-        private const val REEL_VIEWER_SETTLE_MS = 2000L // Reel viewer needs to load the video/controls before the dump
-        private const val MORE_MENU_SETTLE_MS = 1000L // bottom sheet animation after tapping ⋮
+        private const val REEL_VIEWER_SETTLE_MS = 2000L // Reel viewer needs to load the video/controls
         private const val SHARE_SHEET_SETTLE_MS = 1800L // IG share sheet loads the friends grid, needs more time
         private const val CLIPBOARD_READ_DELAY_MS = 700L // wait for IG to write the URL after clicking "Copiar ligação"
         private const val BACK_AFTER_COPY_DELAY_MS = 400L // pause between BACK gestures to close sheet + viewer
@@ -1302,16 +1177,16 @@ class InstagramReaderService : AccessibilityService() {
         /** Placeholder text used by the PoC-6 mock reply broadcast. */
         const val MOCK_REPLY_TEXT = "👀"
 
-        const val ACTION_DUMP_TREE = "com.example.friendsreels.ACTION_DUMP_TREE"
-        const val ACTION_DUMP_ALL_WINDOWS = "com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS"
-        const val ACTION_LIST_REELS = "com.example.friendsreels.ACTION_LIST_REELS"
-        const val ACTION_LONG_PRESS_FIRST_REEL = "com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL"
+        // -----------------------------------------------------------------
+        // Broadcast actions (kept ONLY for the buttons that survived the
+        // session-24 cleanup: react ❤/😂, reply 👀, copy URL, discover).
+        // Exploratory actions (dump, list, open+dump, open+more, open+share)
+        // were removed to keep the UI focused. If you need to bring them
+        // back, `git log --diff-filter=D` for the exact broadcast strings.
+        // -----------------------------------------------------------------
         const val ACTION_REACT_HEART = "com.example.friendsreels.ACTION_REACT_HEART"
         const val ACTION_REACT_LAUGH = "com.example.friendsreels.ACTION_REACT_LAUGH"
         const val ACTION_REPLY_FIRST_REEL_MOCK = "com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK"
-        const val ACTION_OPEN_REEL = "com.example.friendsreels.ACTION_OPEN_REEL"
-        const val ACTION_OPEN_REEL_AND_MORE = "com.example.friendsreels.ACTION_OPEN_REEL_AND_MORE"
-        const val ACTION_OPEN_REEL_AND_SHARE = "com.example.friendsreels.ACTION_OPEN_REEL_AND_SHARE"
         const val ACTION_COPY_REEL_URL = "com.example.friendsreels.ACTION_COPY_REEL_URL"
         const val ACTION_DISCOVER_REELS = "com.example.friendsreels.ACTION_DISCOVER_REELS"
 
@@ -1378,21 +1253,6 @@ class InstagramReaderService : AccessibilityService() {
             )
             .addAction(
                 0,
-                getString(R.string.notif_action_open),
-                pendingBroadcast(ACTION_OPEN_REEL, requestCode = 6)
-            )
-            .addAction(
-                0,
-                getString(R.string.notif_action_open_more),
-                pendingBroadcast(ACTION_OPEN_REEL_AND_MORE, requestCode = 7)
-            )
-            .addAction(
-                0,
-                getString(R.string.notif_action_open_share),
-                pendingBroadcast(ACTION_OPEN_REEL_AND_SHARE, requestCode = 8)
-            )
-            .addAction(
-                0,
                 getString(R.string.notif_action_copy_url),
                 pendingBroadcast(ACTION_COPY_REEL_URL, requestCode = 9)
             )
@@ -1400,16 +1260,6 @@ class InstagramReaderService : AccessibilityService() {
                 0,
                 getString(R.string.notif_action_discover),
                 pendingBroadcast(ACTION_DISCOVER_REELS, requestCode = 10)
-            )
-            .addAction(
-                0,
-                getString(R.string.notif_action_list),
-                pendingBroadcast(ACTION_LIST_REELS, requestCode = 4)
-            )
-            .addAction(
-                0,
-                getString(R.string.notif_action_dump),
-                pendingBroadcast(ACTION_DUMP_ALL_WINDOWS, requestCode = 3)
             )
 
         val nm = NotificationManagerCompat.from(this)

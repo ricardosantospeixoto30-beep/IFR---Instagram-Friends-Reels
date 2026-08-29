@@ -66,15 +66,9 @@ class MainActivity : ComponentActivity() {
                                 startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                             }
                         },
-                        onLongPressFirstReel = { sendServiceBroadcast(InstagramReaderService.ACTION_LONG_PRESS_FIRST_REEL) },
-                        onDumpAllWindows = { sendServiceBroadcast(InstagramReaderService.ACTION_DUMP_ALL_WINDOWS) },
-                        onListReels = { sendServiceBroadcast(InstagramReaderService.ACTION_LIST_REELS) },
                         onReactHeart = { sendServiceBroadcast(InstagramReaderService.ACTION_REACT_HEART) },
                         onReactLaugh = { sendServiceBroadcast(InstagramReaderService.ACTION_REACT_LAUGH) },
                         onReplyMock = { sendServiceBroadcast(InstagramReaderService.ACTION_REPLY_FIRST_REEL_MOCK) },
-                        onOpenReel = { sendServiceBroadcast(InstagramReaderService.ACTION_OPEN_REEL) },
-                        onOpenReelAndMore = { sendServiceBroadcast(InstagramReaderService.ACTION_OPEN_REEL_AND_MORE) },
-                        onOpenReelAndShare = { sendServiceBroadcast(InstagramReaderService.ACTION_OPEN_REEL_AND_SHARE) },
                         onCopyReelUrl = { sendServiceBroadcast(InstagramReaderService.ACTION_COPY_REEL_URL) },
                         onDiscoverReels = { sendServiceBroadcast(InstagramReaderService.ACTION_DISCOVER_REELS) },
                         onOpenFeed = {
@@ -116,15 +110,9 @@ class MainActivity : ComponentActivity() {
 private fun HomeScreen(
     onEnableAccessibility: () -> Unit,
     onOpenInstagram: () -> Unit,
-    onLongPressFirstReel: () -> Unit,
-    onDumpAllWindows: () -> Unit,
-    onListReels: () -> Unit,
     onReactHeart: () -> Unit,
     onReactLaugh: () -> Unit,
     onReplyMock: () -> Unit,
-    onOpenReel: () -> Unit,
-    onOpenReelAndMore: () -> Unit,
-    onOpenReelAndShare: () -> Unit,
     onCopyReelUrl: () -> Unit,
     onDiscoverReels: () -> Unit,
     onOpenFeed: () -> Unit,
@@ -194,15 +182,6 @@ private fun HomeScreen(
                 )
             }
 
-            OutlinedButton(onClick = onListReels, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_list_reels))
-            }
-            OutlinedButton(onClick = onLongPressFirstReel, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_long_press_reel))
-            }
-            OutlinedButton(onClick = onDumpAllWindows, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_dump_all_windows))
-            }
             Button(onClick = onReactHeart, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.btn_react_heart))
             }
@@ -211,15 +190,6 @@ private fun HomeScreen(
             }
             Button(onClick = onReplyMock, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.btn_reply_reel))
-            }
-            OutlinedButton(onClick = onOpenReel, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_open_reel))
-            }
-            OutlinedButton(onClick = onOpenReelAndMore, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_open_reel_more))
-            }
-            OutlinedButton(onClick = onOpenReelAndShare, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.btn_open_reel_share))
             }
             Button(onClick = onCopyReelUrl, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.btn_copy_reel_url))

@@ -694,3 +694,33 @@ Depois do PoC-7 fechar, arrancamos o PoC-8:
   4. Repetir num **grupo**: deve ler o nome do membro específico (ex. "João Vieira") e mostrar "Recebido de João Vieira em O Burro a Vaca e os Reis Magos".
   5. Toque **🔍** deve continuar a descobrir batch (sem URL) e as rows aparecem sem "Abrir no IG" activo (fica "URL ainda não capturado (usar 🔗)").
 - **A seguir (PoC-8 iteração 3):** batching de acções (fila `PendingActionEntity` para reagir/responder de forma diferida), scroll automático dentro da conversa para descobrir histórico completo, e eventual player (provavelmente WebView com o URL do IG, pois o video URL não é directamente reproduzível).
+
+### 2026-08-29 — Sessão 24 (Ricardo + Copilot CLI) — limpeza + clarificação
+
+- **Diagnóstico da causa do log estranho da tentativa anterior:** o utilizador tinha um commit local `4750b8f "feed errors"` que **reverteu** o meu commit `50b02d1` da sessão 23. Testou nessa versão revertida (por isso não apareciam os logs `pendingCopy=`, `enriched pendingCopy`, `inserted row`). Depois fez merge com o remoto, que reintroduziu o código — mas os testes que reportou foram na versão sem a integração. Preciso confirmar isto com o utilizador antes de assumir que a integração está partida no HEAD actual.
+- **Limpeza pedida pelo utilizador — remoção de botões exploratórios:**
+  - Removidos da UI (app + notificação):
+    - `Long-press no 1.º Reel` (`ACTION_LONG_PRESS_FIRST_REEL`).
+    - `Dump de todas as janelas` (`ACTION_DUMP_ALL_WINDOWS`).
+    - `Listar Reels na conversa` (`ACTION_LIST_REELS`).
+    - `Abrir 1.º Reel no viewer + dump` (`ACTION_OPEN_REEL`).
+    - `Abrir 1.º Reel + tocar Mais` (`ACTION_OPEN_REEL_AND_MORE`).
+    - `Abrir 1.º Reel + tocar Partilhar` (`ACTION_OPEN_REEL_AND_SHARE`).
+    - `ACTION_DUMP_TREE` (nunca teve botão, só via adb).
+  - **Simplificação do código:** removidos sealed classes `AfterOpenViewer` e `AfterShare` (só ficava um caminho útil), função `tapMoreInReelViewer`, função `listReels`, constante `MORE_MENU_SETTLE_MS`. `openFirstReelViewer` agora só dispatched o tap e chama `tapShareInReelViewer()` — sem parâmetros. O log `afterOpen=` desaparece (não faz mais sentido).
+  - **Superfície pública mantida (5 acções):** `ACTION_REACT_HEART`, `ACTION_REACT_LAUGH`, `ACTION_REPLY_FIRST_REEL_MOCK`, `ACTION_COPY_REEL_URL`, `ACTION_DISCOVER_REELS` (+ `ACTION_CLIPBOARD_CAPTURED` interno).
+  - **Notificação:** 5 botões (❤, 😂, 👀, 🔗, 🔍). Estava com 10.
+  - **`MainActivity`:** botões reduzidos aos 5 correspondentes + "Ver feed (BD local)" + o switch de `ignoreSent` + os 2 botões iniciais (activar acessibilidade / abrir Instagram).
+- **`BUILD_TAG = "build=s24"`** adicionado ao log de `Action receiver registered` para o utilizador conseguir confirmar visualmente que build está a correr. Se numa próxima falha o log não mostrar `build=s24`, é sinal claro de que o APK ainda tem uma versão antiga.
+- **Header do service (kdoc) reescrita** a descrever a superfície actual (5 acções PoC-4/5/6/7/8) em vez do histórico exploratório.
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — grande limpeza (~130 linhas removidas).
+  - `MainActivity.kt` — 6 botões e 6 parâmetros do `HomeScreen` removidos.
+  - `strings.xml` — 8 strings removidas.
+  - `PROJECT_PROGRESS.md`.
+- **Ficheiros mantidos intactos** (não foram tocados nesta sessão): `data/*`, `ClipboardCaptureActivity.kt`, `ui/feed/*` — a integração PoC-7↔PoC-8 da sessão 23 fica.
+- **Próximo passo do utilizador:**
+  1. Puxar o repo. Verificar que HEAD é o commit desta sessão.
+  2. Rebuild + run no OnePlus.
+  3. Ao arrancar, no Logcat verificar a linha `Action receiver registered (build=s24 ...)` — confirma que a versão certa está a correr.
+  4. Testar os pontos 1 (DM) e 2 (grupo) da checklist da sessão anterior — agora **devem** funcionar porque o código da integração está no HEAD e a UI só tem os botões que servem.
