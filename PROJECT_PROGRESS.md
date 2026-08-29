@@ -741,3 +741,4 @@ Já entregue no primeiro commit:
 - **Próximo passo do utilizador** (opcional, só para consolidar):
   - Puxar → confirmar `build=s25`.
   - Repetir o teste C — 🔍 numa conversa nova, depois 🔗 no mesmo Reel. Esperado: `COPY_LINK: promoted 1 discovery-only row(s) to enriched ...` e no feed **1 card apenas** para esse Reel (não 2).
+- **Validação final (fim da sessão 25):** utilizador confirmou `build=s25` a correr no OnePlus e o novo comportamento a aparecer nos logs (mensagens `promoted` / `URL already in DB` no fluxo do 🔗). **PoC-8 iter 2 totalmente fechado.** Próxima sessão arranca do commit `aaff892` com o plano da §6.1 (iter 3: batching + scroll auto + player).
