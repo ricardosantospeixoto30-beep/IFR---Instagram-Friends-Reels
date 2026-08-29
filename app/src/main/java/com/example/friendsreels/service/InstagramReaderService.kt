@@ -1177,8 +1177,10 @@ class InstagramReaderService : AccessibilityService() {
 
     /**
      * Execute [steps][index]. On completion (or failure) schedules the
-     * next step [BATCH_STEP_INTERVAL_MS] later. Bookkeeping in the DB
-     * happens synchronously on the IO scope for each step.
+     * next step after a per-kind delay (see [BATCH_STEP_INTERVAL_REACTION_MS]
+     * / [BATCH_STEP_INTERVAL_REPLY_MS] — replies are ~4.5s because IG's
+     * composer+send flow is slower than a quick-reaction click).
+     * Bookkeeping in the DB happens on the IO scope for each step.
      */
     private fun runBatchStep(steps: List<BatchStep>, index: Int, currentThread: String?) {
         if (index >= steps.size) {
@@ -1206,7 +1208,7 @@ class InstagramReaderService : AccessibilityService() {
             Log.w(TAG, "APPLY_PENDING: $stepLabel skipped — $err")
             mainHandler.postDelayed({
                 runBatchStep(steps, index + 1, currentThread)
-            }, BATCH_STEP_INTERVAL_MS / 4) // fast-skip when we're just marking wrong-thread rows
+            }, BATCH_STEP_FAST_SKIP_MS)
             return
         }
 
@@ -1226,7 +1228,7 @@ class InstagramReaderService : AccessibilityService() {
                 Log.w(TAG, "APPLY_PENDING: $stepLabel unknown kind, marked FAILED.")
                 mainHandler.postDelayed({
                     runBatchStep(steps, index + 1, currentThread)
-                }, BATCH_STEP_INTERVAL_MS / 4)
+                }, BATCH_STEP_FAST_SKIP_MS)
                 return
             }
         }
@@ -1239,9 +1241,13 @@ class InstagramReaderService : AccessibilityService() {
         longPressFirstReel(afterLongPress = after)
         finishStepAsync(step.action.id, PendingActionEntity.STATUS_DONE, null)
 
+        val nextDelay = when (step.action.kind) {
+            PendingActionEntity.KIND_REPLY_TEXT -> BATCH_STEP_INTERVAL_REPLY_MS
+            else -> BATCH_STEP_INTERVAL_REACTION_MS
+        }
         mainHandler.postDelayed({
             runBatchStep(steps, index + 1, currentThread)
-        }, BATCH_STEP_INTERVAL_MS)
+        }, nextDelay)
     }
 
     private fun markRunningAsync(actionId: Long) {
@@ -1275,6 +1281,10 @@ class InstagramReaderService : AccessibilityService() {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setShowWhen(false)
+            .setContentIntent(pendingActivity(
+                com.example.friendsreels.ui.feed.FeedActivity::class.java,
+                requestCode = 0,
+            ))
             .setProgress(total, currentStep, false)
         try {
             NotificationManagerCompat.from(this).notify(NOTIF_ID, builder.build())
@@ -1383,7 +1393,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s26"
+        private const val BUILD_TAG = "build=s27"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -1402,14 +1412,26 @@ class InstagramReaderService : AccessibilityService() {
         // PoC-8 iteration 3 — batching executor timing
         // -----------------------------------------------------------------
         /**
-         * Delay between two consecutive actions inside the same executor
-         * pass. Sized so IG has time to fully close whichever popup the
-         * previous action left open (reaction bubble, context menu, etc.)
-         * before we long-press the next Reel.
+         * Delay before scheduling the NEXT batch step after firing a
+         * reaction. Reactions complete quickly:
+         *   long-press(600) + settle(1500) + click(~250) ≈ 2350ms
+         * so 2500ms is safe.
          */
-        private const val BATCH_STEP_INTERVAL_MS = 2500L
+        private const val BATCH_STEP_INTERVAL_REACTION_MS = 2500L
+        /**
+         * Delay for replies, which are much slower:
+         *   long-press(600) + settle(1500) + composer(900) + send(500)
+         *   + IG's own animation to close the composer ≈ 3500ms + safety
+         * Session-27 fix: s26 used 2500ms uniformly and reproduced a race
+         * where step N+1's long-press fired before step N's send button
+         * had been clicked, causing `REPLY: 'Responder' item not found`
+         * (see docs/screen-dumps/Enfileirar.txt lines 51→66).
+         */
+        private const val BATCH_STEP_INTERVAL_REPLY_MS = 4500L
         /** Initial delay to give IG time to settle after being brought to front. */
         private const val BATCH_START_DELAY_MS = 800L
+        /** Fast-skip interval used when we're just marking rows FAILED without touching IG. */
+        private const val BATCH_STEP_FAST_SKIP_MS = 400L
 
         /** Placeholder text used by the PoC-6 mock reply broadcast. */
         const val MOCK_REPLY_TEXT = "👀"
@@ -1470,6 +1492,17 @@ class InstagramReaderService : AccessibilityService() {
     // switch that happens when the user leaves IG to tap a button inside our
     // MainActivity, which is why this is the recommended way to trigger the
     // PoC actions.
+    //
+    // Session-27 change: Android's collapsed notification only shows up to
+    // 3 action buttons; with `PRIORITY_LOW + ongoing` on OnePlus/OxygenOS
+    // it stays collapsed. In s26 we had 6 buttons — only the first three
+    // (❤ 😂 👀) were visible and the batching/discovery ones were
+    // unreachable. So we now keep only the three that matter for the
+    // batching-first flow: 🔍 discover, 🔗 copy URL (per-Reel enrichment),
+    // ▶ apply pending queue. Direct reactions/replies are still available
+    // in the MainActivity screen if the user needs them for one-off tests.
+    // A `contentIntent` opens the feed when the body of the notification
+    // is tapped — so the user's finger has somewhere useful to land.
     // ---------------------------------------------------------------------
 
     private fun postControlNotification() {
@@ -1484,30 +1517,19 @@ class InstagramReaderService : AccessibilityService() {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
             .setShowWhen(false)
+            .setContentIntent(pendingActivity(
+                com.example.friendsreels.ui.feed.FeedActivity::class.java,
+                requestCode = 0,
+            ))
             .addAction(
                 0,
-                getString(R.string.notif_action_heart),
-                pendingBroadcast(ACTION_REACT_HEART, requestCode = 1)
-            )
-            .addAction(
-                0,
-                getString(R.string.notif_action_laugh),
-                pendingBroadcast(ACTION_REACT_LAUGH, requestCode = 2)
-            )
-            .addAction(
-                0,
-                getString(R.string.notif_action_reply),
-                pendingBroadcast(ACTION_REPLY_FIRST_REEL_MOCK, requestCode = 5)
+                getString(R.string.notif_action_discover),
+                pendingBroadcast(ACTION_DISCOVER_REELS, requestCode = 10)
             )
             .addAction(
                 0,
                 getString(R.string.notif_action_copy_url),
                 pendingBroadcast(ACTION_COPY_REEL_URL, requestCode = 9)
-            )
-            .addAction(
-                0,
-                getString(R.string.notif_action_discover),
-                pendingBroadcast(ACTION_DISCOVER_REELS, requestCode = 10)
             )
             .addAction(
                 0,
@@ -1551,5 +1573,11 @@ class InstagramReaderService : AccessibilityService() {
         val intent = Intent(action).setPackage(packageName)
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         return PendingIntent.getBroadcast(this, requestCode, intent, flags)
+    }
+
+    private fun pendingActivity(cls: Class<*>, requestCode: Int): PendingIntent {
+        val intent = Intent(this, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        return PendingIntent.getActivity(this, requestCode, intent, flags)
     }
 }

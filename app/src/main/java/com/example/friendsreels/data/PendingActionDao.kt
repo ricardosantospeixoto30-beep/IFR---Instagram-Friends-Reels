@@ -74,6 +74,18 @@ interface PendingActionDao {
     )
     suspend fun clearTerminal(): Int
 
+    /**
+     * Delete every PENDING row for [reelId]. Rows already RUNNING or in a
+     * terminal state are kept — cancelling something the executor is
+     * already replaying would leave IG in a weird state.
+     */
+    @Query(
+        "DELETE FROM pending_actions " +
+            "WHERE reelId = :reelId " +
+            "AND status = '${PendingActionEntity.STATUS_PENDING}'"
+    )
+    suspend fun cancelPendingForReel(reelId: Long): Int
+
     @Query("DELETE FROM pending_actions")
     suspend fun clearAll()
 }

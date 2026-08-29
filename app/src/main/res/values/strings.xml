@@ -25,7 +25,7 @@
     <string name="notif_channel_name">Ações rápidas do Reels</string>
     <string name="notif_channel_description">Notificação persistente com botões para reagir ao Reel visível no Instagram.</string>
     <string name="notif_title">Friends Reels</string>
-    <string name="notif_text">Abre uma conversa com Reel e usa os botões abaixo.</string>
+    <string name="notif_text">🔍 descobre · 🔗 copia URL · ▶ aplica fila. Toca para abrir o feed.</string>
     <string name="notif_action_heart">❤</string>
     <string name="notif_action_laugh">😂</string>
     <string name="notif_action_reply">👀</string>
@@ -66,6 +66,7 @@
     <string name="feed_apply_pending">Aplicar %1$d acções no Instagram</string>
     <string name="feed_apply_pending_none">Sem acções pendentes</string>
     <string name="feed_clear_terminal">Limpar histórico de ações concluídas</string>
+    <string name="feed_cancel_pending">✕ Cancelar acções pendentes deste Reel</string>
     <string name="feed_apply_hint">Abre a conversa relevante no Instagram antes de aplicar. Nesta iteração só corremos as ações da conversa activa.</string>
 
     <string name="notif_action_apply">▶</string>

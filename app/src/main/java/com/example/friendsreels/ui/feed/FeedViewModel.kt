@@ -79,12 +79,18 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Enqueue a reply to [reel] with [text]. Replies are always inserted
-     * (no dedup) — the user may legitimately queue multiple different
-     * replies to the same Reel.
+     * Enqueue a reply to [reel] with [text]. Deduplicated by (reelId, kind)
+     * — the same visible Reel can only have one pending 👀 at a time to
+     * prevent accidental spamming. If the user wants to queue two
+     * different replies they'll need to send + re-queue.
      */
     fun enqueueReply(reel: ReelEntity, text: String, onResult: (Result) -> Unit) {
         viewModelScope.launch {
+            val existing = pendingDao.countPending(reel.id, PendingActionEntity.KIND_REPLY_TEXT)
+            if (existing > 0) {
+                onResult(Result.AlreadyQueued)
+                return@launch
+            }
             pendingDao.insert(
                 PendingActionEntity(
                     reelId = reel.id,
@@ -96,6 +102,15 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
             )
             onResult(Result.Queued)
         }
+    }
+
+    /**
+     * Cancel every PENDING action queued for [reelId]. Rows already
+     * RUNNING/DONE/FAILED are left alone (they're either already partway
+     * through the executor or a receipt of past work).
+     */
+    fun cancelPendingForReel(reelId: Long) {
+        viewModelScope.launch { pendingDao.cancelPendingForReel(reelId) }
     }
 
     fun clearTerminal() {

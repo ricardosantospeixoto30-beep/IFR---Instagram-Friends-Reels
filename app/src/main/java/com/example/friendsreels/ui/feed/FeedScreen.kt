@@ -104,6 +104,7 @@ fun FeedScreen() {
                                 toastFor(context, r)
                             }
                         },
+                        onCancelPending = { vm.cancelPendingForReel(reel.id) },
                     )
                 }
             }
@@ -180,10 +181,12 @@ private fun ReelCard(
     onQueueHeart: () -> Unit,
     onQueueLaugh: () -> Unit,
     onQueueReply: () -> Unit,
+    onCancelPending: () -> Unit,
 ) {
     val hasHeart = pendingKinds.contains("${reel.id}:${PendingActionEntity.KIND_REACT_HEART}")
     val hasLaugh = pendingKinds.contains("${reel.id}:${PendingActionEntity.KIND_REACT_LAUGH}")
     val hasReply = pendingKinds.contains("${reel.id}:${PendingActionEntity.KIND_REPLY_TEXT}")
+    val hasAnyPending = hasHeart || hasLaugh || hasReply
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -246,10 +249,16 @@ private fun ReelCard(
                 )
                 QueueButton(
                     text = stringResource(R.string.feed_queue_reply),
-                    enabled = true, // replies allowed to stack
+                    enabled = !hasReply,
                     onClick = onQueueReply,
                     modifier = Modifier.weight(1f),
                 )
+            }
+            if (hasAnyPending) {
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = onCancelPending, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.feed_cancel_pending))
+                }
             }
         }
     }

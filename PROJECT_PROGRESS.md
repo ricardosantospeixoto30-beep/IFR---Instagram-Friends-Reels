@@ -7,17 +7,18 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-8 iteração 3 **parte A (batching)** ✅ implementada, **aguarda validação em device**. Falta ainda iter 3 parte B (scroll auto) e parte C (player WebView).
-**Última atualização:** 2025-08-29 (sessão 26)
+**Fase atual:** Fase 1 (PoC) — PoC-8 iteração 3 **parte A** implementada + 3 fixes (sessão 27) aplicados após os testes A/B da s26 revelarem: (i) 👀 sem dedup, (ii) notificação persistente só mostrava 3 dos 6 botões no OnePlus, (iii) race condition entre replies e o step seguinte. **Aguarda re-validação em device** (checklist A2/A3/B2/D2/F na §7 sessão 27). Falta ainda iter 3 parte B (scroll auto) e parte C (player WebView).
+**Última atualização:** 2025-08-29 (sessão 27)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. HEAD = `build=s26` (sessão 26, PoC-8 iter 3 parte A). Verificar que ao arrancar o service loga `Action receiver registered (build=s26 ...)` — se aparecer outra tag é APK antigo. Nesta versão a persistent notification tem um botão extra ▶ (Aplicar acções pendentes).
-2. **Ler primeiro:**
+1. **Pull** do repo. HEAD = `build=s27` (sessão 27 — fixes ao batching da s26). Verificar que ao arrancar o service loga `Action receiver registered (build=s27 ...)` — se aparecer outra tag é APK antigo.
+2. **Notificação persistente actual** (s27): 3 botões visíveis, todos utilizáveis — **🔍 Descobrir**, **🔗 Copiar URL**, **▶ Aplicar fila**. Tocar no corpo abre o feed (novo `contentIntent`). Reacções/replies directas passam a ser exclusivamente via ecrã da app ou via feed (batching). Isto porque na s26 o Android colapsava para só 3 botões e nós tínhamos 6 → só ❤ 😂 👀 eram visíveis e mesmo esses "não pareciam clicáveis" no OnePlus/OxygenOS.
+3. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" — a próxima é PoC-8 iter 3 parte B (scroll auto) + parte C (player WebView).
-    - Últimos logs de sessão em §7 (sessões 20 → 26).
+    - §6 "Próximos passos concretos" — próxima é PoC-8 iter 3 parte B (scroll auto) + parte C (player WebView).
+    - Últimos logs de sessão em §7 (sessões 20 → 27).
 3. **Ficheiros-chave a rever antes de mexer código:**
     - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor a11y + gestos + integração PoC-7↔PoC-8 (`pendingCopy`, `enrichPendingCopyFromViewer`, `persistCopiedReel`) + **executor de batching PoC-8 iter 3 (`applyPendingActions`, `runBatchStep`)**.
     - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG (conversa, viewer, context menu, share sheet).
@@ -200,29 +201,33 @@ Já entregue no primeiro commit:
 - ✅ PoC-7 — copiar URL do Reel via viewer→Partilhar→Copiar ligação→clipboard bridge (`ClipboardCaptureActivity` com `onWindowFocusChanged`)
 - ✅ PoC-8 iter 1 — Room + `ACTION_DISCOVER_REELS` + feed vertical simples
 - ✅ PoC-8 iter 2 — integração PoC-7↔PoC-8: URL + `dmSender` persistidos, dedup 3-way (promote → insert → backfill)
-- 🚧 PoC-8 iter 3 parte A (sessão 26) — batching de acções: tabela `pending_actions` + botões de enfileirar no feed + executor `ACTION_APPLY_PENDING`. **Aguarda validação em device.**
+- 🚧 PoC-8 iter 3 parte A (sessões 26 + 27) — batching de acções: tabela `pending_actions` + botões de enfileirar no feed + botão `✕ Cancelar` por card + executor `ACTION_APPLY_PENDING` com delays por-kind + notificação persistente reduzida a 3 botões (🔍 🔗 ▶) + `contentIntent` a abrir o feed. Testes A/B da s26 passaram (com bug de race resolvido na s27); testes A2/A3/B2/D2/F da s27 **aguardam validação em device**.
 - ⬜ PoC-8 iter 3 parte B — scroll automático dentro da conversa (`ACTION_DISCOVER_REELS_HISTORY`).
 - ⬜ PoC-8 iter 3 parte C — player embutido (WebView com o `reelUrl`).
 
-### 6.1 Próxima sessão — PoC-8 iteração 3
+### 6.1 Próxima sessão — PoC-8 iteração 3 (partes B + C)
 
-**Objetivos:**
+**Contexto:** a parte A (batching) foi implementada na s26 e fixed na s27 (dedup do 👀, botão cancelar, notificação com 3 botões + contentIntent, delays por-kind para eliminar race). Assumindo que a validação dos testes A2/A3/B2/D2/F da sessão 27 passa, arrancar directamente para as partes B e C:
 
-1. **Batching de acções** (mais pedido pelo utilizador, ver §5):
-    - Nova tabela `PendingActionEntity(id, reelId, kind, payload, createdAt, executedAt, status)` onde `kind ∈ {REACT_HEART, REACT_LAUGH, REPLY_TEXT}`.
-    - Feed passa a **enfileirar** reacções/respostas em vez de as executar de imediato. UI mostra badge "pendente" no card.
-    - Novo botão global "Aplicar N acções no Instagram" — quando tocado, service traz IG à frente **uma vez**, navega até cada thread relevante (via deep-link `instagram://direct/t/…` se conseguirmos o thread_id, ou o `lastKnownConversationTitle` para fallback), executa a acção com os primitivos do PoC-5/6, marca `executedAt` ou `FAILED` na fila.
-    - Estado do executor: exposição via notificação com progresso (`Aplicando 3/7`).
-2. **Scroll automático dentro da conversa** para descoberta em lote:
+**Objectivos (por ordem):**
+
+1. **Scroll automático dentro da conversa** para descoberta em lote:
     - Nova `ACTION_DISCOVER_REELS_HISTORY` — enquanto na conversa, faz `dispatchGesture` de swipe vertical do meio para cima dentro dos bounds de `message_list`, chama `enumerateReels` a cada scroll, repete até (a) não haver novos entries em N scrolls seguidos, ou (b) hit no top da RecyclerView.
     - Mantém o toggle `ignoreSent` durante toda a descoberta.
-3. **Player para o feed** (menos crítico, decisão pragmática):
+    - Deve tornar-se o comportamento default do 🔍 na notificação (com um cap seguro, ex. 20 scrolls) ou ficar como acção separada. **Decisão a tomar no início da sessão.**
+2. **Player para o feed** (menos crítico, decisão pragmática):
     - O URL público do Reel não reproduz num ExoPlayer sem sessão IG. Duas opções:
        - **(A) WebView** com o URL do Reel — o IG mostra o Reel completo dentro da WebView, mesmo sem login (tem UI mínima). Mais simples, funciona em ~90% dos casos.
        - **(B) Só thumbnail estática** extraída do XMA container quando disponível + "Abrir no Instagram" — já temos, é o comportamento actual.
     - Recomendação: começar por (A). Se der problemas de UX (autoplay bloqueado, layout partido), voltar ao (B).
 
-**Prioridade sugerida:** 1 → 2 → 3 (batching é o que muda mais a UX percebida pelo utilizador).
+**Retrospectiva da parte A (feita nas s26 + s27) — para não repetir:**
+
+- Nova tabela `PendingActionEntity(id, reelId, kind, payload, createdAt, executedAt, status, error)` com `kind ∈ {REACT_HEART, REACT_LAUGH, REPLY_TEXT}` — ✅ implementada.
+- Feed enfileira em vez de executar de imediato + badge por kind + `✕ Cancelar` — ✅.
+- Botão global "Aplicar N acções no Instagram" + botão ▶ na notificação — ✅.
+- Executor com progresso na notificação (`A aplicar N/M…`) — ✅.
+- **Limitação assumida (por decisão):** não há navegação entre conversas nesta parte A. Rows para outras threads ficam `FAILED` com `Conversa activa é 'X' mas a acção pertence a 'Y'`. Navegação real via `thread_id` fica para PoC-9 (§6.2).
 
 ### 6.2 Além do PoC-8
 
@@ -789,3 +794,35 @@ Já entregue no primeiro commit:
   2. **iter 3-B (scroll auto):** `ACTION_DISCOVER_REELS_HISTORY` — swipe vertical dentro dos bounds da `message_list`, `enumerateReels` a cada scroll, parar quando não há novos entries em N scrolls seguidos.
   3. **iter 3-C (player WebView):** substituir o botão "Abrir no Instagram" por um player embutido — WebView carrega `reel.reelUrl`; se der problemas de layout/autoplay, cair de volta para o botão actual.
   4. **iter 4 (endereçar Reels específicos no executor):** alterar `runBatchStep` para procurar dentro da `message_list` o bubble com o `reelAuthor` + heurística correspondente, em vez de bater sempre no 1.º recebido. Provavelmente vai obrigar a scrollar até encontrar o Reel — encaixa bem depois da iter 3-B.
+
+### 2026-08-29 — Sessão 27 (Ricardo + Copilot CLI) — fixes s26: notificação + dedup 👀 + race condition
+
+- **Testes A e B da sessão 26 passaram** (log em `docs/screen-dumps/Enfileirar.txt`, `build=s26`):
+  - **A** ✅ 1× ❤ enfileirado → `APPLY_PENDING: step 1/1 kind=REACT_HEART` → `REACT: performAction(ACTION_CLICK) on emoji '❤' returned true`. Perfeito.
+  - **B** parcial ✅: 5 acções enfileiradas (2 hearts, 1 laugh, 2 replies acidentais). Steps 1–3 correram bem. Step 4 (REPLY_TEXT) disparou o long-press **antes** do step 3 acabar de clicar em enviar — `LONG_PRESS: target index=0 ... afterLongPress=ReplyWithText` na linha 53 e `REPLY: send button click returned true` do step 3 só na linha 64 — race condition clara. Step 4 falhou o `REPLY: 'Responder' item not found` (linha 66) e o executor rebentou para o step 5.
+- **Problema #1 — 👀 pode ser enfileirado infinitamente + sem cancelar:** utilizador acumulou 2× 👀 sem se aperceber. Botão nunca ficava disabled (por design meu na s26 — "replies allowed to stack") e nada indicava quantos já estavam enfileirados. E depois de enfileirar não havia forma de anular.
+- **Problema #2 — notificação persistente na s26 tinha 6 botões (❤ 😂 👀 🔗 🔍 ▶):** no OnePlus/OxygenOS, o layout colapsado só mostra 3 botões e "os primeiros 3" são ❤ 😂 👀 — todos os do batching (🔗 🔍 ▶) ficavam invisíveis. Utilizador confirmou "só tem coração, risos e olhos, e clicar em qualquer sítio clica no rectângulo todo — não há botões pequenos individuais". Isto tornou o novo workflow do batching (que dependia do ▶) impossível de arrancar sem entrar na app.
+- **Problema #3 — race condition entre steps 👀+seguinte:** replies demoram ~3500ms (long-press 600 + settle 1500 + composer 900 + send 500), mas `BATCH_STEP_INTERVAL_MS` era 2500ms — o próximo step arrancava antes de o anterior fechar a UI.
+- **Fixes aplicados nesta sessão:**
+  1. **Dedup do 👀 no feed** (`FeedViewModel.enqueueReply`) — mesma regra que ❤ e 😂: `countPending(reelId, KIND_REPLY_TEXT) > 0` bloqueia. Se o utilizador tocar 2×, o segundo toast é "Já está enfileirada". Botão fica disabled visualmente. Consequência: um Reel só pode ter uma resposta 👀 pendente ao mesmo tempo (para PoC MVP: suficiente, e evita spam acidental). Se mais tarde quisermos suportar réplicas repetidas ou texto custom, a decisão de UI fica na iter 4.
+  2. **Botão "✕ Cancelar acções pendentes deste Reel"** aparece por baixo dos 3 botões de enfileirar **só quando o card tem pelo menos uma acção `PENDING`**. Toca → nova query DAO `cancelPendingForReel(reelId)` faz `DELETE FROM pending_actions WHERE reelId = ? AND status = 'PENDING'`. Rows `RUNNING`/`DONE`/`FAILED` são preservados (não queremos cancelar algo já a meio no executor).
+  3. **Notificação persistente reduzida a 3 botões:** **🔍 Descobrir**, **🔗 Copiar URL**, **▶ Aplicar fila**. As direct reactions/reply (❤ 😂 👀) saíram do shade — o utilizador tem-nas ainda no ecrã da app se precisar de testes ad-hoc. Adicionado `setContentIntent(pendingActivity(FeedActivity))` para que tocar no corpo da notificação abra o feed. Texto actualizado para `🔍 descobre · 🔗 copia URL · ▶ aplica fila. Toca para abrir o feed.`.
+  4. **Delays de batching por-kind:** `BATCH_STEP_INTERVAL_REACTION_MS = 2500` (unchanged) mas `BATCH_STEP_INTERVAL_REPLY_MS = 4500` (novo). Após um step `REPLY_TEXT` o executor espera 4500ms antes do seguinte. Fast-skip para wrong-thread/unknown-kind é agora `BATCH_STEP_FAST_SKIP_MS = 400`.
+- **`BUILD_TAG` bumped para `build=s27`.** Sem alteração de schema — a tabela `pending_actions` v3 fica.
+- **Ficheiros alterados:**
+  - `data/PendingActionDao.kt` — nova query `cancelPendingForReel(reelId)`.
+  - `ui/feed/FeedViewModel.kt` — `enqueueReply` passa a dedup; nova função `cancelPendingForReel(reelId)`.
+  - `ui/feed/FeedScreen.kt` — botão `Enfileirar 👀` respeita dedup; novo TextButton `✕ Cancelar acções pendentes deste Reel` no card quando há PENDING.
+  - `service/InstagramReaderService.kt` — notificação com 3 botões + `setContentIntent(FeedActivity)`; `pendingActivity(cls, requestCode)` helper novo; delays de batching por-kind; `BUILD_TAG` bumped.
+  - `res/values/strings.xml` — `notif_text` novo, `feed_cancel_pending` novo. Strings `notif_action_heart/laugh/reply` continuam declaradas (usam-nas o histórico de progress e podemos vir a precisar delas no futuro — no code actual não são referenciadas).
+  - `PROJECT_PROGRESS.md` — este log.
+- **Testes propostos ao utilizador (próxima sessão dele):**
+  - **A2 — notificação com botões visíveis:** puxa a notification shade. Confirma que aparecem 3 botões distintos e tocáveis: **🔍**, **🔗**, **▶**. Toca em cada um separadamente e verifica no Logcat: `IGReaderService … DISCOVER: …` / `COPY_LINK: …` / `APPLY_PENDING: starting drain …`.
+  - **A3 — corpo da notificação abre o feed:** toca no meio da notificação (não nos botões). Deve abrir directamente a activity `Feed`. Se em vez disso abrir a MainActivity, é sinal de que o `contentIntent` não pegou.
+  - **B2 — batching de 5 acções sem race:** limpa histórico (bottom bar → **Limpar histórico de ações concluídas**). Enfileira `Enfileirar ❤`, `Enfileirar 😂`, `Enfileirar 👀`. Volta ao IG e toca **▶**. Deves ver os 3 steps sem `REPLY: 'Responder' item not found`. Confirmar no IG que o Reel ficou com ❤ (ou 😂 — o IG mantém só uma reacção por utilizador; ambos vão para o mesmo Reel) e que uma mensagem `👀` foi enviada.
+  - **D2 — dedup 👀:** no feed, toca `Enfileirar 👀` uma vez → toast "Ação enfileirada", botão fica cinzento. Toca outra vez (se conseguires clicar mesmo estando disabled) — se o botão for realmente honrado como disabled, o toast NÃO aparece. Confirma que a bottom bar continua a `Aplicar 1 acções…` (não sobe para 2).
+  - **F — cancelar pendentes:** enfileira `❤`, `😂`, `👀` num card. Aparece o **✕ Cancelar acções pendentes deste Reel**. Toca. Todos os badges laranja desaparecem, os 3 botões voltam a estar activos, bottom bar volta a `Sem acções pendentes`. Não passa nada no IG.
+- **Limitações conhecidas que ainda ficam para futuras iterações (só para o utilizador saber):**
+  - Executor continua a bater sempre no **1.º Reel recebido visível** (limitação partilhada com PoC-5/6). Quando enfileirares acções para 2 Reels diferentes visíveis, os dois acabam por atacar o mesmo bubble. Ainda por resolver — o plano é a iter 4 (targeting por `reelAuthor` ou `reelUrl` na fila).
+  - O executor marca `DONE` optimisticamente depois de dispatch — o Logcat pode dizer `DONE` mesmo que o IG não aceite a reacção. Confirma sempre visualmente.
+  - Não há ainda uma UI para ver as rows `FAILED` do wrong-thread (só o Logcat conta a história). O botão `Limpar histórico de ações concluídas` funciona também para `FAILED` — mesmo comportamento que a s26.
