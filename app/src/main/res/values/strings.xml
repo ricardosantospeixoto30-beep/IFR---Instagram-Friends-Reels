@@ -79,6 +79,8 @@
     <!-- PoC-8 iteração 3-C — WebView player -->
     <string name="player_title">Reel</string>
     <string name="player_missing_url">Sem URL para reproduzir.</string>
+    <string name="player_error_title">Não foi possível carregar o Reel na app</string>
+    <string name="player_retry">↻ Tentar de novo</string>
     <string name="feed_play_in_app">▶ Ver Reel aqui</string>
     <string name="feed_open_in_ig_native">↗ Abrir no Instagram nativo</string>
 </resources>

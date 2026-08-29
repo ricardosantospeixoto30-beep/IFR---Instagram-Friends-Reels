@@ -7,14 +7,14 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-8 iteração 3 implementada por inteiro (parte A batching s26+s27, parte B history-scroll s28, parte C player WebView s28). **Aguarda validação em device** dos novos fluxos B/C. Parte A tinha sido validada na s27 (utilizador confirmou "funciona tudo").
-**Última atualização:** 2025-08-29 (sessão 28)
+**Fase atual:** Fase 1 (PoC) — PoC-8 iteração 3 partes A ✅ e B ✅ validadas em device. Parte C (player WebView) teve `net::ERR_UNKNOWN_URL_SCHEME` no primeiro teste (IG redireciona para `instagram://reels_share/…` que o WebView não trata); fix na s29 intercepta schemes não-http e mostra overlay de erro com fallback nativo. **Aguarda re-validação em device da parte C.**
+**Última atualização:** 2025-08-29 (sessão 29)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. HEAD = `build=s28` (sessão 28 — partes B e C da iter 3 do PoC-8). Verificar que ao arrancar o service loga `Action receiver registered (build=s28 ...)` — se aparecer outra tag é APK antigo.
-2. **Notificação persistente actual** (s28, unchanged desde s27): 3 botões — **🔍 Descobrir**, **🔗 Copiar URL**, **▶ Aplicar fila**. Tocar no corpo abre o feed. Reactions/reply directas ficam no ecrã da app.
+1. **Pull** do repo. HEAD = `build=s29` (sessão 29 — fix do WebView com ERR_UNKNOWN_URL_SCHEME + overlay de erro). Verificar que ao arrancar o service loga `Action receiver registered (build=s29 ...)` — se aparecer outra tag é APK antigo.
+2. **Notificação persistente actual** (s29, unchanged desde s27): 3 botões — **🔍 Descobrir**, **🔗 Copiar URL**, **▶ Aplicar fila**. Tocar no corpo abre o feed. Reactions/reply directas ficam no ecrã da app.
 3. **Ler primeiro:**
     - Esta secção "Estado atual".
     - §6 "Próximos passos concretos" — próxima é PoC-8 iter 3 parte B (scroll auto) + parte C (player WebView).
@@ -202,26 +202,23 @@ Já entregue no primeiro commit:
 - ✅ PoC-8 iter 1 — Room + `ACTION_DISCOVER_REELS` + feed vertical simples
 - ✅ PoC-8 iter 2 — integração PoC-7↔PoC-8: URL + `dmSender` persistidos, dedup 3-way (promote → insert → backfill)
 - 🚧 PoC-8 iter 3 parte A (sessões 26 + 27) — batching de acções: tabela `pending_actions` + botões de enfileirar no feed + botão `✕ Cancelar` por card + executor `ACTION_APPLY_PENDING` com delays por-kind + notificação persistente reduzida a 3 botões (🔍 🔗 ▶) + `contentIntent` a abrir o feed. **Validado pelo utilizador na s28** ("dos testes que mencionaste funciona tudo"). Quirk conhecido: ordem dos badges no topo do card não segue a ordem de enfileirar (é sempre ❤ → 😂 → 👀 alfabético/ordinal, não createdAt). Cosmético — não bloqueia. Anotado como TODO para futuro.
-- 🚧 PoC-8 iter 3 parte B (sessão 28) — scroll automático dentro da conversa (`ACTION_DISCOVER_REELS_HISTORY`). Botão no ecrã da app: **"Descobrir histórico (scroll auto)"**. Enumera → `ACTION_SCROLL_BACKWARD` no `message_list` (com fallback para swipe DOWN via `dispatchGesture`) → volta a enumerar. Stop quando 3 scrolls consecutivos não trazem novos ou cap de 30 scrolls. Progresso na notificação (`A descobrir histórico… scroll X/30, Y novos Reels`). **Aguarda validação em device.**
-- 🚧 PoC-8 iter 3 parte C (sessão 28) — player WebView (`ReelPlayerActivity`). Novo botão primary por card: **"▶ Ver Reel aqui"**. Secondary link: **"↗ Abrir no Instagram nativo"** (comportamento anterior mantido como fallback). WebView com JS + DOM storage + autoplay. **Aguarda validação em device.**
+- ✅ PoC-8 iter 3 parte B (sessão 28, validada s29) — `ACTION_DISCOVER_REELS_HISTORY`. Utilizador testou 3 corridas em conversa "Pedro Sardoeira" (log em `docs/screen-dumps/feed.txt`): (1) histórico curto → parou em `3 consecutive empty scrolls`, (2) run longo → cap de 30 scrolls, 36 novos Reels em 39 totais, (3) interrompido → `IG no longer foreground during enumerate`. Todos os stop conditions funcionam.
+- 🚧 PoC-8 iter 3 parte C (sessão 28 → fix s29) — player WebView. Primeiro teste (s28) falhou com `net::ERR_UNKNOWN_URL_SCHEME` porque o IG redireciona a página para `instagram://reels_share/…` deep-link que o WebView não trata. Fix na s29: `FriendsReelsWebViewClient.shouldOverrideUrlLoading` intercepta schemes ≠ http(s) e refuse-os; se a página HTTP principal falhar, `onReceivedError` alimenta um overlay em Compose com botão grande **"↗ Abrir no Instagram nativo"** + **"↻ Tentar de novo"**. **Aguarda re-validação em device.**
 
 ### 6.1 Próxima sessão — validação B/C, depois PoC-9 (navegação entre conversas)
 
-**Contexto:** as três partes da iter 3 do PoC-8 estão implementadas. Parte A validada pelo utilizador na s28 (só ficou o quirk cosmético da ordem dos badges — anotado). Partes B e C **aguardam validação em device**. Assumindo que essa validação passa, arrancar para o PoC-9.
+**Contexto:** partes A e B do PoC-8 iter 3 validadas em device. Parte C (player) foi fixed na s29 mas ainda aguarda re-teste. Assumindo que essa validação passa, arrancar para o PoC-9.
 
-**Testes propostos para as partes B e C** (mesma sessão de teste do utilizador):
+**Teste que ainda falta correr:**
 
-- **B1 — history scroll básico:** abrir uma conversa DM com pelo menos 3–4 Reels partilhados em momentos diferentes (para haver muitos que estão "fora do ecrã" quando abres). Abrir a app → tocar **"Descobrir histórico (scroll auto)"**. IG vem à frente; a notificação passa a `A descobrir histórico… scroll X/30, Y novos Reels`. No fim, no feed deve haver mais entries do que o 🔍 rápido daria isoladamente. Log esperado: várias linhas `HISTORY: scroll N/30 via ACTION_SCROLL_BACKWARD accepted` seguidas de `HISTORY: scroll=N inserted=... skipped=... totalInsertedRun=... consecutiveEmpty=... totalInDb=...` e por fim `HISTORY: finished — thread='...' scrolls=... totalInsertedRun=... totalSkippedRun=...`.
-- **B2 — history scroll até topo:** correr numa conversa que tem histórico curto. Deve parar em `HISTORY: stopping — 3 consecutive empty scrolls.` (não chegar aos 30).
-- **B3 — history scroll com IG fora de foco:** durante o scroll, meter outra app em foreground (ou o launcher). Deve loggar `HISTORY: IG no longer foreground during scroll, stopping.` e a notificação voltar aos 3 botões.
-- **C1 — player carrega:** no feed, num card com URL, tocar **"▶ Ver Reel aqui"**. Abre `ReelPlayerActivity` com WebView. Confirmar que o Reel carrega (pode demorar 1–3s). Se aparece login wall ou "Open in app", é um fail conhecido — reportar e caímos no fallback.
-- **C2 — fallback nativo:** tocar o link **"↗ Abrir no Instagram nativo"** no mesmo card. Deve abrir o IG nativo (comportamento antigo). Este link continua a ser a rede de segurança.
+- **C1 (repeat, com fix da s29):** no feed, tocar **"▶ Ver Reel aqui"**. Espera-se ou (a) o Reel carrega dentro da app, OU (b) aparece o overlay de erro com **"↗ Abrir no Instagram nativo"** + **"↻ Tentar de novo"** — em vez do ecrã genérico `net::ERR_UNKNOWN_URL_SCHEME` da s28.
 
-**Prioridades para depois de B/C validados:**
+**Prioridades assim que C1 for validado:**
 
 1. **PoC-9 — navegação entre conversas.** Actualmente o executor de batching só funciona com a conversa activa em IG. Precisamos de resolver como abrir uma thread específica a partir do inbox — provavelmente lendo `thread_id` no XMA ou tentando o deep-link `instagram://direct/t/<thread_id>`.
 2. **PoC-8 iter 4 — targeting por Reel específico.** Hoje todas as reacções/replies do batch caem no 1.º Reel recebido visível. Precisamos de identificar o bubble certo pelo `reelAuthor` ou `reelUrl` guardado na fila, e scrollar dentro da conversa até ele estar visível antes de long-press.
 3. **UX do badge order** (quirk anotado na s28): ordenar os badges no topo do card por `createdAt` do PendingAction, em vez de posição fixa alfabética.
+4. **Plan B para o player (se C1 continuar a falhar):** baixar o URL para HTML próprio com `<video>` embutido, OU aceitar o player só como experiência opcional e voltar a fazer do "Abrir no Instagram nativo" o botão primary do card.
 
 ### 6.2 Além do PoC-8
 
@@ -861,3 +858,35 @@ Já entregue no primeiro commit:
   - History scroll pode demorar até ~25s (30 scrolls × 0.8s settle) no pior caso. Não é rápido. Se conversa for enorme e o cap de 30 for atingido, corre outra vez para continuar.
   - Se a WebView C1 mostrar login wall ou "Open in app", o teste C está feito com o resultado real — reportamos e caímos no B (thumbnail + botão nativo) na próxima iteração.
   - Executor de batching (ACTION_APPLY_PENDING) continua a ter a limitação de bater sempre no 1.º Reel recebido visível — nada mudou nessa área desde a s27. Fica para PoC-8 iter 4.
+
+### 2026-08-29 — Sessão 29 (Ricardo + Copilot CLI) — parte B validada, fix da parte C (ERR_UNKNOWN_URL_SCHEME)
+
+- **Parte B (`ACTION_DISCOVER_REELS_HISTORY`) validada em device** — utilizador correu 3 testes na conversa "Pedro Sardoeira" (log em `docs/screen-dumps/feed.txt`):
+  - **Run 1 (~15:43:10 → 15:43:12):** conversa já quase toda descoberta. `HISTORY: scroll=0 inserted=0 skipped=1` → scroll 1 e 2 idem. Parou com `HISTORY: stopping — 3 consecutive empty scrolls.` no fim, `finished — scrolls=2 totalInsertedRun=0 totalSkippedRun=2`. Comportamento correcto.
+  - **Run 2 (~15:44:19 → 15:44:49, ~30s):** conversa longa. Correu até o cap: `HISTORY: scroll 30/30 via ACTION_SCROLL_BACKWARD accepted`, `HISTORY: stopping — safety cap 30 scrolls hit.`, `finished — scrolls=30 totalInsertedRun=36 totalSkippedRun=31`. **BD passou de 3 para 39 Reels** (36 novos + os 3 já lá). Ritmo médio ~1 Reel/scroll — óptimo.
+  - **Run 3 (~15:45:24 → 15:45:27):** utilizador meteu outra app à frente a meio. Logcat: `HISTORY: IG no longer foreground during enumerate, stopping.` seguido de `finished — scrolls=2 totalInsertedRun=1 totalSkippedRun=1`. Cleanup correcto.
+  - **Nada a mexer na parte B** — resolvida e validada.
+- **Parte C falhou no primeiro teste** — utilizador reportou "página web não disponível", "não foi possível carregar a página web", URL a mencionar `reels_share`, motivo `net::ERR_UNKNOWN_URL_SCHEME`.
+  - **Causa:** o Instagram detecta browser mobile e emite um redirect para `instagram://reels_share/<code>` (ou `intent://…#Intent;package=com.instagram.android;end`) como estratégia de "abrir na app". O WebView não sabe o que fazer com esses schemes, aborta a navegação e mostra a error page com `ERR_UNKNOWN_URL_SCHEME`.
+  - **Fix (dois níveis) no `ReelPlayerActivity`:**
+    1. Novo `FriendsReelsWebViewClient` com `shouldOverrideUrlLoading` que devolve `true` para qualquer scheme ≠ http/https. Isto "engole" o redirect e mantém a página HTTP renderizada.
+    2. Se mesmo assim a página principal falhar (rede, 4xx/5xx, geoblock, etc.), `onReceivedError` (filtrado por `isForMainFrame` para não disparar em falhas de sub-recursos como uma imagem 404) chama um callback que actualiza state em Compose. Um overlay `LoadErrorOverlay` sobrepõe-se então ao WebView com:
+       - Título "Não foi possível carregar o Reel na app"
+       - Descrição do erro exacta do WebView
+       - URL para debug
+       - Botão grande **"↗ Abrir no Instagram nativo"** — abre o IG oficial (comportamento antigo, garantido a funcionar)
+       - Botão outline **"↻ Tentar de novo"** — recarrega o URL na WebView (útil para erros transientes tipo rede)
+  - Retry funciona porque mantemos referência ao WebView via `webViewRef` state.
+- **`BUILD_TAG` bumped para `build=s29`.** Sem alteração de schema Room.
+- **Ficheiros alterados:**
+  - `ui/player/ReelPlayerActivity.kt` — reescrito com o WebViewClient custom + overlay Compose + retry + fallback para IG nativo.
+  - `res/values/strings.xml` — `player_error_title`, `player_retry` novos.
+  - `service/InstagramReaderService.kt` — `BUILD_TAG` bumped (única alteração — não mexi em executor/history).
+  - `PROJECT_PROGRESS.md` — estado atual, PoCs status (parte B ✅, parte C 🚧 aguarda re-validação), este log da sessão 29.
+- **Testes propostos ao utilizador** (após pull):
+  - **C1 (repeat)** — abrir feed, tocar **"▶ Ver Reel aqui"** num card com URL. Cenários possíveis:
+    - **(a) Reel carrega** — óptimo, parte C está fechada.
+    - **(b) Overlay de erro aparece** — verificar que aparece o botão grande **"↗ Abrir no Instagram nativo"** e o outline **"↻ Tentar de novo"**. Tocar no primeiro → deve abrir o IG. Tocar no segundo → deve recarregar a WebView (pode voltar a falhar se for um problema estrutural do URL — nesse caso é aceitável, o utilizador tem sempre o fallback).
+    - Se aparecer o mesmo `net::ERR_UNKNOWN_URL_SCHEME` que antes, é sinal de que o IG conseguiu emitir o redirect **antes** do primeiro paint (não passou por `shouldOverrideUrlLoading`) — nesse caso passamos a um Plan B: baixar o URL para uma página HTML própria com `<video>` embutido, ou aceitar que o player é só fallback e o botão principal do card volta a ser "Abrir no Instagram nativo".
+  - **C2 (unchanged)** — o link secundário **"↗ Abrir no Instagram nativo"** no card do feed continua a funcionar como antes.
+- **Nada mudou** na parte A (batching), no history-scroll (parte B), no comportamento das notificações ou nos primitivos PoC-4/5/6/7. Só o player.
