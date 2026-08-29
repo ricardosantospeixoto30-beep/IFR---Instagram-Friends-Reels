@@ -89,6 +89,23 @@ class InstagramReaderService : AccessibilityService() {
      */
     private var lastKnownConversationTitle: String? = null
 
+    /**
+     * Context captured when the user requests `ACTION_COPY_REEL_URL`. Held
+     * from the moment we tap the bubble to open the viewer until the
+     * `ACTION_CLIPBOARD_CAPTURED` broadcast arrives with the URL — at
+     * which point we upsert a fully enriched [ReelEntity] into Room.
+     */
+    private data class PendingCopy(
+        val threadTitle: String,
+        val direction: Direction,
+        val reelAuthor: String?,
+        val kind: String,
+        val bubbleIndex: Int,
+        val dmSender: String? = null,
+    )
+
+    private var pendingCopy: PendingCopy? = null
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.i(TAG, "InstagramReaderService connected")
@@ -488,6 +505,20 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
 
+        // Stash context for the eventual copy-link flow so we can persist a
+        // fully enriched Row once the clipboard is captured. If this open
+        // isn't for copy-link, we leave pendingCopy alone.
+        if (afterOpen is AfterOpenViewer.TapShareAndCopyLink) {
+            pendingCopy = PendingCopy(
+                threadTitle = lastKnownConversationTitle?.takeIf { it.isNotBlank() } ?: "?",
+                direction = target.direction,
+                reelAuthor = target.reelAuthor,
+                kind = target.kind,
+                bubbleIndex = target.index,
+            )
+            Log.i(TAG, "COPY_LINK: pendingCopy=$pendingCopy")
+        }
+
         val path = Path().apply { moveTo(bounds.exactCenterX(), bounds.exactCenterY()) }
         val stroke = GestureDescription.StrokeDescription(path, 0L, TAP_DURATION_MS)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
@@ -556,6 +587,12 @@ class InstagramReaderService : AccessibilityService() {
      * (`direct_external_reshare_row`).
      */
     private fun tapShareInReelViewer(afterShare: AfterShare) {
+        // While the viewer is stable (right before we tap Share), grab the
+        // human sender from `sender_username_or_fullname`. This is what
+        // lets us know WHO shared the Reel — critical in group DMs where
+        // the thread title is the group name, not a person.
+        enrichPendingCopyFromViewer()
+
         val shareId = IgSelectors.id(IgSelectors.ReelViewer.UFI_SHARE_BUTTON)
         val shareNode = findFirstNodeAcrossWindows { it.viewIdResourceName == shareId }
         if (shareNode == null) {
@@ -673,21 +710,89 @@ class InstagramReaderService : AccessibilityService() {
 
     /**
      * Called when [ClipboardCaptureActivity] delivers the clipboard content
-     * back via a broadcast. Logs the URL and schedules the BACK gestures to
-     * return the user to the conversation.
+     * back via a broadcast. Logs the URL, persists a fully enriched
+     * [ReelEntity] into Room (integrating PoC-7 into PoC-8), then
+     * schedules the BACK gestures so the user ends up back on the
+     * conversation.
      */
     private fun handleClipboardCaptured(intent: Intent) {
         val url = intent.getStringExtra(EXTRA_CLIPBOARD_TEXT)
+        val pending = pendingCopy
+        pendingCopy = null
         if (url.isNullOrBlank()) {
             Log.w(TAG, "COPY_LINK: ClipboardCaptureActivity returned empty text.")
         } else {
             Log.i(TAG, "COPY_LINK: Reel URL = '$url'")
+            if (pending != null) {
+                persistCopiedReel(pending, url)
+            } else {
+                Log.w(TAG, "COPY_LINK: no pendingCopy context — URL not persisted to DB.")
+            }
         }
         // Close the share sheet + the Reel viewer so the user is back on
         // the conversation. Two BACKs: first closes whatever is on top,
         // second closes the viewer.
         mainHandler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, BACK_AFTER_COPY_DELAY_MS)
         mainHandler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, BACK_AFTER_COPY_DELAY_MS * 2)
+    }
+
+    /**
+     * Read the human sender name from the currently-open Reel viewer
+     * (`sender_username_or_fullname`) and stash it on the pending copy
+     * context so it can be persisted alongside the URL. If we can't find
+     * the node (viewer not open, unusual layout, etc.) we leave the
+     * existing value alone.
+     */
+    private fun enrichPendingCopyFromViewer() {
+        val pending = pendingCopy ?: return
+        val root = findIgApplicationWindow()?.root ?: rootInActiveWindow ?: return
+        val senderId = IgSelectors.id(IgSelectors.ReelViewer.SENDER_USERNAME_OR_FULLNAME)
+        val senderNode = root.findAccessibilityNodeInfosByViewId(senderId)?.firstOrNull()
+        val dmSender = senderNode?.text?.toString()?.takeIf { it.isNotBlank() }
+        if (dmSender != null && dmSender != pending.dmSender) {
+            pendingCopy = pending.copy(dmSender = dmSender)
+            Log.i(TAG, "COPY_LINK: enriched pendingCopy with dmSender='$dmSender' from viewer.")
+        } else if (dmSender == null) {
+            Log.w(TAG, "COPY_LINK: sender_username_or_fullname not found in viewer.")
+        }
+    }
+
+    /**
+     * Persist the enriched Reel context + URL into Room. If the URL is new
+     * a fresh row is inserted; if a row already exists for this URL, only
+     * `dmSender` is backfilled (when previously null).
+     */
+    private fun persistCopiedReel(pending: PendingCopy, url: String) {
+        val discoveredAt = System.currentTimeMillis()
+        val row = ReelEntity(
+            threadTitle = pending.threadTitle,
+            reelAuthor = pending.reelAuthor,
+            dmSender = pending.dmSender,
+            direction = pending.direction.name,
+            kind = pending.kind,
+            bubbleIndex = pending.bubbleIndex,
+            reelUrl = url,
+            discoveredAt = discoveredAt,
+        )
+        serviceScope.launch {
+            val dao = AppDatabase.get(this@InstagramReaderService).reelDao()
+            val id = dao.insert(row)
+            if (id > 0) {
+                val total = dao.count()
+                Log.i(
+                    TAG,
+                    "COPY_LINK: inserted row id=$id thread='${pending.threadTitle}' " +
+                        "author=${pending.reelAuthor} dmSender=${pending.dmSender} totalInDb=$total."
+                )
+            } else {
+                val updated = dao.updateDmSenderByUrl(url, pending.dmSender)
+                Log.i(
+                    TAG,
+                    "COPY_LINK: URL already in DB — backfilled dmSender rows=$updated " +
+                        "(dmSender=${pending.dmSender})."
+                )
+            }
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -984,6 +1089,9 @@ class InstagramReaderService : AccessibilityService() {
                 val row = ReelEntity(
                     threadTitle = threadTitle,
                     reelAuthor = s.author,
+                    // dmSender is only populated via the enriched copy-link
+                    // flow (viewer open). Fast discovery leaves it null.
+                    dmSender = null,
                     direction = s.direction.name,
                     kind = s.kind,
                     bubbleIndex = s.index,

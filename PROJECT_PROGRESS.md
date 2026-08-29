@@ -7,8 +7,8 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-8 🟡 iteração 1 (Room + descoberta + feed simples). Aguarda validação no OnePlus (PoC-7 clipboard bridge + descoberta em conversa + feed lista as entries).
-**Última atualização:** 2025-08-29 (sessão 21)
+**Fase atual:** Fase 1 (PoC) — PoC-7 ✅ end-to-end validado (sessão 23). PoC-8 iteração 2 🟡 (integração PoC-7↔PoC-8: URL + dmSender persistidos; feed exibe remetente humano).
+**Última atualização:** 2025-08-29 (sessão 23)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
@@ -653,3 +653,44 @@ Depois do PoC-7 fechar, arrancamos o PoC-8:
   - Cards de recebidos dizem "Recebido em <thread>" (normal) e enviados "Enviado por mim em <thread>" (lilás).
   - Log da descoberta tem o breakdown `visibleReceived=X visibleSent=Y kept=Z inserted=N skipped=M`.
   - Se o clipboard bridge passou a devolver o URL. Se não, ficamos com essa via para retomar depois.
+
+### 2026-08-29 — Sessão 23 (Ricardo + Copilot CLI) — PoC-7 ✅ end-to-end + integração PoC-7↔PoC-8
+
+- **Teste do utilizador (`docs/screen-dumps/feed.txt`):** 🎉
+  - `COPY_LINK: Reel URL = 'https://www.instagram.com/reel/Dcl1CZDvJFE/?igsi=djloczVrOXl5dmFo'` — o fix da sessão 22 (`onWindowFocusChanged` + retry na `ClipboardCaptureActivity`) resolveu o problema de leitura em Android 10+. **PoC-7 ✅ fechado end-to-end.**
+  - Novos logs `DISCOVER: thread='...' visibleReceived=X visibleSent=Y ignoreSent=Z kept=K inserted=N skipped=M totalInDb=T` tornaram o comportamento super claro: com `ignoreSent=true` só grava recebidos (kept=visibleReceived), com `false` grava tudo (kept=visibleReceived+visibleSent). Múltiplos scrolls exibem dedup a funcionar (skipped>0 quando revisita).
+- **Integração PoC-7 ↔ PoC-8:** o toque em 🔗 passa a persistir uma linha completa em Room. Novo comportamento:
+  - **Antes de dispatchar o tap** no bubble, o service guarda `pendingCopy: PendingCopy(threadTitle, direction, reelAuthor, kind, bubbleIndex)` — snapshot do target antes de abrir o viewer.
+  - **Dentro de `tapShareInReelViewer`** (antes de tocar Partilhar), chama `enrichPendingCopyFromViewer()` que lê `sender_username_or_fullname` da árvore actual do viewer. Este campo expõe o **nome humano** de quem partilhou o Reel na DM — em 1-a-1 é o interlocutor, em grupo é o membro específico (resolve o problema §5 sem pixel-hash).
+  - **No `handleClipboardCaptured`**: se o URL veio populado, chama `persistCopiedReel(pending, url)`:
+    - Tenta `dao.insert(row)` com `reelUrl` unique index — se o URL é novo, insere linha completa (threadTitle + reelAuthor + dmSender + direction + URL).
+    - Se o URL já existe (unique conflict, `insert` devolve -1), faz `dao.updateDmSenderByUrl(url, dmSender)` para backfillar apenas o dmSender quando o registo antigo tinha null.
+  - **BACK gestures** movem-se para depois da persistência (mesmo delay como antes; a persistência corre no `Dispatchers.IO`).
+- **Schema Room v2:**
+  - `ReelEntity.dmSender: String?` (nova coluna, nullable).
+  - `AppDatabase` bump de `version=1` para `version=2` com `.fallbackToDestructiveMigration()` — no PoC os dados são regenerados por um `Descobrir` do utilizador.
+  - `ReelDao.updateDmSenderByUrl(url, dmSender): Int` para backfill.
+- **UI do feed:** nova composable `WhoAndWhereLine(reel)` substitui o texto anterior por lógica ciente do `dmSender`:
+  - `SENT`: "Enviado por mim em <thread>" (lilás).
+  - `RECEIVED` + `dmSender` nulo: "Recebido em <thread>" (comportamento anterior).
+  - `RECEIVED` + `dmSender == thread` (típico 1-a-1): "Recebido de <sender>" (mais natural).
+  - `RECEIVED` + `dmSender != thread` (grupo): "Recebido de <sender> em <thread>" — **agora sabe-se quem partilhou** mesmo em grupos.
+- **Discovery rápida** deixa `dmSender = null` explicitamente (só o fluxo 🔗 preenche). O feed lida com isso naturalmente.
+- **Ficheiros alterados:**
+  - `data/ReelEntity.kt` — nova coluna `dmSender`, kdoc actualizada.
+  - `data/AppDatabase.kt` — bump v2 + destructive migration.
+  - `data/ReelDao.kt` — `updateDmSenderByUrl`.
+  - `service/InstagramReaderService.kt` — `PendingCopy` + `pendingCopy` + `enrichPendingCopyFromViewer` + `persistCopiedReel` + refactor de `handleClipboardCaptured` e `openFirstReelViewer` para popular `pendingCopy` quando `AfterOpenViewer.TapShareAndCopyLink`.
+  - `ui/feed/FeedScreen.kt` — `WhoAndWhereLine` composable.
+  - `strings.xml` — `feed_received_from`, `feed_received_from_in`.
+- **Fluxo de teste recomendado (na próxima sessão do utilizador):**
+  1. Puxar repo. **Nota:** a BD local vai ser recriada por `fallbackToDestructiveMigration` — perdes as rows criadas em testes anteriores. Não é grave.
+  2. Abrir uma conversa com um Reel recebido → tocar **🔗** → confirmar Logcat com:
+     - `COPY_LINK: pendingCopy=PendingCopy(threadTitle=..., direction=RECEIVED, ...)`
+     - `COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.`
+     - `COPY_LINK: Reel URL = 'https://...'`
+     - `COPY_LINK: inserted row id=... dmSender=Pedro Sardoeira totalInDb=1.`
+  3. Abrir a app → "Ver feed" → o card do Reel copiado deve mostrar "Recebido de Pedro Sardoeira" (em 1-a-1) + botão "Abrir no Instagram" activo (com URL).
+  4. Repetir num **grupo**: deve ler o nome do membro específico (ex. "João Vieira") e mostrar "Recebido de João Vieira em O Burro a Vaca e os Reis Magos".
+  5. Toque **🔍** deve continuar a descobrir batch (sem URL) e as rows aparecem sem "Abrir no IG" activo (fica "URL ainda não capturado (usar 🔗)").
+- **A seguir (PoC-8 iteração 3):** batching de acções (fila `PendingActionEntity` para reagir/responder de forma diferida), scroll automático dentro da conversa para descobrir histórico completo, e eventual player (provavelmente WebView com o URL do IG, pois o video URL não é directamente reproduzível).

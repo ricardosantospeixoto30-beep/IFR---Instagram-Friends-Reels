@@ -41,4 +41,12 @@ interface ReelDao {
 
     @Query("UPDATE reels SET seenAt = :epochMs WHERE id = :id AND seenAt IS NULL")
     suspend fun markSeen(id: Long, epochMs: Long)
+
+    /**
+     * Backfill `dmSender` on a row that already has this `reelUrl`. Only
+     * writes when the existing value is null so we don't clobber a good
+     * name with a null.
+     */
+    @Query("UPDATE reels SET dmSender = :dmSender WHERE reelUrl = :url AND dmSender IS NULL")
+    suspend fun updateDmSenderByUrl(url: String, dmSender: String?): Int
 }
