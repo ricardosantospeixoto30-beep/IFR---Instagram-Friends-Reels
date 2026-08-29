@@ -7,27 +7,31 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-7 ✅ end-to-end validado (sessão 23). PoC-8 iteração 2 🟡 (integração PoC-7↔PoC-8: URL + dmSender persistidos; feed exibe remetente humano).
-**Última atualização:** 2025-08-29 (sessão 23)
+**Fase atual:** Fase 1 (PoC) — PoC-7 ✅ end-to-end. PoC-8 iteração 2 ✅ **validada** (sessão 25: A dedup ✅, B abrir no IG ✅, C promoção discovery→enriched ✅ com fix, D toggle ignoreSent ✅). Próximo: PoC-8 iteração 3 = batching + scroll auto + player.
+**Última atualização:** 2025-08-29 (sessão 25)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Estado a partir da sessão 17 (viewer mapeado; falta bottom sheet do ⋮).
+1. **Pull** do repo. HEAD = `build=s25` (sessão 25, PoC-8 iter 2 fechado com fix da promoção 🔍→🔗). Verificar que ao arrancar o service loga `Action receiver registered (build=s25 ...)` — se aparecer outra tag é APK antigo.
 2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" → **6.1** para completar PoC-7.
-    - Últimos logs de sessão em §7 (sessões 12 → 17).
+    - §6 "Próximos passos concretos" — a próxima é PoC-8 iter 3 (batching + scroll auto + player).
+    - Últimos logs de sessão em §7 (sessões 20 → 25).
 3. **Ficheiros-chave a rever antes de mexer código:**
-    - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor de a11y, gestos, dumps.
-    - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG.
-    - `docs/screen-dumps/dump-menu.txt` e `docs/screen-dumps/2025-08-28-initial-mapping.txt` — dumps de referência.
+    - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor a11y + gestos + integração PoC-7↔PoC-8 (`pendingCopy`, `enrichPendingCopyFromViewer`, `persistCopiedReel`).
+    - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG (conversa, viewer, context menu, share sheet).
+    - `app/src/main/java/com/example/friendsreels/data/*` — Room (`ReelEntity`, `ReelDao`, `AppDatabase`). Schema actual v2 com `dmSender`.
+    - `app/src/main/java/com/example/friendsreels/ui/feed/*` — Compose feed vertical.
+    - `app/src/main/java/com/example/friendsreels/ClipboardCaptureActivity.kt` — bridge para ler clipboard (foreground em Android 10+).
+    - Dumps de referência mais recentes: `docs/screen-dumps/reel dump.txt` (Reel viewer), `docs/screen-dumps/reel view more.txt` (share sheet), `docs/screen-dumps/feed.txt` (últimos logs de teste).
 4. **Constraints do desenvolvimento** (importantes, não esquecer):
     - Todos os testes são feitos pelo utilizador num **OnePlus Nord 5 / Android 16**, num **PC separado com Android Studio**. Cada iteração exige `git commit && git push`. Minimizar rondas.
     - macOS deste ambiente **não tem Android SDK** — não é possível fazer build local, só validar sintaxe. Utilizador é sempre quem valida em device.
     - Java do sistema é 25 (parte Gradle 8.10.2). Se precisares mesmo de correr Gradle: `sdk use java 21.0.7-tem`.
-5. **UX de teste actual:** notificação persistente "Friends Reels" no shade com botões ❤ / 😂 / Dump. Não usar os botões dentro da app (podem tirar o IG da conversa por causa da troca de foreground durante animações).
-6. **MVP note:** o utilizador também envia Reels a amigos → o feed final tem de filtrar (via `sender_avatar`) para não mostrar os Reels enviados por ele.
+    - Sempre que fizer refactor grande, bump do `BUILD_TAG` na companion do `InstagramReaderService` — dá ao utilizador uma forma visual de confirmar que APK está a correr.
+5. **UX de teste actual:** notificação persistente "Friends Reels" com 5 botões: ❤ / 😂 / 👀 / 🔗 / 🔍. Preferir sempre estes ao ecrã da app (a troca de foreground pela app pode tirar o IG da conversa). Ecrã da app tem os mesmos botões + toggle "Ignorar Reels enviados por mim" + "Ver feed (BD local)".
+6. **Comportamento validado:** o feed persiste Reels via 🔍 (rápido, sem URL) ou 🔗 (com URL + `dmSender` capturado do Reel viewer). Ordem 🔗→🔍 e 🔍→🔗 estão ambas cobertas por dedup/promoção (ver `persistCopiedReel` no service).
 
 ---
 
@@ -185,53 +189,43 @@ Já entregue no primeiro commit:
 
 ## 6. Próximos passos concretos
 
-**Estado dos PoCs após sessão 11:**
+**Estado dos PoCs após sessão 25:**
 
 - ✅ PoC-1 — skeleton (compila, corre, a11y service ativa)
-- ✅ PoC-2 — dump da árvore de acessibilidade (`ACTION_DUMP_TREE`, `ACTION_DUMP_ALL_WINDOWS`)
-- ✅ PoC-3 — long-press dirigido ao bubble do Reel via `dispatchGesture`
-- ✅ PoC-4 — direção RECEIVED/SENT validada em DM 1-a-1 e em grupo (sessões 12→14). Limitação de grupos (nome do membro remetente não é textualizado pela a11y layer) registada em §5.
-- ✅ PoC-5 — reagir ao 1.º Reel com ❤ e 😂 (filtra por RECEIVED por defeito)
-- ✅ PoC-6 — responder ao 1.º Reel recebido com texto mock "👀" (validado no OnePlus, sessão 16)
-- 🟢 PoC-7 — código completo (viewer → Partilhar → Copiar → clipboard bridge). Validação end-to-end acontece na próxima sessão em conjunto com o PoC-8.
-- 🟡 PoC-8 — **iteração 1 implementada (sessão 21)** — Room + `ACTION_DISCOVER_REELS` + feed vertical simples. ExoPlayer + batching + scroll automático das conversas ficam para iterações seguintes.
+- ✅ PoC-2 — mapeamento inicial (dumps guardados em `docs/screen-dumps/`)
+- ✅ PoC-3 — long-press dirigido ao bubble via `dispatchGesture`
+- ✅ PoC-4 — direção RECEIVED/SENT validada em DM 1-a-1 e em grupo (sessões 12→14). Limitação de "nome do membro em grupo" no bubble resolvida indirectamente via `sender_username_or_fullname` do Reel viewer (sessão 23) — capturado no fluxo `ACTION_COPY_REEL_URL`.
+- ✅ PoC-5 — reagir com ❤ e 😂 (filtra por RECEIVED por defeito)
+- ✅ PoC-6 — responder ao 1.º Reel recebido com texto mock "👀"
+- ✅ PoC-7 — copiar URL do Reel via viewer→Partilhar→Copiar ligação→clipboard bridge (`ClipboardCaptureActivity` com `onWindowFocusChanged`)
+- ✅ PoC-8 iter 1 — Room + `ACTION_DISCOVER_REELS` + feed vertical simples
+- ✅ PoC-8 iter 2 — integração PoC-7↔PoC-8: URL + `dmSender` persistidos, dedup 3-way (promote → insert → backfill)
 
-### 6.1 Próxima sessão — validar `ACTION_COPY_REEL_URL` + preparar PoC-8
+### 6.1 Próxima sessão — PoC-8 iteração 3
 
-**Fluxo completo implementado na sessão 19:**
+**Objetivos:**
 
-Novo botão **🔗** na notificação (`ACTION_COPY_REEL_URL`) faz:
-1. `openFirstReelViewer(TapShareAndCopyLink)` — abre o Reel viewer (2 s).
-2. `tapShareInReelViewer(ClickCopyLink)` — clica no `direct_share_button` (1.8 s de settle da share sheet).
-3. `clickCopyLinkInShareSheet()` — procura entrada com `contentDescription in {"Copiar link","Copiar ligação","Copy link"}` (o id é o genérico `id/button` para todas as pills da row `direct_external_reshare_row`, portanto identificamos por description).
-4. `readReelUrlFromClipboard()` — aguarda 700 ms, lê `ClipboardManager.primaryClip`, loga o URL.
-5. Envia dois `GLOBAL_ACTION_BACK` espaçados 400 ms para fechar a share sheet + Reel viewer, deixando o utilizador de volta na conversa.
+1. **Batching de acções** (mais pedido pelo utilizador, ver §5):
+    - Nova tabela `PendingActionEntity(id, reelId, kind, payload, createdAt, executedAt, status)` onde `kind ∈ {REACT_HEART, REACT_LAUGH, REPLY_TEXT}`.
+    - Feed passa a **enfileirar** reacções/respostas em vez de as executar de imediato. UI mostra badge "pendente" no card.
+    - Novo botão global "Aplicar N acções no Instagram" — quando tocado, service traz IG à frente **uma vez**, navega até cada thread relevante (via deep-link `instagram://direct/t/…` se conseguirmos o thread_id, ou o `lastKnownConversationTitle` para fallback), executa a acção com os primitivos do PoC-5/6, marca `executedAt` ou `FAILED` na fila.
+    - Estado do executor: exposição via notificação com progresso (`Aplicando 3/7`).
+2. **Scroll automático dentro da conversa** para descoberta em lote:
+    - Nova `ACTION_DISCOVER_REELS_HISTORY` — enquanto na conversa, faz `dispatchGesture` de swipe vertical do meio para cima dentro dos bounds de `message_list`, chama `enumerateReels` a cada scroll, repete até (a) não haver novos entries em N scrolls seguidos, ou (b) hit no top da RecyclerView.
+    - Mantém o toggle `ignoreSent` durante toda a descoberta.
+3. **Player para o feed** (menos crítico, decisão pragmática):
+    - O URL público do Reel não reproduz num ExoPlayer sem sessão IG. Duas opções:
+       - **(A) WebView** com o URL do Reel — o IG mostra o Reel completo dentro da WebView, mesmo sem login (tem UI mínima). Mais simples, funciona em ~90% dos casos.
+       - **(B) Só thumbnail estática** extraída do XMA container quando disponível + "Abrir no Instagram" — já temos, é o comportamento actual.
+    - Recomendação: começar por (A). Se der problemas de UX (autoplay bloqueado, layout partido), voltar ao (B).
 
-Se em qualquer passo o node não for encontrado, dumps automáticos: `share-not-found`, `copy-link-not-found`.
+**Prioridade sugerida:** 1 → 2 → 3 (batching é o que muda mais a UX percebida pelo utilizador).
 
-**O que precisas de fazer no OnePlus:**
+### 6.2 Além do PoC-8
 
-1. Abrir uma conversa com um Reel recebido visível.
-2. Baixar shade → tocar **🔗** na notificação (ou "Copiar URL do 1.º Reel" no ecrã da app).
-3. Reportar:
-    - Logcat: linha `COPY_LINK: Reel URL = 'https://www.instagram.com/reel/...'` (ou WARN se algo falhar).
-    - Visualmente: viewer abre → share sheet → clique automático em "Copiar ligação" → toast do IG "Ligação copiada" → 2 backs → volta à conversa.
-4. Se o URL for lido correctamente, colar-o num browser para confirmar que abre o Reel. **PoC-7 fecha.**
-
-**Casos de erro a reportar:**
-- `COPY_LINK: 'Copiar ligação' not found in share sheet` → dump `copy-link-not-found` no Logcat. Envia. (Talvez a label seja diferente na tua versão do IG.)
-- `COPY_LINK: clipboard is empty or non-text` → o IG não escreveu, ou o timing precisa de ajuste. Aumentar `CLIPBOARD_READ_DELAY_MS`.
-
-### 6.2 PoC-8 — feed vertical + Room + batching
-
-Depois do PoC-7 fechar, arrancamos o PoC-8:
-- Room `ReelEntity(url, sender_dm, sender_original, thread_id, thumbnail_url, discovered_at, state)`.
-- Feed vertical Compose com ExoPlayer.
-- **Fila de acções (`ActionQueueEntity`)** para permitir o batching descrito em §5: o utilizador reage/responde no feed sem sair da app; um botão "Aplicar no Instagram" percorre a fila via os primitivos já validados (PoC-5, PoC-6).
-
-- **PoC-6 responder:** clique no `context_menu_item` cujo `contentDescription` está em `IgSelectors.ContextMenu.ACTION_REPLY`, seguido de escrever no `row_thread_composer_edittext` e enviar.
-- **PoC-7 URL:** o menu popup nem sempre tem "Copiar link". Plano: (a) tocar no bubble para abrir o Reel viewer e localizar o botão Share/Copiar link lá; ou (b) usar Reencaminhar → Copiar link do share sheet.
-- **PoC-8 UI:** só depois de termos os primitivos de leitura/ação validados.
+- **PoC-9 (não numerado ainda):** navegar do inbox para as conversas com Reels não descobertos automaticamente — precisamos de resolver o `thread_id` de forma persistente. Idealmente lêmos algo da árvore da inbox que sirva como identificador estável; caso contrário, chegamos pela `header_title` (frágil se o utilizador renomear grupos).
+- **MVP-only:** substituir o toast do IG "Ligação copiada" (que ainda aparece) por absorção silenciosa se possível (baixar prioridade da notificação do IG?), ou aceitar como cost of doing business.
+- **Tuning de latência** (feedback do utilizador em várias sessões): reduzir `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS` progressivamente após termos batching a mascarar a lentidão.
 
 ---
 
@@ -724,3 +718,26 @@ Depois do PoC-7 fechar, arrancamos o PoC-8:
   2. Rebuild + run no OnePlus.
   3. Ao arrancar, no Logcat verificar a linha `Action receiver registered (build=s24 ...)` — confirma que a versão certa está a correr.
   4. Testar os pontos 1 (DM) e 2 (grupo) da checklist da sessão anterior — agora **devem** funcionar porque o código da integração está no HEAD e a UI só tem os botões que servem.
+
+### 2026-08-29 — Sessão 25 (Ricardo + Copilot CLI) — PoC-8 iter 2 ✅ validada + fix promoção 🔍→🔗
+
+- **Resultado dos testes A/B/C/D pedidos na sessão 24** (log em `docs/screen-dumps/feed.txt`, `build=s24`):
+  - **A** ✅ dedup 🔗 2× — `COPY_LINK: URL already in DB — backfilled dmSender rows=0`.
+  - **B** ✅ "Abrir no Instagram" no feed → abre o IG nativo.
+  - **C** ❌ interacção 🔍 → 🔗: uma nova row é inserida em vez de promover a existente (URL null). Confirmado no comportamento observado.
+  - **D** ✅ toggle "Ignorar Reels enviados por mim" — texto lilás "Enviado por mim em X" aparece quando desactivado.
+- **Fix do C nesta sessão:** três-way dedup no `persistCopiedReel`:
+  1. **Promote** — nova query DAO `promoteDiscoveryRow(url, dmSender, thread, author, direction)` que faz `UPDATE reels SET reelUrl=?, dmSender=? WHERE reelUrl IS NULL AND thread=? AND (author matches) AND direction=?`. Se `promoted > 0`, done.
+  2. **Insert** — senão, `dao.insert(row)`; se `id > 0`, done.
+  3. **Backfill dmSender por URL** — senão (URL colidiu no unique index), `updateDmSenderByUrl` — mesmo comportamento de antes.
+- **Log:** cada caminho tem a sua linha clara — `promoted N discovery-only row(s)`, `inserted row id=...`, `URL already in DB — backfilled dmSender rows=...`. Facilita diagnóstico.
+- **`BUILD_TAG` bumped para `build=s25`** — utilizador verifica no log inicial que está a correr esta versão.
+- **Sem bump da DB** — só uma nova query DAO, sem alterar schema. `dmSender` já existe desde v2.
+- **Ficheiros alterados:**
+  - `data/ReelDao.kt` — nova query `promoteDiscoveryRow`.
+  - `service/InstagramReaderService.kt` — `persistCopiedReel` reescrito com 3 caminhos, `BUILD_TAG` bumped.
+  - `PROJECT_PROGRESS.md` — estado actual (PoC-8 iter 2 ✅), §6 reorganizada com plano para iter 3 (batching + scroll auto + player), este log, e "quick start" actualizado com nova estrutura de ficheiros.
+- **PoC-8 iter 2 fica fechado.** Próximo passo é a iter 3: batching de acções (fila persistente + executor sequencial + botão "Aplicar N no Instagram"), scroll automático da conversa (`ACTION_DISCOVER_REELS_HISTORY`), player rudimentar (WebView provavelmente).
+- **Próximo passo do utilizador** (opcional, só para consolidar):
+  - Puxar → confirmar `build=s25`.
+  - Repetir o teste C — 🔍 numa conversa nova, depois 🔗 no mesmo Reel. Esperado: `COPY_LINK: promoted 1 discovery-only row(s) to enriched ...` e no feed **1 card apenas** para esse Reel (não 2).

@@ -670,9 +670,20 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     /**
-     * Persist the enriched Reel context + URL into Room. If the URL is new
-     * a fresh row is inserted; if a row already exists for this URL, only
-     * `dmSender` is backfilled (when previously null).
+     * Persist the enriched Reel context + URL into Room. Tries three paths
+     * in order:
+     * 1. **Promote a discovery-only row** — if a previous
+     *    `ACTION_DISCOVER_REELS` created a row for the same
+     *    (thread, author, direction) with `reelUrl=null`, upgrade it in
+     *    place with the URL + dmSender. Closes the interaction gap
+     *    reported in session 25 where 🔍 followed by 🔗 was creating a
+     *    duplicate row.
+     * 2. **Insert new row** — otherwise, insert a fresh enriched row.
+     *    The `reelUrl` unique index guarantees no duplicates when the
+     *    same URL is copied twice.
+     * 3. **Backfill dmSender by URL** — if the insert was rejected by the
+     *    unique index (URL already exists), only update the dmSender when
+     *    it was previously null.
      */
     private fun persistCopiedReel(pending: PendingCopy, url: String) {
         val discoveredAt = System.currentTimeMillis()
@@ -688,6 +699,28 @@ class InstagramReaderService : AccessibilityService() {
         )
         serviceScope.launch {
             val dao = AppDatabase.get(this@InstagramReaderService).reelDao()
+
+            // 1. Try to promote a discovery-only row (URL null) that
+            //    matches the same (thread, author, direction).
+            val promoted = dao.promoteDiscoveryRow(
+                url = url,
+                dmSender = pending.dmSender,
+                thread = pending.threadTitle,
+                author = pending.reelAuthor,
+                direction = pending.direction.name,
+            )
+            if (promoted > 0) {
+                val total = dao.count()
+                Log.i(
+                    TAG,
+                    "COPY_LINK: promoted $promoted discovery-only row(s) to enriched " +
+                        "(thread='${pending.threadTitle}' author=${pending.reelAuthor} " +
+                        "direction=${pending.direction} dmSender=${pending.dmSender}) totalInDb=$total."
+                )
+                return@launch
+            }
+
+            // 2. Try a fresh insert.
             val id = dao.insert(row)
             if (id > 0) {
                 val total = dao.count()
@@ -696,14 +729,16 @@ class InstagramReaderService : AccessibilityService() {
                     "COPY_LINK: inserted row id=$id thread='${pending.threadTitle}' " +
                         "author=${pending.reelAuthor} dmSender=${pending.dmSender} totalInDb=$total."
                 )
-            } else {
-                val updated = dao.updateDmSenderByUrl(url, pending.dmSender)
-                Log.i(
-                    TAG,
-                    "COPY_LINK: URL already in DB — backfilled dmSender rows=$updated " +
-                        "(dmSender=${pending.dmSender})."
-                )
+                return@launch
             }
+
+            // 3. URL already existed — only backfill dmSender if needed.
+            val updated = dao.updateDmSenderByUrl(url, pending.dmSender)
+            Log.i(
+                TAG,
+                "COPY_LINK: URL already in DB — backfilled dmSender rows=$updated " +
+                    "(dmSender=${pending.dmSender})."
+            )
         }
     }
 
@@ -1159,7 +1194,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s24"
+        private const val BUILD_TAG = "build=s25"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L

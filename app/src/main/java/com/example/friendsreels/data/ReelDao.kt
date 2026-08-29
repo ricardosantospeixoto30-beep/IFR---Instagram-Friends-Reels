@@ -49,4 +49,32 @@ interface ReelDao {
      */
     @Query("UPDATE reels SET dmSender = :dmSender WHERE reelUrl = :url AND dmSender IS NULL")
     suspend fun updateDmSenderByUrl(url: String, dmSender: String?): Int
+
+    /**
+     * Promote a discovery-only row (created by `ACTION_DISCOVER_REELS`
+     * without a URL) into a fully enriched row by writing the URL and
+     * dmSender captured by `ACTION_COPY_REEL_URL`. Matches by
+     * (threadTitle, reelAuthor, direction) with `reelUrl IS NULL`, which
+     * is the same key used by [countMatching] so at most one row is
+     * affected per call in practice.
+     *
+     * This closes the interaction gap where a Reel had first been
+     * discovered (URL null) and then copied — without this method the
+     * insert path creates a duplicate row because the URL unique index
+     * treats NULLs as distinct.
+     */
+    @Query(
+        "UPDATE reels SET reelUrl = :url, dmSender = :dmSender " +
+            "WHERE reelUrl IS NULL " +
+            "AND threadTitle = :thread " +
+            "AND ((reelAuthor IS NULL AND :author IS NULL) OR reelAuthor = :author) " +
+            "AND direction = :direction"
+    )
+    suspend fun promoteDiscoveryRow(
+        url: String,
+        dmSender: String?,
+        thread: String,
+        author: String?,
+        direction: String,
+    ): Int
 }
