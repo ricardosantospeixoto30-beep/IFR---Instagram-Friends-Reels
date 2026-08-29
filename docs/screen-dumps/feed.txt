@@ -1,0 +1,25 @@
+---------------------------- PROCESS STARTED (24284) for package com.example.friendsreels ----------------------------
+2026-08-29 01:40:35.020 24284-24284 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
+2026-08-29 01:40:35.021 24284-24284 IGReaderService         com.example.friendsreels             I  Action receiver registered (dump=com.example.friendsreels.ACTION_DUMP_TREE, dumpAll=com.example.friendsreels.ACTION_DUMP_ALL_WINDOWS, list=com.example.friendsreels.ACTION_LIST_REELS, longpress=com.example.friendsreels.ACTION_LONG_PRESS_FIRST_REEL, heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH, reply=com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK, open=com.example.friendsreels.ACTION_OPEN_REEL, openMore=com.example.friendsreels.ACTION_OPEN_REEL_AND_MORE, openShare=com.example.friendsreels.ACTION_OPEN_REEL_AND_SHARE, copyUrl=com.example.friendsreels.ACTION_COPY_REEL_URL, discover=com.example.friendsreels.ACTION_DISCOVER_REELS)
+2026-08-29 01:40:35.034 24284-24284 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-08-29 01:40:45.797 24284-24284 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 01:40:46.732 24284-24284 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 01:40:46.777 24284-24284 IGReaderService         com.example.friendsreels             W  OPEN_REEL: no message_list found. Are you on a conversation screen?
+2026-08-29 01:40:48.941 24284-24284 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
+2026-08-29 01:40:54.325 24284-24284 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 01:40:55.213 24284-24284 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 01:40:55.308 24284-24284 IGReaderService         com.example.friendsreels             W  OPEN_REEL: no eligible Reel bubble found (ignoreSent=true).
+2026-08-29 01:41:00.111 24284-24284 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 01:41:00.981 24284-24284 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 01:41:01.020 24284-24284 IGReaderService         com.example.friendsreels             I  OPEN_REEL: target index=2 kind=portrait direction=RECEIVED author=relatable_sayyz bounds=[147,283][593,1085] center=(370,684) afterOpen=TapShareAndCopyLink
+2026-08-29 01:41:01.026 24284-24284 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-08-29 01:41:01.109 24284-24284 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-08-29 01:41:03.308 24284-24284 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1510][1059,1626]
+2026-08-29 01:41:05.218 24284-24284 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[640,1994][777,2131]
+2026-08-29 01:41:05.225 24284-24284 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-08-29 01:41:05.308 24284-24284 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-08-29 01:41:05.966 24284-24284 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-08-29 01:41:06.016 24284-24284 IGReaderService         com.example.friendsreels             W  COPY_LINK: ClipboardCaptureActivity returned empty text.
+2026-08-29 01:41:25.806 24284-24284 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-29 01:41:26.675 24284-24284 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-29 01:41:26.827 24284-25549 IGReaderService         com.example.friendsreels             I  DISCOVER: thread='Pedro Sardoeira' visible=3 inserted=2 skipped=1 totalInDb=2
