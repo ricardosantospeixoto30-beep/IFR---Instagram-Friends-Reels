@@ -547,3 +547,30 @@ Depois do PoC-7 fechar, arrancamos o PoC-8:
   - `strings.xml` — `btn_copy_reel_url`, `notif_action_copy_url`.
   - `PROJECT_PROGRESS.md` — estado, §6.1 (validação PoC-7 + preview PoC-8), §6.2 (PoC-8 com batching), este log.
 - **Próximo passo do utilizador:** tocar **🔗** na notificação numa conversa com Reel recebido → confirmar no Logcat `COPY_LINK: Reel URL = '<url>'` → colar no browser para validar. Se funcionar, **PoC-7 fecha** e arrancamos o PoC-8.
+
+### 2026-08-29 — Sessão 20 (Ricardo + Copilot CLI) — clipboard bridge via Activity transparente
+
+- **Log da sessão 19 mostrou:** fallback `dispatchGesture` fez o click no "Copiar ligação" passar (o utilizador confirmou visualmente e o URL ficou mesmo no clipboard do telemóvel), **mas o service ainda logou `clipboard is empty or non-text (itemCount=0)`**.
+- **Causa raiz:** Android 10+ (API 29) impõe privacidade sobre o clipboard — apps que **não estão em foreground** e não são o IME default recebem sempre `null`/vazio de `ClipboardManager.primaryClip`. O AccessibilityService, mesmo tendo `BIND_ACCESSIBILITY_SERVICE`, é considerado background para este efeito. O IG conseguiu escrever (foreground), mas nós não conseguimos ler.
+- **Fix:** nova `ClipboardCaptureActivity` invisível (`Theme.Translucent.NoTitleBar`, `excludeFromRecents`, `noHistory`, `singleInstance`, sem taskAffinity) que:
+  - No `onCreate`: chama `getSystemService(CLIPBOARD_SERVICE)`, lê o clip, envia broadcast `ACTION_CLIPBOARD_CAPTURED` com o texto em extra `EXTRA_CLIPBOARD_TEXT` para o service, e chama `finish()` + `overridePendingTransition(0,0)` para eliminar animação.
+  - Como está em foreground durante o `onCreate/onStart/onResume`, a leitura do clipboard não é bloqueada.
+- **Refactor no service:**
+  - `readReelUrlFromClipboard()` deixou de ler o clipboard directamente; agora só faz `startActivity(ClipboardCaptureActivity)` com flags `NEW_TASK | NO_ANIMATION | EXCLUDE_FROM_RECENTS | CLEAR_TOP`.
+  - Novo `handleClipboardCaptured(intent)` recebido pelo broadcast do action-receiver: extrai o URL do extra, loga `COPY_LINK: Reel URL = '<url>'`, e só depois disso agenda os 2× `GLOBAL_ACTION_BACK` para fechar a share sheet + Reel viewer.
+  - Import de `ClipboardManager` removido do service (já não usado directamente).
+- **Manifest:** activity registada como `android:exported="false"` (não pode ser invocada por outras apps), sem `intent-filter` MAIN/LAUNCHER — só a nossa própria startActivity a atinge.
+- **Trade-off UX:** há um flash breve (<100 ms) quando a Activity aparece invisível por cima do IG. Com `overridePendingTransition(0,0)` e `Theme.Translucent.NoTitleBar` isto é praticamente imperceptível. Alternativa mais limpa (overlay `SYSTEM_ALERT_WINDOW`) exige permissão especial pedida ao utilizador — overkill para PoC.
+- **Ficheiros alterados:**
+  - `AndroidManifest.xml` — registo da `ClipboardCaptureActivity`.
+  - `ClipboardCaptureActivity.kt` — **novo**, ~55 linhas.
+  - `InstagramReaderService.kt` — `readReelUrlFromClipboard` refactorizada, `handleClipboardCaptured` novo, wiring `ACTION_CLIPBOARD_CAPTURED` + `EXTRA_CLIPBOARD_TEXT`.
+  - `PROJECT_PROGRESS.md` — este log.
+- **Próximo passo do utilizador:** tocar **🔗** novamente na notificação. Devias ver agora no Logcat:
+  ```
+  COPY_LINK: dispatchGesture fallback accepted=true
+  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+  ClipboardCapture: captureAndFinish: read clipboard -> https://...
+  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/…'
+  ```
+  Depois de confirmares o URL correcto, o PoC-7 fica **fechado** e passamos ao PoC-8.

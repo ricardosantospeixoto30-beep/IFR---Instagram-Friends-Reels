@@ -6,7 +6,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -147,6 +146,7 @@ class InstagramReaderService : AccessibilityService() {
                         runInInstagram { openFirstReelViewer(AfterOpenViewer.TapShareAndDump) }
                     ACTION_COPY_REEL_URL ->
                         runInInstagram { openFirstReelViewer(AfterOpenViewer.TapShareAndCopyLink) }
+                    ACTION_CLIPBOARD_CAPTURED -> handleClipboardCaptured(intent)
                 }
             }
         }
@@ -162,6 +162,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_OPEN_REEL_AND_MORE)
             addAction(ACTION_OPEN_REEL_AND_SHARE)
             addAction(ACTION_COPY_REEL_URL)
+            addAction(ACTION_CLIPBOARD_CAPTURED)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -632,33 +633,47 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     /**
-     * Read the Reel URL out of the system clipboard. AccessibilityServices
-     * are permitted to read the clipboard on modern Android; the click just
-     * dispatched happened while IG was the foreground app, so the clip has
-     * just been written.
+     * Bridge to actually read the clipboard.
      *
-     * Also schedules two back gestures so the user is left back on the
-     * conversation (viewer + share sheet closed).
+     * `AccessibilityService` cannot read `ClipboardManager.primaryClip`
+     * silently on Android 10+: the framework returns an empty clip when the
+     * caller is not the foreground / IME app. To get around that, we launch
+     * an invisible [ClipboardCaptureActivity] which is briefly foreground,
+     * reads the clip and broadcasts it back to the service.
+     *
+     * The BACK gestures that close the share sheet + Reel viewer are then
+     * dispatched only after we receive the clipboard (see
+     * [handleClipboardCaptured]).
      */
     private fun readReelUrlFromClipboard() {
-        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-        if (cm == null) {
-            Log.w(TAG, "COPY_LINK: ClipboardManager unavailable.")
-            return
+        val intent = Intent(this, com.example.friendsreels.ClipboardCaptureActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
+            .addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        try {
+            startActivity(intent)
+            Log.i(TAG, "COPY_LINK: launched ClipboardCaptureActivity to bridge the read.")
+        } catch (e: Exception) {
+            Log.w(TAG, "COPY_LINK: failed to launch ClipboardCaptureActivity", e)
         }
-        val clip = cm.primaryClip
-        val itemCount = clip?.itemCount ?: 0
-        val text = if (clip != null && itemCount > 0) {
-            clip.getItemAt(0).coerceToText(this)?.toString()
-        } else null
-        if (text.isNullOrBlank()) {
-            Log.w(TAG, "COPY_LINK: clipboard is empty or non-text (itemCount=$itemCount).")
+    }
+
+    /**
+     * Called when [ClipboardCaptureActivity] delivers the clipboard content
+     * back via a broadcast. Logs the URL and schedules the BACK gestures to
+     * return the user to the conversation.
+     */
+    private fun handleClipboardCaptured(intent: Intent) {
+        val url = intent.getStringExtra(EXTRA_CLIPBOARD_TEXT)
+        if (url.isNullOrBlank()) {
+            Log.w(TAG, "COPY_LINK: ClipboardCaptureActivity returned empty text.")
         } else {
-            Log.i(TAG, "COPY_LINK: Reel URL = '$text'")
+            Log.i(TAG, "COPY_LINK: Reel URL = '$url'")
         }
         // Close the share sheet + the Reel viewer so the user is back on
-        // the conversation. Two BACKs: first closes the sheet, second exits
-        // the viewer.
+        // the conversation. Two BACKs: first closes whatever is on top,
+        // second closes the viewer.
         mainHandler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, BACK_AFTER_COPY_DELAY_MS)
         mainHandler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, BACK_AFTER_COPY_DELAY_MS * 2)
     }
@@ -1087,6 +1102,14 @@ class InstagramReaderService : AccessibilityService() {
         const val ACTION_OPEN_REEL_AND_MORE = "com.example.friendsreels.ACTION_OPEN_REEL_AND_MORE"
         const val ACTION_OPEN_REEL_AND_SHARE = "com.example.friendsreels.ACTION_OPEN_REEL_AND_SHARE"
         const val ACTION_COPY_REEL_URL = "com.example.friendsreels.ACTION_COPY_REEL_URL"
+
+        /**
+         * Broadcast sent by [com.example.friendsreels.ClipboardCaptureActivity]
+         * with the current clipboard text. See [readReelUrlFromClipboard]
+         * for why this indirection is needed on Android 10+.
+         */
+        const val ACTION_CLIPBOARD_CAPTURED = "com.example.friendsreels.ACTION_CLIPBOARD_CAPTURED"
+        const val EXTRA_CLIPBOARD_TEXT = "clipboard_text"
 
         /** SharedPreferences file shared between the UI and the service. */
         const val PREFS_NAME = "friends_reels_prefs"
