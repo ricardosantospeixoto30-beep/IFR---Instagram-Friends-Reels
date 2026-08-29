@@ -27,6 +27,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -40,7 +41,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.friendsreels.R
+import com.example.friendsreels.data.PendingActionEntity
 import com.example.friendsreels.data.ReelEntity
+import com.example.friendsreels.service.InstagramReaderService
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -50,9 +53,23 @@ import java.util.Locale
 fun FeedScreen() {
     val vm: FeedViewModel = viewModel()
     val reels by vm.reels.collectAsState()
+    val pendingCount by vm.pendingCount.collectAsState()
+    val pendingPairs by vm.pendingByReelKind.collectAsState()
     val context = LocalContext.current
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.feed_title)) }) },
+        bottomBar = {
+            ApplyPendingBar(
+                pendingCount = pendingCount,
+                onApply = {
+                    context.sendBroadcast(
+                        Intent(InstagramReaderService.ACTION_APPLY_PENDING).setPackage(context.packageName)
+                    )
+                    Toast.makeText(context, R.string.feed_apply_hint, Toast.LENGTH_LONG).show()
+                },
+                onClearTerminal = { vm.clearTerminal() },
+            )
+        },
     ) { padding ->
         if (reels.isEmpty()) {
             EmptyState(padding)
@@ -67,12 +84,66 @@ fun FeedScreen() {
                 items(reels, key = { it.id }) { reel ->
                     ReelCard(
                         reel = reel,
+                        pendingKinds = pendingPairs,
                         onOpen = {
                             vm.markSeen(reel.id)
                             openReelInInstagram(context, reel)
                         },
+                        onQueueHeart = {
+                            vm.enqueueReaction(reel, PendingActionEntity.KIND_REACT_HEART) { r ->
+                                toastFor(context, r)
+                            }
+                        },
+                        onQueueLaugh = {
+                            vm.enqueueReaction(reel, PendingActionEntity.KIND_REACT_LAUGH) { r ->
+                                toastFor(context, r)
+                            }
+                        },
+                        onQueueReply = {
+                            vm.enqueueReply(reel, InstagramReaderService.MOCK_REPLY_TEXT) { r ->
+                                toastFor(context, r)
+                            }
+                        },
                     )
                 }
+            }
+        }
+    }
+}
+
+private fun toastFor(context: Context, result: FeedViewModel.Result) {
+    val res = when (result) {
+        FeedViewModel.Result.Queued -> R.string.feed_queued_toast
+        FeedViewModel.Result.AlreadyQueued -> R.string.feed_already_queued_toast
+    }
+    Toast.makeText(context, res, Toast.LENGTH_SHORT).show()
+}
+
+@Composable
+private fun ApplyPendingBar(
+    pendingCount: Int,
+    onApply: () -> Unit,
+    onClearTerminal: () -> Unit,
+) {
+    Surface(tonalElevation = 4.dp) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            if (pendingCount == 0) {
+                Text(
+                    text = stringResource(R.string.feed_apply_pending_none),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                Button(onClick = onApply, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.feed_apply_pending, pendingCount))
+                }
+            }
+            TextButton(onClick = onClearTerminal, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.feed_clear_terminal))
             }
         }
     }
@@ -102,7 +173,17 @@ private fun EmptyState(padding: PaddingValues) {
 }
 
 @Composable
-private fun ReelCard(reel: ReelEntity, onOpen: () -> Unit) {
+private fun ReelCard(
+    reel: ReelEntity,
+    pendingKinds: Set<String>,
+    onOpen: () -> Unit,
+    onQueueHeart: () -> Unit,
+    onQueueLaugh: () -> Unit,
+    onQueueReply: () -> Unit,
+) {
+    val hasHeart = pendingKinds.contains("${reel.id}:${PendingActionEntity.KIND_REACT_HEART}")
+    val hasLaugh = pendingKinds.contains("${reel.id}:${PendingActionEntity.KIND_REACT_LAUGH}")
+    val hasReply = pendingKinds.contains("${reel.id}:${PendingActionEntity.KIND_REPLY_TEXT}")
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -113,6 +194,9 @@ private fun ReelCard(reel: ReelEntity, onOpen: () -> Unit) {
                 DirectionBadge(reel.direction)
                 Spacer(Modifier.width(8.dp))
                 KindBadge(reel.kind)
+                if (hasHeart) { Spacer(Modifier.width(8.dp)); PendingBadge(stringResource(R.string.feed_pending_badge_heart)) }
+                if (hasLaugh) { Spacer(Modifier.width(8.dp)); PendingBadge(stringResource(R.string.feed_pending_badge_laugh)) }
+                if (hasReply) { Spacer(Modifier.width(8.dp)); PendingBadge(stringResource(R.string.feed_pending_badge_reply)) }
             }
             Spacer(Modifier.height(12.dp))
             Text(
@@ -143,7 +227,54 @@ private fun ReelCard(reel: ReelEntity, onOpen: () -> Unit) {
                     Text(stringResource(R.string.feed_no_url_yet))
                 }
             }
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                QueueButton(
+                    text = stringResource(R.string.feed_queue_heart),
+                    enabled = !hasHeart,
+                    onClick = onQueueHeart,
+                    modifier = Modifier.weight(1f),
+                )
+                QueueButton(
+                    text = stringResource(R.string.feed_queue_laugh),
+                    enabled = !hasLaugh,
+                    onClick = onQueueLaugh,
+                    modifier = Modifier.weight(1f),
+                )
+                QueueButton(
+                    text = stringResource(R.string.feed_queue_reply),
+                    enabled = true, // replies allowed to stack
+                    onClick = onQueueReply,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun QueueButton(text: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun PendingBadge(label: String) {
+    Surface(color = Color(0xFFFF9800), shape = RoundedCornerShape(8.dp)) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            color = Color.Black,
+            style = MaterialTheme.typography.labelSmall,
+        )
     }
 }
 
@@ -221,3 +352,4 @@ private fun openReelInInstagram(context: Context, reel: ReelEntity) {
         Toast.makeText(context, R.string.feed_open_failed, Toast.LENGTH_SHORT).show()
     }
 }
+

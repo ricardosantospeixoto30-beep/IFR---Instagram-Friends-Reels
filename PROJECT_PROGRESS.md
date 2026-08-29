@@ -7,22 +7,22 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC) — PoC-7 ✅ end-to-end. PoC-8 iteração 2 ✅ **validada** (sessão 25: A dedup ✅, B abrir no IG ✅, C promoção discovery→enriched ✅ com fix, D toggle ignoreSent ✅). Próximo: PoC-8 iteração 3 = batching + scroll auto + player.
-**Última atualização:** 2025-08-29 (sessão 25)
+**Fase atual:** Fase 1 (PoC) — PoC-8 iteração 3 **parte A (batching)** ✅ implementada, **aguarda validação em device**. Falta ainda iter 3 parte B (scroll auto) e parte C (player WebView).
+**Última atualização:** 2025-08-29 (sessão 26)
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. HEAD = `build=s25` (sessão 25, PoC-8 iter 2 fechado com fix da promoção 🔍→🔗). Verificar que ao arrancar o service loga `Action receiver registered (build=s25 ...)` — se aparecer outra tag é APK antigo.
+1. **Pull** do repo. HEAD = `build=s26` (sessão 26, PoC-8 iter 3 parte A). Verificar que ao arrancar o service loga `Action receiver registered (build=s26 ...)` — se aparecer outra tag é APK antigo. Nesta versão a persistent notification tem um botão extra ▶ (Aplicar acções pendentes).
 2. **Ler primeiro:**
     - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos" — a próxima é PoC-8 iter 3 (batching + scroll auto + player).
-    - Últimos logs de sessão em §7 (sessões 20 → 25).
+    - §6 "Próximos passos concretos" — a próxima é PoC-8 iter 3 parte B (scroll auto) + parte C (player WebView).
+    - Últimos logs de sessão em §7 (sessões 20 → 26).
 3. **Ficheiros-chave a rever antes de mexer código:**
-    - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor a11y + gestos + integração PoC-7↔PoC-8 (`pendingCopy`, `enrichPendingCopyFromViewer`, `persistCopiedReel`).
+    - `app/src/main/java/com/example/friendsreels/service/InstagramReaderService.kt` — motor a11y + gestos + integração PoC-7↔PoC-8 (`pendingCopy`, `enrichPendingCopyFromViewer`, `persistCopiedReel`) + **executor de batching PoC-8 iter 3 (`applyPendingActions`, `runBatchStep`)**.
     - `app/src/main/java/com/example/friendsreels/instagram/IgSelectors.kt` — todos os IDs/labels do IG (conversa, viewer, context menu, share sheet).
-    - `app/src/main/java/com/example/friendsreels/data/*` — Room (`ReelEntity`, `ReelDao`, `AppDatabase`). Schema actual v2 com `dmSender`.
-    - `app/src/main/java/com/example/friendsreels/ui/feed/*` — Compose feed vertical.
+    - `app/src/main/java/com/example/friendsreels/data/*` — Room (`ReelEntity`, `ReelDao`, `AppDatabase`, **`PendingActionEntity`**, **`PendingActionDao`**). Schema actual v3.
+    - `app/src/main/java/com/example/friendsreels/ui/feed/*` — Compose feed vertical + **botões de enfileirar por card + bottom bar "Aplicar N acções"**.
     - `app/src/main/java/com/example/friendsreels/ClipboardCaptureActivity.kt` — bridge para ler clipboard (foreground em Android 10+).
     - Dumps de referência mais recentes: `docs/screen-dumps/reel dump.txt` (Reel viewer), `docs/screen-dumps/reel view more.txt` (share sheet), `docs/screen-dumps/feed.txt` (últimos logs de teste).
 4. **Constraints do desenvolvimento** (importantes, não esquecer):
@@ -189,7 +189,7 @@ Já entregue no primeiro commit:
 
 ## 6. Próximos passos concretos
 
-**Estado dos PoCs após sessão 25:**
+**Estado dos PoCs após sessão 26:**
 
 - ✅ PoC-1 — skeleton (compila, corre, a11y service ativa)
 - ✅ PoC-2 — mapeamento inicial (dumps guardados em `docs/screen-dumps/`)
@@ -200,6 +200,9 @@ Já entregue no primeiro commit:
 - ✅ PoC-7 — copiar URL do Reel via viewer→Partilhar→Copiar ligação→clipboard bridge (`ClipboardCaptureActivity` com `onWindowFocusChanged`)
 - ✅ PoC-8 iter 1 — Room + `ACTION_DISCOVER_REELS` + feed vertical simples
 - ✅ PoC-8 iter 2 — integração PoC-7↔PoC-8: URL + `dmSender` persistidos, dedup 3-way (promote → insert → backfill)
+- 🚧 PoC-8 iter 3 parte A (sessão 26) — batching de acções: tabela `pending_actions` + botões de enfileirar no feed + executor `ACTION_APPLY_PENDING`. **Aguarda validação em device.**
+- ⬜ PoC-8 iter 3 parte B — scroll automático dentro da conversa (`ACTION_DISCOVER_REELS_HISTORY`).
+- ⬜ PoC-8 iter 3 parte C — player embutido (WebView com o `reelUrl`).
 
 ### 6.1 Próxima sessão — PoC-8 iteração 3
 
@@ -742,3 +745,47 @@ Já entregue no primeiro commit:
   - Puxar → confirmar `build=s25`.
   - Repetir o teste C — 🔍 numa conversa nova, depois 🔗 no mesmo Reel. Esperado: `COPY_LINK: promoted 1 discovery-only row(s) to enriched ...` e no feed **1 card apenas** para esse Reel (não 2).
 - **Validação final (fim da sessão 25):** utilizador confirmou `build=s25` a correr no OnePlus e o novo comportamento a aparecer nos logs (mensagens `promoted` / `URL already in DB` no fluxo do 🔗). **PoC-8 iter 2 totalmente fechado.** Próxima sessão arranca do commit `aaff892` com o plano da §6.1 (iter 3: batching + scroll auto + player).
+
+### 2026-08-29 — Sessão 26 (Ricardo + Copilot CLI) — PoC-8 iter 3 parte A: batching de acções
+
+- **Objetivo desta sessão:** implementar a *parte A* da iter 3 (batching de acções). Scroll automático e player WebView ficam para sessões seguintes — a parte A é a que mais muda a UX percebida e o utilizador queria isso primeiro.
+- **Design escolhido (documentado no código, secção "PoC-8 iteration 3 — batching executor" em `InstagramReaderService.kt`):**
+  - Nova tabela `pending_actions` com FK ON DELETE CASCADE para `reels`. Rows têm `id, reelId, kind (REACT_HEART|REACT_LAUGH|REPLY_TEXT), payload, status (PENDING|RUNNING|DONE|FAILED), createdAt, executedAt, error`.
+  - Feed enfileira em vez de executar (novo bottom bar: **"Aplicar N acções no Instagram"**). Cada card ganhou 3 botões pequenos (❤ / 😂 / 👀) que inserem `PENDING`. Reacções são deduplicadas por `(reelId, kind)` enquanto ainda estiverem `PENDING`; réplicas de reply são permitidas.
+  - Novo broadcast `ACTION_APPLY_PENDING` — service traz IG à frente (`runInInstagram`), lê a fila FIFO em IO, corre `runBatchStep` no main handler para cada acção (delay 2500ms entre acções para o IG fechar o popup anterior). A notificação persistente durante o batch mostra `A aplicar N/M…` com progress bar.
+  - Botão ▶ adicionado à notificação persistente (`R.string.notif_action_apply`, `requestCode = 11`) para se poder disparar `ACTION_APPLY_PENDING` sem tirar o IG da frente.
+- **Limitação assumida (por design da iter 3 parte A):**
+  - **Nesta iteração NÃO há navegação entre conversas.** Cada `PendingAction` é comparado contra o `lastKnownConversationTitle` (header do IG). Rows para outras conversas são marcados `FAILED` com o motivo (`Conversa activa é 'X' mas a acção pertence a 'Y'`), e o executor avança rápido pelos que não conseguem executar. Fluxo do utilizador: enfileira à vontade → antes de aplicar, abrir a conversa relevante no IG → tocar ▶ → volta ao feed, muda de conversa, repete.
+  - Navegação real por thread precisa do `thread_id` estável (PoC-9 — anotado em §6.2).
+- **DB schema evolution — v3:**
+  - Adiciona `pending_actions` (nova tabela).
+  - Continuamos com `fallbackToDestructiveMigration()` — utilizador perde os Reels descobertos (regenerar com uma passagem de 🔍).
+- **Ficheiros novos / alterados:**
+  - **NOVOS:** `data/PendingActionEntity.kt`, `data/PendingActionDao.kt`.
+  - `data/AppDatabase.kt` — v2 → v3, adiciona `pendingActionDao()`.
+  - `data/ReelDao.kt` — adiciona `byId(id)` (necessário para o executor resolver o Reel do PendingAction).
+  - `service/InstagramReaderService.kt` — novo `ACTION_APPLY_PENDING`, novo receiver, executor `applyPendingActions()`, `runBatchStep()`, `updateProgressNotification()`, botão ▶ na notificação. `BUILD_TAG = "build=s26"`.
+  - `ui/feed/FeedViewModel.kt` — expõe `pendingCount`, `pendingByReelKind`, e as funções `enqueueReaction`/`enqueueReply`/`clearTerminal`.
+  - `ui/feed/FeedScreen.kt` — 3 botões por card (`Enfileirar ❤/😂/👀`) com badges laranja `❤ na fila` quando já existe pendente; bottom bar `Aplicar N acções no Instagram` (ou `Sem acções pendentes` quando fila vazia) + link `Limpar histórico de ações concluídas`.
+  - `res/values/strings.xml` — 12 strings novas (feed_queue_*, feed_pending_badge_*, feed_queued_toast, feed_apply_*, notif_action_apply, notif_apply_progress).
+- **Comportamento esperado no device:**
+  1. Utilizador abre uma conversa no IG → toca 🔍 na notificação → cards aparecem no feed.
+  2. No feed, toca `Enfileirar ❤` num dos cards → toast "Ação enfileirada" + badge laranja "❤ na fila" no card + bottom bar passa a `Aplicar 1 acções no Instagram`.
+  3. Volta ao IG e certifica-se que a conversa correcta está aberta.
+  4. Puxa a notif e toca ▶ (ou vai à app e toca `Aplicar N…`). No Logcat vê `APPLY_PENDING: starting drain (currentThread='X')` seguido de `APPLY_PENDING: step 1/N ...` para cada acção. A notif mostra `A aplicar N/M…` com progress bar. Cada reacção é o mesmo primitivo do PoC-5.
+  5. Se a conversa activa não bate certo, `APPLY_PENDING: step X/N skipped — Conversa activa é 'A' mas a acção pertence a 'B'` e a row fica `FAILED`.
+- **Testes propostos ao utilizador (na próxima sessão dele):**
+  - **A — enfileirar + aplicar 1 acção (mesma conversa):** abre conversa, 🔍, no feed toca `Enfileirar ❤` num card, volta ao IG (mesma conversa), toca ▶. Esperado no Logcat: `APPLY_PENDING: step 1/1 actionId=... kind=REACT_HEART thread='...'` seguido do fluxo normal de `LONG_PRESS` + `REACT`.
+  - **B — batching 3 acções (mesma conversa):** enfileira `❤`, `😂` e `👀` no mesmo card. Aplica → `step 1/3, 2/3, 3/3`, cada uma com 2500ms de intervalo. Cada emoji cai no primeiro Reel visível (limitação partilhada com PoC-5/6). Confirma no IG que as reacções ficaram.
+  - **C — wrong-thread FAIL:** enfileira no feed uma acção para um Reel do grupo X, mas quando aplicares fica na conversa Y. Esperado: `APPLY_PENDING: step 1/1 skipped — Conversa activa é 'Y' mas a acção pertence a 'X'` e a row aparece com estado `FAILED` (não é executada; para já não a mostramos na UI, só desaparece do count `PENDING`). Pode confirmar no feed que o botão `Enfileirar ❤` desse card volta a estar activo.
+  - **D — dedup:** toca 2× `Enfileirar ❤` no mesmo card. Segundo toque → toast "Já está enfileirada", contagem fica em 1.
+  - **E — reply:** enfileira `Enfileirar 👀`, aplica. Esperado: o fluxo do PoC-6 corre, `REPLY:` logs, mensagem "👀" enviada no IG.
+- **Coisas que sabemos que ainda não são perfeitas (aceitáveis para PoC iter 3-A):**
+  - Executor marca `DONE` **optimisticamente** depois de dispatch do primitivo — não sabemos se o IG realmente aplicou. Callback do `dispatchGesture` só nos diz que o gesto saiu, não que teve efeito. Para PoC OK: utilizador confirma visualmente.
+  - "Primeiro Reel recebido visível" é o alvo tanto do PoC-5/6 como do executor. Se enfileirares 2× `❤` para 2 Reels diferentes visíveis, as duas reacções vão para o mesmo (o primeiro). Precisamos de resolver isto na iter 3-B ou iter 4 — provavelmente identificando o Reel pelo `reelUrl` na fila e fazendo scroll até ele estar visível.
+  - Não temos ainda UI para ver as rows `FAILED` / `DONE`. Botão "Limpar histórico de ações concluídas" limpa-os todos. Pode ser útil expor um sub-ecrã "Histórico da fila" mais tarde.
+- **Próximos passos (na ordem sugerida):**
+  1. Utilizador valida os cenários A→E acima.
+  2. **iter 3-B (scroll auto):** `ACTION_DISCOVER_REELS_HISTORY` — swipe vertical dentro dos bounds da `message_list`, `enumerateReels` a cada scroll, parar quando não há novos entries em N scrolls seguidos.
+  3. **iter 3-C (player WebView):** substituir o botão "Abrir no Instagram" por um player embutido — WebView carrega `reel.reelUrl`; se der problemas de layout/autoplay, cair de volta para o botão actual.
+  4. **iter 4 (endereçar Reels específicos no executor):** alterar `runBatchStep` para procurar dentro da `message_list` o bubble com o `reelAuthor` + heurística correspondente, em vez de bater sempre no 1.º recebido. Provavelmente vai obrigar a scrollar até encontrar o Reel — encaixa bem depois da iter 3-B.

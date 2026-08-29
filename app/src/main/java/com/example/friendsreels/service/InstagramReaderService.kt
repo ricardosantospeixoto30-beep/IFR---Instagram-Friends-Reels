@@ -22,6 +22,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.friendsreels.R
 import com.example.friendsreels.data.AppDatabase
+import com.example.friendsreels.data.PendingActionEntity
 import com.example.friendsreels.data.ReelEntity
 import com.example.friendsreels.instagram.Direction
 import com.example.friendsreels.instagram.DmReelEntry
@@ -158,6 +159,7 @@ class InstagramReaderService : AccessibilityService() {
                     ACTION_COPY_REEL_URL -> runInInstagram { openFirstReelViewer() }
                     ACTION_CLIPBOARD_CAPTURED -> handleClipboardCaptured(intent)
                     ACTION_DISCOVER_REELS -> runInInstagram { discoverReels() }
+                    ACTION_APPLY_PENDING -> runInInstagram { applyPendingActions() }
                 }
             }
         }
@@ -168,6 +170,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_COPY_REEL_URL)
             addAction(ACTION_CLIPBOARD_CAPTURED)
             addAction(ACTION_DISCOVER_REELS)
+            addAction(ACTION_APPLY_PENDING)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -180,7 +183,8 @@ class InstagramReaderService : AccessibilityService() {
             TAG,
             "Action receiver registered ($BUILD_TAG heart=$ACTION_REACT_HEART, " +
                 "laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
-                "copyUrl=$ACTION_COPY_REEL_URL, discover=$ACTION_DISCOVER_REELS)"
+                "copyUrl=$ACTION_COPY_REEL_URL, discover=$ACTION_DISCOVER_REELS, " +
+                "applyPending=$ACTION_APPLY_PENDING)"
         )
     }
 
@@ -1095,6 +1099,191 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     // ---------------------------------------------------------------------
+    // PoC-8 iteration 3 — batching executor
+    //
+    // The feed enqueues reactions/replies into `pending_actions`. Here we
+    // drain that queue in FIFO order, driving the same primitives that
+    // power the notification buttons (long-press → quick-reaction / reply).
+    //
+    // Scope of this iteration (documented decision):
+    //   - We DO NOT navigate between conversations. Each pending row is
+    //     compared against `lastKnownConversationTitle` — the header title
+    //     of whichever thread IG is currently on. Rows for other threads
+    //     are marked FAILED with a "wrong thread — open <title>" hint so
+    //     the user can switch conversations and hit "Aplicar" again.
+    //     Full thread navigation is deferred to PoC-9 (needs a stable
+    //     thread_id which we don't have yet — see §6.2 of PROJECT_PROGRESS).
+    //   - Order within a batch is preserved (createdAt ASC). Actions of
+    //     the same kind on different Reels of the same thread still hit
+    //     "the first RECEIVED Reel visible" — this is a known simplification
+    //     shared with PoC-5/6 and will be replaced when the batching UI
+    //     targets specific bubbles.
+    // ---------------------------------------------------------------------
+
+    private var batchInProgress = false
+
+    /**
+     * Entry point for `ACTION_APPLY_PENDING`. Reads the pending queue on
+     * the IO scope, then hops back to the main handler to execute each
+     * row via [runBatchStep]. Guarded by [batchInProgress] so double taps
+     * don't spawn overlapping executors.
+     */
+    private fun applyPendingActions() {
+        if (batchInProgress) {
+            Log.i(TAG, "APPLY_PENDING: batch already in progress, ignoring.")
+            return
+        }
+        val currentThread = lastKnownConversationTitle?.takeIf { it.isNotBlank() }
+        Log.i(TAG, "APPLY_PENDING: starting drain (currentThread='$currentThread').")
+        batchInProgress = true
+
+        serviceScope.launch {
+            val db = AppDatabase.get(this@InstagramReaderService)
+            val actions = db.pendingActionDao().pending()
+            if (actions.isEmpty()) {
+                Log.i(TAG, "APPLY_PENDING: queue empty, nothing to do.")
+                mainHandler.post { batchInProgress = false }
+                return@launch
+            }
+            // Pre-resolve every referenced Reel so we can filter on the
+            // main thread without further DB round-trips.
+            val reelDao = db.reelDao()
+            val steps = actions.mapNotNull { action ->
+                val reel = reelDao.byId(action.reelId)
+                if (reel == null) {
+                    // Reel row was deleted between enqueue and drain —
+                    // finish the action as FAILED and drop it from the batch.
+                    db.pendingActionDao().finish(
+                        action.id,
+                        PendingActionEntity.STATUS_FAILED,
+                        System.currentTimeMillis(),
+                        "Reel foi apagado da base de dados",
+                    )
+                    Log.w(TAG, "APPLY_PENDING: action id=${action.id} references missing reel id=${action.reelId}, dropped.")
+                    null
+                } else {
+                    BatchStep(action = action, reel = reel)
+                }
+            }
+            Log.i(TAG, "APPLY_PENDING: resolved ${steps.size} step(s) to run.")
+
+            mainHandler.postDelayed({
+                runBatchStep(steps, index = 0, currentThread = currentThread)
+            }, BATCH_START_DELAY_MS)
+        }
+    }
+
+    private data class BatchStep(val action: PendingActionEntity, val reel: ReelEntity)
+
+    /**
+     * Execute [steps][index]. On completion (or failure) schedules the
+     * next step [BATCH_STEP_INTERVAL_MS] later. Bookkeeping in the DB
+     * happens synchronously on the IO scope for each step.
+     */
+    private fun runBatchStep(steps: List<BatchStep>, index: Int, currentThread: String?) {
+        if (index >= steps.size) {
+            Log.i(TAG, "APPLY_PENDING: drain finished (${steps.size} step(s) processed).")
+            batchInProgress = false
+            postControlNotification()
+            return
+        }
+        val step = steps[index]
+        val stepLabel = "step ${index + 1}/${steps.size}"
+        updateProgressNotification(index + 1, steps.size)
+        Log.i(
+            TAG,
+            "APPLY_PENDING: $stepLabel actionId=${step.action.id} kind=${step.action.kind} " +
+                "reelId=${step.reel.id} thread='${step.reel.threadTitle}'"
+        )
+
+        // Skip rows targeting a different conversation than the one IG is
+        // currently displaying. Marked FAILED so the user gets feedback,
+        // but not before finishing every step that DOES match — we don't
+        // want to leave PENDING rows behind when the user reopens the app.
+        if (currentThread == null || currentThread != step.reel.threadTitle) {
+            val err = "Conversa activa é '${currentThread ?: "?"}' mas a acção pertence a '${step.reel.threadTitle}'"
+            finishStepAsync(step.action.id, PendingActionEntity.STATUS_FAILED, err)
+            Log.w(TAG, "APPLY_PENDING: $stepLabel skipped — $err")
+            mainHandler.postDelayed({
+                runBatchStep(steps, index + 1, currentThread)
+            }, BATCH_STEP_INTERVAL_MS / 4) // fast-skip when we're just marking wrong-thread rows
+            return
+        }
+
+        // Mark RUNNING before we dispatch the gestures so a peek at the
+        // feed during batching shows the row as in-flight.
+        markRunningAsync(step.action.id)
+
+        val after: AfterLongPress = when (step.action.kind) {
+            PendingActionEntity.KIND_REACT_HEART -> AfterLongPress.TapReaction("❤")
+            PendingActionEntity.KIND_REACT_LAUGH -> AfterLongPress.TapReaction("😂")
+            PendingActionEntity.KIND_REPLY_TEXT -> AfterLongPress.ReplyWithText(
+                step.action.payload?.takeIf { it.isNotBlank() } ?: MOCK_REPLY_TEXT
+            )
+            else -> {
+                val err = "kind desconhecido: ${step.action.kind}"
+                finishStepAsync(step.action.id, PendingActionEntity.STATUS_FAILED, err)
+                Log.w(TAG, "APPLY_PENDING: $stepLabel unknown kind, marked FAILED.")
+                mainHandler.postDelayed({
+                    runBatchStep(steps, index + 1, currentThread)
+                }, BATCH_STEP_INTERVAL_MS / 4)
+                return
+            }
+        }
+
+        // Dispatch the primitive. We can't easily distinguish success from
+        // failure at this level (the a11y callbacks only tell us the
+        // gesture went out, not that IG accepted it), so for the PoC we
+        // mark the row DONE optimistically once the primitive returns.
+        // The user can visually confirm and re-enqueue if needed.
+        longPressFirstReel(afterLongPress = after)
+        finishStepAsync(step.action.id, PendingActionEntity.STATUS_DONE, null)
+
+        mainHandler.postDelayed({
+            runBatchStep(steps, index + 1, currentThread)
+        }, BATCH_STEP_INTERVAL_MS)
+    }
+
+    private fun markRunningAsync(actionId: Long) {
+        serviceScope.launch {
+            AppDatabase.get(this@InstagramReaderService).pendingActionDao()
+                .updateStatus(actionId, PendingActionEntity.STATUS_RUNNING)
+        }
+    }
+
+    private fun finishStepAsync(actionId: Long, status: String, error: String?) {
+        val now = System.currentTimeMillis()
+        serviceScope.launch {
+            AppDatabase.get(this@InstagramReaderService).pendingActionDao()
+                .finish(actionId, status, now, error)
+        }
+    }
+
+    /**
+     * Overwrite the persistent notification with a "Aplicando N/M" status
+     * while a batch is running. Reverts to the normal button row when the
+     * batch finishes ([postControlNotification]).
+     */
+    private fun updateProgressNotification(currentStep: Int, total: Int) {
+        val builder = NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.notif_title))
+            .setContentText(getString(R.string.notif_apply_progress, currentStep, total))
+            .setOngoing(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setShowWhen(false)
+            .setProgress(total, currentStep, false)
+        try {
+            NotificationManagerCompat.from(this).notify(NOTIF_ID, builder.build())
+        } catch (e: SecurityException) {
+            Log.w(TAG, "updateProgressNotification: missing POST_NOTIFICATIONS", e)
+        }
+    }
+
+    // ---------------------------------------------------------------------
     // Tree dump utility (shared by PoC-2 and PoC-3)
     // ---------------------------------------------------------------------
 
@@ -1194,7 +1383,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s25"
+        private const val BUILD_TAG = "build=s26"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -1208,6 +1397,19 @@ class InstagramReaderService : AccessibilityService() {
         private const val FOREGROUND_POLL_INTERVAL_MS = 200L
         private const val FOREGROUND_POLL_MAX_RETRIES = 30 // ~6s total, enough for task-switch animations
         private const val MIN_REEL_BUBBLE_HEIGHT_PX = 200 // ignore stubs that are almost fully scrolled off
+
+        // -----------------------------------------------------------------
+        // PoC-8 iteration 3 — batching executor timing
+        // -----------------------------------------------------------------
+        /**
+         * Delay between two consecutive actions inside the same executor
+         * pass. Sized so IG has time to fully close whichever popup the
+         * previous action left open (reaction bubble, context menu, etc.)
+         * before we long-press the next Reel.
+         */
+        private const val BATCH_STEP_INTERVAL_MS = 2500L
+        /** Initial delay to give IG time to settle after being brought to front. */
+        private const val BATCH_START_DELAY_MS = 800L
 
         /** Placeholder text used by the PoC-6 mock reply broadcast. */
         const val MOCK_REPLY_TEXT = "👀"
@@ -1224,6 +1426,17 @@ class InstagramReaderService : AccessibilityService() {
         const val ACTION_REPLY_FIRST_REEL_MOCK = "com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK"
         const val ACTION_COPY_REEL_URL = "com.example.friendsreels.ACTION_COPY_REEL_URL"
         const val ACTION_DISCOVER_REELS = "com.example.friendsreels.ACTION_DISCOVER_REELS"
+
+        /**
+         * Drain the `pending_actions` table (PoC-8 iteration 3 — batching).
+         * See [applyPendingActions] for the full life-cycle: for each
+         * PENDING row whose `reels.threadTitle` matches the conversation
+         * currently open in Instagram, we drive the same primitives
+         * PoC-5/PoC-6 use, then mark the row DONE/FAILED. Rows for other
+         * threads are marked FAILED with a "wrong thread" hint so the user
+         * knows to switch conversations before applying again.
+         */
+        const val ACTION_APPLY_PENDING = "com.example.friendsreels.ACTION_APPLY_PENDING"
 
         /**
          * Broadcast sent by [com.example.friendsreels.ClipboardCaptureActivity]
@@ -1295,6 +1508,11 @@ class InstagramReaderService : AccessibilityService() {
                 0,
                 getString(R.string.notif_action_discover),
                 pendingBroadcast(ACTION_DISCOVER_REELS, requestCode = 10)
+            )
+            .addAction(
+                0,
+                getString(R.string.notif_action_apply),
+                pendingBroadcast(ACTION_APPLY_PENDING, requestCode = 11)
             )
 
         val nm = NotificationManagerCompat.from(this)

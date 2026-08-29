@@ -30,6 +30,9 @@ interface ReelDao {
     )
     suspend fun countMatching(thread: String, author: String?, direction: String): Int
 
+    @Query("SELECT * FROM reels WHERE id = :id")
+    suspend fun byId(id: Long): ReelEntity?
+
     @Query("SELECT * FROM reels ORDER BY discoveredAt DESC")
     fun observeAll(): Flow<List<ReelEntity>>
 

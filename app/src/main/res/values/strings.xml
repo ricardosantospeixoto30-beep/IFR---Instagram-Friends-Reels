@@ -53,4 +53,21 @@
     <string name="feed_open_in_ig">Abrir no Instagram</string>
     <string name="feed_no_url_yet">URL ainda não capturado (usar 🔗)</string>
     <string name="feed_open_failed">Não foi possível abrir o Reel</string>
+
+    <!-- PoC-8 iteração 3 — batching de acções -->
+    <string name="feed_queue_heart">Enfileirar ❤</string>
+    <string name="feed_queue_laugh">Enfileirar 😂</string>
+    <string name="feed_queue_reply">Enfileirar 👀</string>
+    <string name="feed_pending_badge_heart">❤ na fila</string>
+    <string name="feed_pending_badge_laugh">😂 na fila</string>
+    <string name="feed_pending_badge_reply">👀 na fila</string>
+    <string name="feed_queued_toast">Ação enfileirada</string>
+    <string name="feed_already_queued_toast">Já está enfileirada</string>
+    <string name="feed_apply_pending">Aplicar %1$d acções no Instagram</string>
+    <string name="feed_apply_pending_none">Sem acções pendentes</string>
+    <string name="feed_clear_terminal">Limpar histórico de ações concluídas</string>
+    <string name="feed_apply_hint">Abre a conversa relevante no Instagram antes de aplicar. Nesta iteração só corremos as ações da conversa activa.</string>
+
+    <string name="notif_action_apply">▶</string>
+    <string name="notif_apply_progress">A aplicar %1$d/%2$d…</string>
 </resources>
