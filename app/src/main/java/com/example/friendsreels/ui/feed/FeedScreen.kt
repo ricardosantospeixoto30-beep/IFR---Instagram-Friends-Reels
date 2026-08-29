@@ -120,18 +120,7 @@ private fun ReelCard(reel: ReelEntity, onOpen: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text(
-                text = when (reel.direction) {
-                    "RECEIVED" -> stringResource(R.string.feed_received_in, reel.threadTitle)
-                    "SENT" -> stringResource(R.string.feed_sent_in, reel.threadTitle)
-                    else -> stringResource(R.string.feed_shared_by, reel.threadTitle)
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = when (reel.direction) {
-                    "SENT" -> Color(0xFFCE93D8)
-                    else -> MaterialTheme.colorScheme.onSurface
-                },
-            )
+            WhoAndWhereLine(reel)
             Spacer(Modifier.height(4.dp))
             Text(
                 text = formatEpoch(reel.discoveredAt),
@@ -156,6 +145,27 @@ private fun ReelCard(reel: ReelEntity, onOpen: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun WhoAndWhereLine(reel: ReelEntity) {
+    val text: String = when (reel.direction) {
+        "SENT" -> stringResource(R.string.feed_sent_in, reel.threadTitle)
+        "RECEIVED" -> {
+            val sender = reel.dmSender
+            when {
+                sender.isNullOrBlank() -> stringResource(R.string.feed_received_in, reel.threadTitle)
+                sender == reel.threadTitle -> stringResource(R.string.feed_received_from, sender)
+                else -> stringResource(R.string.feed_received_from_in, sender, reel.threadTitle)
+            }
+        }
+        else -> stringResource(R.string.feed_shared_by, reel.threadTitle)
+    }
+    val color = when (reel.direction) {
+        "SENT" -> Color(0xFFCE93D8)
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    Text(text = text, style = MaterialTheme.typography.bodyMedium, color = color)
 }
 
 @Composable

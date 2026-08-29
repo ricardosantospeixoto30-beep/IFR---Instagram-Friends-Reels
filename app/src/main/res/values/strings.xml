@@ -58,6 +58,8 @@
     <string name="feed_unknown_author">Autor desconhecido</string>
     <string name="feed_shared_by">de %1$s</string>
     <string name="feed_received_in">Recebido em %1$s</string>
+    <string name="feed_received_from">Recebido de %1$s</string>
+    <string name="feed_received_from_in">Recebido de %1$s em %2$s</string>
     <string name="feed_sent_in">Enviado por mim em %1$s</string>
     <string name="feed_open_in_ig">Abrir no Instagram</string>
     <string name="feed_no_url_yet">URL ainda não capturado (usar 🔗)</string>

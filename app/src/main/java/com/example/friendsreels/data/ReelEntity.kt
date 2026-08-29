@@ -7,14 +7,20 @@ import androidx.room.PrimaryKey
 /**
  * A Reel discovered inside an Instagram DM conversation.
  *
- * The identity of a Reel is not stable across scrolls (the `bubbleIndex`
- * shifts as the RecyclerView virtualizes), and we won't have the canonical
- * `reelUrl` until the user runs `ACTION_COPY_REEL_URL` on it (PoC-7). For
- * the PoC-8 first iteration we deduplicate by `(threadTitle, reelAuthor,
- * direction)` at insert time — good enough while we don't have URLs, at
- * the cost of collapsing multiple Reels from the same author in the same
- * conversation into a single row. This will move to URL-based dedup once
- * PoC-7 is integrated end-to-end.
+ * Two sources feed this table:
+ * - `ACTION_DISCOVER_REELS` (PoC-8): fast enumeration of what is visible
+ *   on screen. Only fills `threadTitle`, `reelAuthor`, `direction`, `kind`
+ *   and `bubbleIndex`. `reelUrl` and `dmSender` stay null.
+ * - `ACTION_COPY_REEL_URL` (PoC-7 + PoC-8): opens the Reel viewer to grab
+ *   the canonical share URL and the human sender (`dmSender`), then
+ *   inserts an enriched row here. If a row already exists for that URL,
+ *   the existing row is backfilled with `dmSender`.
+ *
+ * Deduplication:
+ * - Canonical: `reelUrl` unique index (used once we have URLs).
+ * - Discovery-time fallback: `(threadTitle, reelAuthor, direction)` check
+ *   inside the DAO to avoid inserting the same visible bubble twice
+ *   across successive discovery calls.
  */
 @Entity(
     tableName = "reels",
@@ -26,8 +32,22 @@ data class ReelEntity(
     /** Header title of the conversation where the Reel was found. */
     val threadTitle: String,
 
-    /** Original IG author of the Reel (`title_text` of the XMA container). */
+    /**
+     * Original IG author of the Reel (`title_text` of the XMA container,
+     * i.e. the account that posted the Reel on Instagram — NOT the DM
+     * sender).
+     */
     val reelAuthor: String?,
+
+    /**
+     * Human sender of the Reel inside the DM. In 1-a-1 chats this equals
+     * `threadTitle`. In groups this is the specific member who shared the
+     * Reel — captured from `sender_username_or_fullname` inside the Reel
+     * viewer (see [com.example.friendsreels.instagram.IgSelectors.ReelViewer]).
+     * Null when the Reel was only discovered via the fast enumeration and
+     * has not been opened yet.
+     */
+    val dmSender: String? = null,
 
     /** RECEIVED or SENT (see [com.example.friendsreels.instagram.Direction]). */
     val direction: String,
