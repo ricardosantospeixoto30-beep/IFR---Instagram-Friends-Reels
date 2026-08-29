@@ -45,7 +45,7 @@ Se precisares dos primitivos directos (reagir com ❤/😂, responder com 👀, 
 3. Para cada Reel que queres enriquecer com URL, ir até ele estar no topo e tocar **🔗**.
 4. Abrir o feed (tocar no corpo da notif, ou botão "Ver feed" na app). Podes ver o Reel dentro da app com **"▶ Ver Reel aqui"** (embed com autoplay) ou saltar para o IG nativo com **"↗ Abrir no Instagram nativo"**.
 5. Em cada card, tocar **Enfileirar ❤ / 😂 / 👀** conforme quiseres. Reacções e reply são dedup por card. Botão **✕ Cancelar acções pendentes deste Reel** limpa os pendentes desse card.
-6. Voltar ao Instagram, **certificar-se de que a conversa correcta está aberta**, tocar **▶** na notificação. O executor corre a fila em série. Rows para outras conversas ficam `FAILED` até a navegação por thread_id existir (PoC-9).
+6. Voltar ao Instagram (opcional — o batching agora navega entre conversas por ti), tocar **▶** na notificação. O executor agrupa a fila por conversa e visita cada thread uma vez, aplicando todas as acções pendentes.
 
 ## Broadcasts (opcional — testes via `adb`)
 
@@ -69,4 +69,4 @@ Todos os dumps de referência estão em `docs/screen-dumps/`.
 
 Ver `PROJECT_PROGRESS.md` — secção **"Estado atual"** e o último log de sessão.
 
-Resumo: PoCs 1→7 concluídos e validados. PoC-8 iterações 1, 2 e 3 (parte A batching, parte B history-scroll, parte C player WebView com embed + autoplay) todas fechadas. Próximo passo é o PoC-9 (navegação entre conversas para o executor de batching poder correr rows de múltiplas threads num único pass).
+Resumo: PoCs 1→7 concluídos e validados. PoC-8 iterações 1, 2 e 3 (parte A batching, parte B history-scroll, parte C player WebView com embed + autoplay) fechadas. PoC-9 iter 1 (navegação entre conversas via `header_title` na inbox) implementada — aguarda validação em device. Próximo passo depois disso: PoC-8 iter 4 (targeting por Reel específico dentro da thread).
