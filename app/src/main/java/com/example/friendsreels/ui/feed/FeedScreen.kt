@@ -3,6 +3,7 @@ package com.example.friendsreels.ui.feed
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.webkit.WebView
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,20 +13,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -42,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,12 +56,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.friendsreels.R
 import com.example.friendsreels.data.PendingActionEntity
 import com.example.friendsreels.data.ReelEntity
 import com.example.friendsreels.service.InstagramReaderService
 import com.example.friendsreels.ui.player.ReelPlayerActivity
+import com.example.friendsreels.ui.player.buildReelWebView
+import com.example.friendsreels.ui.player.toEmbedUrl
 import com.example.friendsreels.ui.settings.SettingsActivity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,24 +72,29 @@ import java.util.Locale
 
 /**
  * Full-screen Reels feed (spec §3). Uses a VerticalPager so each Reel
- * takes the whole screen and the user swipes up/down to navigate. The
- * pager is optionally inverted (swipe up = previous) via a setting,
- * matching spec §3 "definição opcional para inverter".
+ * takes the whole screen and the user swipes up/down to navigate,
+ * matching the native IG Reels experience.
  *
- * Each page renders:
- * - A dark hero area with the direction/state chips and a big central
- *   "▶ Ver Reel aqui" button that launches the WebView player.
- * - A metadata block at the bottom (author, sender, thread, date).
- * - Three action buttons for Reagir ❤ / 😂 / Responder — writing into
- *   `pending_actions`. Batching executes them all at once via the
- *   notification's "▶ Aplicar fila" button.
- * - A 3-dot menu (spec §12) with "Abrir Reel no Instagram nativo",
- *   "Abrir conversa no Instagram", "Cancelar pendentes deste Reel" and
- *   "Definições".
+ * Session 36: each page now hosts an **inline WebView** that auto-plays
+ * the Reel embed URL, replacing the "tap to play" button of s35. Only
+ * the current page's WebView is instantiated (Compose Pager keyeps
+ * off-screen pages composed but not rendered), so we don't blow up
+ * memory. When the user swipes away, the WebView is disposed and its
+ * Chromium session freed.
  *
- * The old batching status bar (pending count + "Limpar histórico") is
- * kept as a compact bottom overlay so the user still gets feedback on
- * how many actions are ready to apply.
+ * Reels without a URL (haven't been through the `🔗` capture pass yet)
+ * fall back to a placeholder telling the user to capture the URL. In a
+ * future iteration this will trigger an on-demand `ACTION_ENRICH_REEL_URL`
+ * that drives IG through the copy-link flow just for that Reel.
+ *
+ * Chip row (spec §7): shows direction (recebido/enviado), SEEN, the
+ * CURRENT reaction (single chip — IG only allows one reaction at a
+ * time), and REPLIED.
+ *
+ * 3-dot menu (spec §12): "Abrir Reel no Instagram nativo", "Cancelar
+ * acções pendentes", "Definições". The session-35 "Abrir conversa no
+ * Instagram" was removed because it only fired the launcher intent and
+ * needed manual navigation — no value over just opening IG.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,24 +136,19 @@ fun FeedScreen(invertSwipe: Boolean = false) {
             val pagerState = rememberPagerState(pageCount = { orderedReels.size })
             VerticalPager(
                 state = pagerState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                modifier = Modifier.fillMaxSize().padding(padding),
             ) { page ->
                 val reel = orderedReels[page]
                 val state = uiStates[reel.id] ?: ReelUiState()
+                val isCurrent = pagerState.currentPage == page ||
+                    pagerState.targetPage == page
                 ReelPage(
                     reel = reel,
                     state = state,
-                    onPlayInApp = {
-                        vm.markSeen(reel.id)
-                        openReelInPlayer(context, reel)
-                    },
-                    onOpenInInstagram = {
-                        vm.markSeen(reel.id)
-                        openReelInInstagram(context, reel)
-                    },
-                    onOpenThreadInInstagram = { openThreadInInstagram(context, reel) },
+                    isCurrent = isCurrent,
+                    onMarkSeen = { vm.markSeen(reel.id) },
+                    onOpenInInstagram = { openReelInInstagram(context, reel) },
+                    onOpenPlayer = { openReelInPlayer(context, reel) },
                     onQueueHeart = {
                         vm.enqueueReaction(reel, PendingActionEntity.KIND_REACT_HEART) { r ->
                             toastFor(context, r)
@@ -189,14 +190,9 @@ private fun ApplyPendingBar(
     onApply: () -> Unit,
     onClearTerminal: () -> Unit,
 ) {
-    Surface(
-        tonalElevation = 4.dp,
-        color = Color.Black.copy(alpha = 0.85f),
-    ) {
+    Surface(tonalElevation = 4.dp, color = Color.Black.copy(alpha = 0.85f)) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             if (pendingCount == 0) {
@@ -211,10 +207,7 @@ private fun ApplyPendingBar(
                 }
             }
             TextButton(onClick = onClearTerminal, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    stringResource(R.string.feed_clear_terminal),
-                    color = Color.White.copy(alpha = 0.7f),
-                )
+                Text(stringResource(R.string.feed_clear_terminal), color = Color.White.copy(alpha = 0.7f))
             }
         }
     }
@@ -223,11 +216,7 @@ private fun ApplyPendingBar(
 @Composable
 private fun EmptyState(padding: PaddingValues) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .padding(padding)
-            .padding(24.dp),
+        modifier = Modifier.fillMaxSize().background(Color.Black).padding(padding).padding(24.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -250,9 +239,10 @@ private fun EmptyState(padding: PaddingValues) {
 private fun ReelPage(
     reel: ReelEntity,
     state: ReelUiState,
-    onPlayInApp: () -> Unit,
+    isCurrent: Boolean,
+    onMarkSeen: () -> Unit,
     onOpenInInstagram: () -> Unit,
-    onOpenThreadInInstagram: () -> Unit,
+    onOpenPlayer: () -> Unit,
     onQueueHeart: () -> Unit,
     onQueueLaugh: () -> Unit,
     onQueueReply: (String) -> Unit,
@@ -262,21 +252,30 @@ private fun ReelPage(
     var menuOpen by remember { mutableStateOf(false) }
     var replyDialogOpen by remember { mutableStateOf(false) }
 
+    // Mark SEEN once when this page becomes current for the first time.
+    DisposableEffect(reel.id, isCurrent) {
+        if (isCurrent) onMarkSeen()
+        onDispose { }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF1A0033), Color(0xFF000000)),
-                )
+                Brush.verticalGradient(listOf(Color(0xFF1A0033), Color(0xFF000000)))
             )
     ) {
-        // Top-right 3-dot menu (spec §12).
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 8.dp, end = 8.dp),
-        ) {
+        // Video area — takes the whole background. Inline WebView when
+        // this is the current page and we have a URL; placeholder
+        // otherwise.
+        InlineReelPlayer(
+            reel = reel,
+            isCurrent = isCurrent,
+            onOpenPlayer = onOpenPlayer,
+        )
+
+        // Top-right 3-dot menu.
+        Box(modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp)) {
             IconButton(onClick = { menuOpen = true }) {
                 Icon(
                     Icons.Default.MoreVert,
@@ -284,18 +283,11 @@ private fun ReelPage(
                     tint = Color.White,
                 )
             }
-            DropdownMenu(
-                expanded = menuOpen,
-                onDismissRequest = { menuOpen = false },
-            ) {
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.feed_menu_open_in_ig)) },
                     enabled = !reel.reelUrl.isNullOrBlank(),
                     onClick = { menuOpen = false; onOpenInInstagram() },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.feed_menu_open_thread_in_ig)) },
-                    onClick = { menuOpen = false; onOpenThreadInInstagram() },
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.feed_menu_cancel_pending)) },
@@ -309,66 +301,42 @@ private fun ReelPage(
             }
         }
 
-        // Hero area (upper 55%): big play button + chips.
+        // Chips overlay under the top bar. State chips (seen, reaction,
+        // replied). Reserved space between the top app bar and the video.
         Column(
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .fillMaxHeight(0.55f)
-                .padding(horizontal = 24.dp, vertical = 56.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+                .align(Alignment.TopStart)
+                .padding(top = 12.dp, start = 16.dp),
         ) {
             StateChipRow(reel = reel, state = state)
-            Spacer(Modifier.height(24.dp))
-            if (!reel.reelUrl.isNullOrBlank()) {
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.15f))
-                        .clickable { onPlayInApp() }
-                        .padding(32.dp),
-                ) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = stringResource(R.string.feed_play_in_app),
-                        tint = Color.White,
-                        modifier = Modifier
-                            .width(72.dp)
-                            .height(72.dp),
-                    )
-                }
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = stringResource(R.string.feed_play_in_app),
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.feed_no_url_yet_hint),
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
         }
 
-        // Bottom area: metadata + actions.
-        Column(
+        // Bottom gradient scrim + metadata + actions.
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, Color(0xCC000000))
+                    )
+                ),
         ) {
-            MetadataBlock(reel)
-            ActionRow(
-                state = state,
-                onQueueHeart = onQueueHeart,
-                onQueueLaugh = onQueueLaugh,
-                onQueueReply = { replyDialogOpen = true },
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 24.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                MetadataBlock(reel)
+                ActionRow(
+                    state = state,
+                    onQueueHeart = onQueueHeart,
+                    onQueueLaugh = onQueueLaugh,
+                    onQueueReply = { replyDialogOpen = true },
+                )
+            }
         }
     }
 
@@ -384,13 +352,97 @@ private fun ReelPage(
     }
 }
 
+/**
+ * Inline WebView that auto-plays the Reel embed URL when this page is
+ * current. Off-current pages render a lightweight placeholder so we
+ * don't burn memory / battery on multiple Chromium instances.
+ *
+ * When the Reel has no `reelUrl` yet, shows a placeholder inviting the
+ * user to capture it via the `🔗` notification button. A future
+ * iteration will replace this with an on-demand enrichment trigger.
+ */
+@Composable
+private fun InlineReelPlayer(
+    reel: ReelEntity,
+    isCurrent: Boolean,
+    onOpenPlayer: () -> Unit,
+) {
+    val url = reel.reelUrl
+    if (url.isNullOrBlank()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = stringResource(R.string.feed_no_url_yet_title),
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.feed_no_url_yet_hint),
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 32.dp),
+                )
+            }
+        }
+        return
+    }
+    if (!isCurrent) {
+        // Off-current page: minimal placeholder. IG's own vertical feed
+        // does the same (pauses/blanks non-current pages).
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black))
+        return
+    }
+    // Current page + we have a URL → mount the WebView.
+    val embedUrl = remember(url) { toEmbedUrl(url) }
+    var webViewRef by remember(reel.id) { mutableStateOf<WebView?>(null) }
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize().clickable { onOpenPlayer() },
+            factory = { ctx ->
+                buildReelWebView(
+                    ctx,
+                    onReceivedError = { /* silent inline — full player handles errors */ },
+                ).apply {
+                    webViewRef = this
+                    loadUrl(embedUrl)
+                }
+            },
+        )
+    }
+    // Clean up Chromium session when we leave this page.
+    DisposableEffect(reel.id) {
+        onDispose {
+            webViewRef?.stopLoading()
+            webViewRef?.loadUrl("about:blank")
+            webViewRef?.onPause()
+            webViewRef?.destroy()
+            webViewRef = null
+        }
+    }
+}
+
 @Composable
 private fun StateChipRow(reel: ReelEntity, state: ReelUiState) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         DirectionChip(reel.direction)
         if (state.seen) StateChip(stringResource(R.string.feed_chip_seen), Color(0xFF3F51B5))
-        if (state.reactedHeart) StateChip(stringResource(R.string.feed_chip_reacted_heart), Color(0xFFC2185B))
-        if (state.reactedLaugh) StateChip(stringResource(R.string.feed_chip_reacted_laugh), Color(0xFFF57C00))
+        state.currentReaction?.let { kind ->
+            val label = when (kind) {
+                PendingActionEntity.KIND_REACT_HEART -> stringResource(R.string.feed_chip_reacted_heart)
+                PendingActionEntity.KIND_REACT_LAUGH -> stringResource(R.string.feed_chip_reacted_laugh)
+                else -> null
+            }
+            val bg = when (kind) {
+                PendingActionEntity.KIND_REACT_HEART -> Color(0xFFC2185B)
+                PendingActionEntity.KIND_REACT_LAUGH -> Color(0xFFF57C00)
+                else -> Color.Gray
+            }
+            if (label != null) StateChip(label, bg)
+        }
         if (state.replied) StateChip(stringResource(R.string.feed_chip_replied), Color(0xFF00695C))
     }
 }
@@ -458,6 +510,11 @@ private fun ActionRow(
     onQueueLaugh: () -> Unit,
     onQueueReply: () -> Unit,
 ) {
+    val heartHighlighted = state.currentReaction == PendingActionEntity.KIND_REACT_HEART ||
+        state.pendingHeart
+    val laughHighlighted = state.currentReaction == PendingActionEntity.KIND_REACT_LAUGH ||
+        state.pendingLaugh
+    val replyHighlighted = state.replied || state.pendingReply
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -466,7 +523,7 @@ private fun ActionRow(
             emoji = "❤",
             label = if (state.pendingHeart) stringResource(R.string.feed_action_queued)
             else stringResource(R.string.feed_action_react),
-            highlighted = state.reactedHeart || state.pendingHeart,
+            highlighted = heartHighlighted,
             enabled = !state.pendingHeart,
             onClick = onQueueHeart,
         )
@@ -474,7 +531,7 @@ private fun ActionRow(
             emoji = "😂",
             label = if (state.pendingLaugh) stringResource(R.string.feed_action_queued)
             else stringResource(R.string.feed_action_react),
-            highlighted = state.reactedLaugh || state.pendingLaugh,
+            highlighted = laughHighlighted,
             enabled = !state.pendingLaugh,
             onClick = onQueueLaugh,
         )
@@ -482,7 +539,7 @@ private fun ActionRow(
             emoji = "💬",
             label = if (state.pendingReply) stringResource(R.string.feed_action_queued)
             else stringResource(R.string.feed_action_reply),
-            highlighted = state.replied || state.pendingReply,
+            highlighted = replyHighlighted,
             enabled = !state.pendingReply,
             onClick = onQueueReply,
         )
@@ -504,7 +561,7 @@ private fun ActionButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val bg = if (highlighted) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.10f)
+    val bg = if (highlighted) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.12f)
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
@@ -591,31 +648,6 @@ private fun openReelInInstagram(context: Context, reel: ReelEntity) {
     val browserIntent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     try {
         context.startActivity(browserIntent)
-    } catch (_: Exception) {
-        Toast.makeText(context, R.string.feed_open_failed, Toast.LENGTH_SHORT).show()
-    }
-}
-
-/**
- * Best-effort "abrir conversa no Instagram" (spec §12/13). We don't have
- * a stable thread_id (see §6.2 of PROJECT_PROGRESS), so we open the IG
- * launcher intent and rely on the a11y service to navigate to the
- * correct thread when the user next fires an action. As a fallback we
- * at least bring IG to the foreground.
- */
-private fun openThreadInInstagram(context: Context, reel: ReelEntity) {
-    val launch = context.packageManager.getLaunchIntentForPackage("com.instagram.android")
-    if (launch == null) {
-        Toast.makeText(context, R.string.feed_open_failed, Toast.LENGTH_SHORT).show()
-        return
-    }
-    try {
-        context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        Toast.makeText(
-            context,
-            context.getString(R.string.feed_open_thread_hint, reel.threadTitle),
-            Toast.LENGTH_LONG,
-        ).show()
     } catch (_: Exception) {
         Toast.makeText(context, R.string.feed_open_failed, Toast.LENGTH_SHORT).show()
     }

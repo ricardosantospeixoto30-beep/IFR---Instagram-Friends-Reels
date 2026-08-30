@@ -1419,19 +1419,30 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     /**
-     * True when the Direct inbox is (probably) visible: the localized
-     * "Messages" title from [IgSelectors.Inbox.TITLE_MESSAGES] is present
-     * somewhere in the current IG windows. Cheap heuristic; may false-
-     * positive on transitions but that only means an extra retry.
+     * True when the Direct inbox is currently focused. Strict signal:
+     * the `direct_tab` bottom nav button must exist AND be marked
+     * selected. Previously (session 33) we used the presence of a
+     * "Mensagens" text node anywhere in the tree, but that false-
+     * positives on IG Home (which shows a "Notas" / stories rail with
+     * usernames — `clickInboxRow` then matched some random name prefix
+     * and clicked it, going nowhere, and the batch spent 10 attempts
+     * spinning on that click). Session-35 device log confirmed the
+     * failure mode (`docs/screen-dumps/feed.txt`).
+     *
+     * The tab is marked `isSelected=true` while the inbox is the active
+     * tab regardless of localization, so we don't need the label
+     * matching any more. If the bottom nav is hidden (e.g. we're inside
+     * a thread), `directTab` is null and we fall back to false — which
+     * correctly triggers the "click direct_tab" branch of the state
+     * machine.
      */
     private fun isInboxVisible(): Boolean {
         val root = rootInActiveWindow ?: return false
         if (root.packageName?.toString() != IgSelectors.IG_PACKAGE) return false
-        val labels = IgSelectors.Inbox.TITLE_MESSAGES
-        return findFirstNodeAcrossWindows { node ->
-            val t = node.text?.toString()?.trim()
-            !t.isNullOrEmpty() && labels.any { it.equals(t, ignoreCase = true) }
-        } != null
+        val targetId = IgSelectors.id(IgSelectors.BottomNav.DIRECT_TAB)
+        val directTab = findFirstNodeAcrossWindows { it.viewIdResourceName == targetId }
+            ?: return false
+        return directTab.isSelected
     }
 
     /** Click the Direct tab in the bottom navigation. Returns true on dispatch. */
@@ -2005,7 +2016,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s35"
+        private const val BUILD_TAG = "build=s36"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L

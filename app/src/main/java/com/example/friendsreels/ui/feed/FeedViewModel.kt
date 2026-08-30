@@ -22,11 +22,16 @@ import kotlinx.coroutines.launch
  * - [pendingHeart] / [pendingLaugh] / [pendingReply]: there is a
  *   `pending_actions` row still in `PENDING` for this Reel. Surfaced as
  *   the "❤ na fila" badges on the card.
- * - [reactedHeart] / [reactedLaugh]: at least one reaction of that kind
- *   has already been applied to the Reel (`DONE` PoC-8 row). MVP proxy
- *   for the spec's `REACTION_SENT`. Note: if the user later removes the
- *   reaction directly in IG, we don't detect it — that requires a
- *   REACTIONS_PILL sync pass which is out of scope for the current PoC.
+ * - [currentReaction]: the reaction that was most recently applied
+ *   ([PendingActionEntity.KIND_REACT_HEART] or `KIND_REACT_LAUGH`), or
+ *   null if no reaction has ever been sent through the feed. Instagram
+ *   allows only ONE reaction per message, so reacting a second time
+ *   REPLACES the previous one — we mirror that by keeping only the
+ *   latest [PendingActionEntity.executedAt] amongst `DONE` reactions.
+ *   Note: if the user later removes the reaction directly in IG, we
+ *   don't detect it. That requires reading the
+ *   `message_reactions_pill_container` in a sync pass which is out of
+ *   scope for the current PoC — see §6.2.
  * - [replied]: at least one reply has been applied (`DONE` row of
  *   `KIND_REPLY_TEXT`). Spec's `REPLIED`.
  * - [failedActions]: count of `FAILED` rows for this Reel — surfaced on
@@ -37,8 +42,7 @@ data class ReelUiState(
     val pendingHeart: Boolean = false,
     val pendingLaugh: Boolean = false,
     val pendingReply: Boolean = false,
-    val reactedHeart: Boolean = false,
-    val reactedLaugh: Boolean = false,
+    val currentReaction: String? = null,
     val replied: Boolean = false,
     val failedActions: Int = 0,
 )
@@ -79,13 +83,20 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
         val byReel = actions.groupBy { it.reelId }
         reelList.associate { reel ->
             val list = byReel[reel.id].orEmpty()
+            val latestReaction = list
+                .asSequence()
+                .filter {
+                    it.status == PendingActionEntity.STATUS_DONE &&
+                        (it.kind == PendingActionEntity.KIND_REACT_HEART ||
+                            it.kind == PendingActionEntity.KIND_REACT_LAUGH)
+                }
+                .maxByOrNull { it.executedAt ?: 0L }
             reel.id to ReelUiState(
                 seen = reel.id in seenSet,
                 pendingHeart = list.any { it.kind == PendingActionEntity.KIND_REACT_HEART && it.status == PendingActionEntity.STATUS_PENDING },
                 pendingLaugh = list.any { it.kind == PendingActionEntity.KIND_REACT_LAUGH && it.status == PendingActionEntity.STATUS_PENDING },
                 pendingReply = list.any { it.kind == PendingActionEntity.KIND_REPLY_TEXT && it.status == PendingActionEntity.STATUS_PENDING },
-                reactedHeart = list.any { it.kind == PendingActionEntity.KIND_REACT_HEART && it.status == PendingActionEntity.STATUS_DONE },
-                reactedLaugh = list.any { it.kind == PendingActionEntity.KIND_REACT_LAUGH && it.status == PendingActionEntity.STATUS_DONE },
+                currentReaction = latestReaction?.kind,
                 replied = list.any { it.kind == PendingActionEntity.KIND_REPLY_TEXT && it.status == PendingActionEntity.STATUS_DONE },
                 failedActions = list.count { it.status == PendingActionEntity.STATUS_FAILED },
             )

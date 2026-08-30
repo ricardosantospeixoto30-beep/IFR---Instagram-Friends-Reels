@@ -69,13 +69,6 @@ class SettingsActivity : ComponentActivity() {
                         onIgnoreSentChange = { v ->
                             prefs.edit().putBoolean(InstagramReaderService.PREF_IGNORE_SENT, v).apply()
                         },
-                        initialInvertSwipe = prefs.getBoolean(
-                            InstagramReaderService.PREF_INVERT_SWIPE,
-                            InstagramReaderService.PREF_INVERT_SWIPE_DEFAULT,
-                        ),
-                        onInvertSwipeChange = { v ->
-                            prefs.edit().putBoolean(InstagramReaderService.PREF_INVERT_SWIPE, v).apply()
-                        },
                         onFinish = { finish() },
                     )
                 }
@@ -89,12 +82,9 @@ class SettingsActivity : ComponentActivity() {
 private fun SettingsScreen(
     initialIgnoreSent: Boolean,
     onIgnoreSentChange: (Boolean) -> Unit,
-    initialInvertSwipe: Boolean,
-    onInvertSwipeChange: (Boolean) -> Unit,
     onFinish: () -> Unit,
 ) {
     var ignoreSent by remember { mutableStateOf(initialIgnoreSent) }
-    var invertSwipe by remember { mutableStateOf(initialInvertSwipe) }
     val context = LocalContext.current
 
     Scaffold(
@@ -118,15 +108,14 @@ private fun SettingsScreen(
                     onIgnoreSentChange(it)
                 },
             )
-            SettingToggle(
-                title = stringResource(R.string.settings_invert_swipe_title),
-                subtitle = stringResource(R.string.settings_invert_swipe_subtitle),
-                value = invertSwipe,
-                onChange = {
-                    invertSwipe = it
-                    onInvertSwipeChange(it)
-                },
-            )
+            // The "Inverter direção do swipe" toggle was removed from the UI
+            // in session 36 pending a visual indicator in the feed that
+            // shows which direction is "next" — the user's E6 feedback in
+            // session 35 was that flipping it without a hint made the feed
+            // disorienting. Preference key + default are kept alive in
+            // InstagramReaderService (PREF_INVERT_SWIPE / _DEFAULT) and the
+            // FeedActivity still reads them, so re-exposing the toggle in a
+            // future session is a one-line change here.
 
             HorizontalDivider()
 

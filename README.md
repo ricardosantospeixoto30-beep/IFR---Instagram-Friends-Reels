@@ -42,15 +42,14 @@ Se precisares dos primitivos directos (reagir com ❤/😂, responder com 👀, 
 
 1. Abrir uma conversa com Reels no Instagram.
 2. Puxar a barra de notificações → tocar **🔍** (só Reels visíveis) OU abrir a app e tocar **"📥 Descobrir histórico (scroll auto)"** (percorre a conversa para trás até 30 scrolls). A app persiste em BD tudo o que encontrar.
-3. Para cada Reel que queres enriquecer com URL, ir até ele estar no topo e tocar **🔗** na notificação.
-4. Abrir a app → **"▶ Abrir o meu feed"**. Feed vertical full-screen: swipe up/down entre Reels. Cada card mostra chips com o estado (`recebido/enviado`, `visto`, `❤/😂 reagido`, `💬 respondido`), autor, remetente na DM, data, e botão central para ver o Reel (embed com autoplay). Menu **⋮** com "Abrir Reel/conversa no Instagram nativo", "Cancelar pendentes", "Definições".
-5. Tocar em **❤ / 😂** → enfileira a reacção nesse Reel. Tocar em **💬** → abre dialog de resposta com texto configurável. Toast confirma "Ação enfileirada".
-6. Voltar ao Instagram (opcional — o batching navega entre conversas E procura o Reel específico dentro da thread via scroll), tocar **▶** na notificação. O executor agrupa a fila por conversa, visita cada thread uma vez, e dentro dela scrolla para trás até encontrar o Reel exacto antes de reagir/responder.
+3. Para cada Reel que queres reproduzir no feed, ir até ele estar visível na conversa e tocar **🔗** na notificação para capturar o URL.
+4. Abrir a app → **"▶ Abrir o meu feed"**. Feed vertical full-screen com auto-play (WebView embed por página). Swipe up/down entre Reels — cada um começa a tocar sozinho. Chips no topo mostram estado (`recebido/enviado`, `visto`, reacção actual, `respondido`). Menu **⋮**: "Abrir Reel no Instagram nativo", "Cancelar pendentes", "Definições".
+5. Tocar em **❤ / 😂** → enfileira a reacção nesse Reel (Instagram só permite uma reacção por mensagem; se enfileirares outra, a antiga é substituída). Tocar em **💬** → abre dialog com campo editável para escrever a resposta.
+6. Voltar ao Instagram (opcional — o batching agora navega **sozinho** entre conversas, mesmo partindo da Home do IG) e tocar **▶** na notificação. O executor agrupa a fila por conversa, visita cada thread uma vez, scrolla para trás se o Reel não está visível, e aplica reacção/resposta ao Reel correcto.
 
 ## Definições (⚙)
 
 - **Ignorar Reels enviados por mim** — quando ligado, as reacções e respostas só se aplicam a Reels que amigos enviaram.
-- **Inverter direção do swipe** — swipe UP passa a voltar ao Reel anterior (padrão: swipe UP = próximo Reel).
 - **Seleção de conversas** — placeholder, próxima iteração.
 - **Ferramentas de diagnóstico** — broadcasts directos para debug (equivalentes a `adb shell am broadcast`).
 

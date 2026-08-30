@@ -75,6 +75,7 @@
     <string name="feed_discovered_at">Descoberto a %1$s</string>
     <string name="feed_open_in_ig">Abrir no Instagram</string>
     <string name="feed_no_url_yet">URL ainda não capturado (usar 🔗)</string>
+    <string name="feed_no_url_yet_title">URL ainda não capturado</string>
     <string name="feed_no_url_yet_hint">Este Reel ainda não tem URL capturado. Volta ao Instagram, abre a conversa, e usa o botão 🔗 na notificação para capturar o URL antes de o poderes reproduzir aqui.</string>
     <string name="feed_open_failed">Não foi possível abrir o Reel</string>
     <string name="feed_open_thread_hint">Instagram aberto. Vai manualmente para a conversa \"%1$s\".</string>
