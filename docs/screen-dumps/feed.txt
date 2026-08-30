@@ -1,163 +1,27 @@
----------------------------- PROCESS STARTED (21001) for package com.example.friendsreels ----------------------------
-2026-08-30 22:32:35.834 21001-21001 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
-2026-08-30 22:32:35.835 21001-21001 IGReaderService         com.example.friendsreels             I  Action receiver registered (build=s36 heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH, reply=com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK, copyUrl=com.example.friendsreels.ACTION_COPY_REEL_URL, discover=com.example.friendsreels.ACTION_DISCOVER_REELS, history=com.example.friendsreels.ACTION_DISCOVER_REELS_HISTORY, applyPending=com.example.friendsreels.ACTION_APPLY_PENDING)
-2026-08-30 22:32:35.845 21001-21001 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-30 22:33:20.111 21001-21001 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
-2026-08-30 22:33:33.803 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.systemui', bringing Instagram to front.
-2026-08-30 22:33:35.924 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-30 22:33:35.981 21001-21001 IGReaderService         com.example.friendsreels             I  OPEN_REEL: target index=1 kind=portrait direction=RECEIVED author=souofiscal_cs2 bounds=[147,267][593,969] center=(370,618)
-2026-08-30 22:33:35.981 21001-21001 IGReaderService         com.example.friendsreels             I  COPY_LINK: pendingCopy=PendingCopy(threadTitle=Pedro Sardoeira, direction=RECEIVED, reelAuthor=souofiscal_cs2, kind=portrait, bubbleIndex=1, dmSender=null)
-2026-08-30 22:33:35.985 21001-21001 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
-2026-08-30 22:33:36.071 21001-21001 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
-2026-08-30 22:33:38.104 21001-21001 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
-2026-08-30 22:33:38.305 21001-21001 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
-2026-08-30 22:33:40.272 21001-21001 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
-2026-08-30 22:33:40.274 21001-21001 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
-2026-08-30 22:33:40.362 21001-21001 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
-2026-08-30 22:33:40.991 21001-21001 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
-2026-08-30 22:33:41.089 21001-21001 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DYYoqyLzniY/?igsi=OXR6NWN5bHUxeDNk'
-2026-08-30 22:33:41.103 21001-22854 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
-2026-08-30 22:35:05.567 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.systemui', bringing Instagram to front.
-2026-08-30 22:35:07.057 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-30 22:35:07.073 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: starting drain (currentThread='Pedro Sardoeira').
-2026-08-30 22:35:07.079 21001-22855 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: resolved 1 step(s) across 1 thread(s) to run.
-2026-08-30 22:35:07.891 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: step 1/1 needs navigation — current='Pedro Sardoeira' target='André Pinto'
-2026-08-30 22:35:07.905 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: attempt 1 stage=back-out (current='Pedro Sardoeira') dispatched=true target='André Pinto'
-2026-08-30 22:35:09.248 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: click inbox row 'André Pinto' returned true
-2026-08-30 22:35:09.248 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: attempt 2 stage=inbox-click dispatched=true target='André Pinto'
-2026-08-30 22:35:09.450 21001-21001 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='André Pinto'
-2026-08-30 22:35:10.269 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: arrived at 'André Pinto' (attemptsLeft=8).
-2026-08-30 22:35:11.784 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: step 1/1 actionId=49 kind=REACT_HEART reelId=41 thread='André Pinto' author=snax.cr7
-2026-08-30 22:35:11.862 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=snax.cr7
-2026-08-30 22:35:12.757 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=snax.cr7
-2026-08-30 22:35:13.655 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=snax.cr7
-2026-08-30 22:35:14.547 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=snax.cr7
-2026-08-30 22:35:15.471 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: matched reelId=41 author=snax.cr7 at index=1 bounds=[147,962][593,1764] (scrollsLeft=16, visibleReceived=3)
-2026-08-30 22:35:15.472 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target index=1 kind=portrait direction=RECEIVED author=snax.cr7 bounds=[147,962][593,1764] center=(370,1363) afterLongPress=TapReaction
-2026-08-30 22:35:15.489 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-30 22:35:16.097 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-30 22:35:17.593 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '❤' (desc in [❤Reação, ❤Reaction])
-2026-08-30 22:35:17.742 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: performAction(ACTION_CLICK) on emoji '❤' returned true bounds=[113,1151][229,1267]
-2026-08-30 22:35:17.993 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: drain finished (1 step(s) processed).
-2026-08-30 22:35:18.018 21001-21001 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-30 22:35:37.072 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-30 22:35:38.162 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-30 22:35:38.167 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: starting drain (currentThread='André Pinto').
-2026-08-30 22:35:38.173 21001-22854 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: resolved 1 step(s) across 1 thread(s) to run.
-2026-08-30 22:35:39.002 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: step 1/1 actionId=50 kind=REACT_LAUGH reelId=41 thread='André Pinto' author=snax.cr7
-2026-08-30 22:35:39.085 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: matched reelId=41 author=snax.cr7 at index=1 bounds=[147,962][593,1764] (scrollsLeft=20, visibleReceived=3)
-2026-08-30 22:35:39.085 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target index=1 kind=portrait direction=RECEIVED author=snax.cr7 bounds=[147,962][593,1764] center=(370,1363) afterLongPress=TapReaction
-2026-08-30 22:35:39.096 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-30 22:35:39.700 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-30 22:35:41.198 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '😂' (desc in [😂Reação, 😂Reaction])
-2026-08-30 22:35:41.372 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: performAction(ACTION_CLICK) on emoji '😂' returned true bounds=[237,1151][353,1267]
-2026-08-30 22:35:41.604 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: drain finished (1 step(s) processed).
-2026-08-30 22:35:41.622 21001-21001 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-30 22:37:20.823 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.systemui', bringing Instagram to front.
-2026-08-30 22:37:21.910 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-30 22:37:21.926 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: starting drain (currentThread='null').
-2026-08-30 22:37:21.935 21001-22854 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: resolved 2 step(s) across 2 thread(s) to run.
-2026-08-30 22:37:22.759 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: step 1/2 needs navigation — current='null' target='André Pinto'
-2026-08-30 22:37:22.878 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: attempt 1 stage=open-direct-tab dispatched=true target='André Pinto'
-2026-08-30 22:37:24.355 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: click inbox row 'André Pinto' returned true
-2026-08-30 22:37:24.355 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: attempt 2 stage=inbox-click dispatched=true target='André Pinto'
-2026-08-30 22:37:25.373 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: arrived at 'André Pinto' (attemptsLeft=8).
-2026-08-30 22:37:26.896 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: step 1/2 actionId=53 kind=REACT_HEART reelId=41 thread='André Pinto' author=snax.cr7
-2026-08-30 22:37:26.976 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=snax.cr7
-2026-08-30 22:37:27.883 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=snax.cr7
-2026-08-30 22:37:28.788 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=snax.cr7
-2026-08-30 22:37:29.672 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=snax.cr7
-2026-08-30 22:37:30.559 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: matched reelId=41 author=snax.cr7 at index=1 bounds=[147,962][593,1764] (scrollsLeft=16, visibleReceived=3)
-2026-08-30 22:37:30.559 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target index=1 kind=portrait direction=RECEIVED author=snax.cr7 bounds=[147,962][593,1764] center=(370,1363) afterLongPress=TapReaction
-2026-08-30 22:37:30.574 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-30 22:37:31.199 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-30 22:37:32.675 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '❤' (desc in [❤Reação, ❤Reaction])
-2026-08-30 22:37:32.862 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: performAction(ACTION_CLICK) on emoji '❤' returned true bounds=[113,1151][229,1267]
-2026-08-30 22:37:33.137 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: step 2/2 needs navigation — current='André Pinto' target='Pedro Sardoeira'
-2026-08-30 22:37:33.182 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: attempt 1 stage=back-out (current='André Pinto') dispatched=true target='Pedro Sardoeira'
-2026-08-30 22:37:34.647 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: click inbox row 'Pedro Sardoeira' returned true
-2026-08-30 22:37:34.648 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: attempt 2 stage=inbox-click dispatched=true target='Pedro Sardoeira'
-2026-08-30 22:37:34.812 21001-21001 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
-2026-08-30 22:37:35.663 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: arrived at 'Pedro Sardoeira' (attemptsLeft=8).
-2026-08-30 22:37:37.186 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: step 2/2 actionId=54 kind=REACT_LAUGH reelId=42 thread='Pedro Sardoeira' author=souofiscal_cs2
-2026-08-30 22:37:37.257 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: matched reelId=42 author=souofiscal_cs2 at index=1 bounds=[147,267][593,969] (scrollsLeft=20, visibleReceived=1)
-2026-08-30 22:37:37.258 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target index=1 kind=portrait direction=RECEIVED author=souofiscal_cs2 bounds=[147,267][593,969] center=(370,618) afterLongPress=TapReaction
-2026-08-30 22:37:37.279 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-30 22:37:37.899 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-30 22:37:39.381 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '😂' (desc in [😂Reação, 😂Reaction])
-2026-08-30 22:37:39.573 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: performAction(ACTION_CLICK) on emoji '😂' returned true bounds=[237,406][353,522]
-2026-08-30 22:37:39.785 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: drain finished (2 step(s) processed).
-2026-08-30 22:37:39.807 21001-21001 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-30 22:38:03.281 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.systemui', bringing Instagram to front.
-2026-08-30 22:38:04.992 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-30 22:38:05.014 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: starting drain (currentThread='null').
-2026-08-30 22:38:05.021 21001-22854 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: resolved 2 step(s) across 2 thread(s) to run.
-2026-08-30 22:38:05.838 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: step 1/2 needs navigation — current='null' target='Pedro Sardoeira'
-2026-08-30 22:38:06.024 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: attempt 1 stage=open-direct-tab dispatched=true target='Pedro Sardoeira'
-2026-08-30 22:38:07.653 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: click inbox row 'Pedro Sardoeira' returned true
-2026-08-30 22:38:07.654 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: attempt 2 stage=inbox-click dispatched=true target='Pedro Sardoeira'
-2026-08-30 22:38:08.668 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: arrived at 'Pedro Sardoeira' (attemptsLeft=8).
-2026-08-30 22:38:10.188 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: step 1/2 actionId=55 kind=REACT_HEART reelId=42 thread='Pedro Sardoeira' author=souofiscal_cs2
-2026-08-30 22:38:10.246 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: matched reelId=42 author=souofiscal_cs2 at index=1 bounds=[147,267][593,969] (scrollsLeft=20, visibleReceived=1)
-2026-08-30 22:38:10.246 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target index=1 kind=portrait direction=RECEIVED author=souofiscal_cs2 bounds=[147,267][593,969] center=(370,618) afterLongPress=TapReaction
-2026-08-30 22:38:10.272 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-30 22:38:10.876 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-30 22:38:12.375 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '❤' (desc in [❤Reação, ❤Reaction])
-2026-08-30 22:38:12.599 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: performAction(ACTION_CLICK) on emoji '❤' returned true bounds=[113,406][229,522]
-2026-08-30 22:38:12.803 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: step 2/2 needs navigation — current='Pedro Sardoeira' target='André Pinto'
-2026-08-30 22:38:12.835 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: attempt 1 stage=back-out (current='Pedro Sardoeira') dispatched=true target='André Pinto'
-2026-08-30 22:38:14.436 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: click inbox row 'André Pinto' returned true
-2026-08-30 22:38:14.436 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: attempt 2 stage=inbox-click dispatched=true target='André Pinto'
-2026-08-30 22:38:14.608 21001-21001 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='André Pinto'
-2026-08-30 22:38:15.455 21001-21001 IGReaderService         com.example.friendsreels             I  NAV: arrived at 'André Pinto' (attemptsLeft=8).
-2026-08-30 22:38:16.972 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: step 2/2 actionId=56 kind=REACT_LAUGH reelId=41 thread='André Pinto' author=snax.cr7
-2026-08-30 22:38:17.061 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=snax.cr7
-2026-08-30 22:38:17.991 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=snax.cr7
-2026-08-30 22:38:18.916 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=snax.cr7
-2026-08-30 22:38:19.846 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=snax.cr7
-2026-08-30 22:38:20.748 21001-21001 IGReaderService         com.example.friendsreels             I  LOCATE: matched reelId=41 author=snax.cr7 at index=1 bounds=[147,962][593,1764] (scrollsLeft=16, visibleReceived=3)
-2026-08-30 22:38:20.749 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: target index=1 kind=portrait direction=RECEIVED author=snax.cr7 bounds=[147,962][593,1764] center=(370,1363) afterLongPress=TapReaction
-2026-08-30 22:38:20.761 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: dispatchGesture accepted=true duration=600ms
-2026-08-30 22:38:21.379 21001-21001 IGReaderService         com.example.friendsreels             I  LONG_PRESS: gesture completed
-2026-08-30 22:38:22.864 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: looking for quick-reaction emoji '😂' (desc in [😂Reação, 😂Reaction])
-2026-08-30 22:38:23.010 21001-21001 IGReaderService         com.example.friendsreels             I  REACT: performAction(ACTION_CLICK) on emoji '😂' returned true bounds=[237,1151][353,1267]
-2026-08-30 22:38:23.265 21001-21001 IGReaderService         com.example.friendsreels             I  APPLY_PENDING: drain finished (2 step(s) processed).
-2026-08-30 22:38:23.291 21001-21001 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-30 22:38:59.123 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-30 22:38:59.998 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-30 22:39:00.135 21001-22854 IGReaderService         com.example.friendsreels             I  DISCOVER: thread='André Pinto' visibleReceived=3 visibleSent=1 ignoreSent=true kept=3 inserted=2 skipped=1 totalInDb=44
-2026-08-30 22:39:37.400 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-30 22:39:38.278 21001-21001 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-30 22:39:38.293 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: starting thread='André Pinto' ignoreSent=true
-2026-08-30 22:39:38.399 21001-22854 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=0 inserted=0 skipped=3 totalInsertedRun=0 consecutiveEmpty=1 totalInDb=44
-2026-08-30 22:39:38.438 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 1/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:39.319 21001-22854 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=1 inserted=0 skipped=1 totalInsertedRun=0 consecutiveEmpty=2 totalInDb=44
-2026-08-30 22:39:39.351 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 2/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:40.273 21001-22854 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=2 inserted=1 skipped=1 totalInsertedRun=1 consecutiveEmpty=0 totalInDb=45
-2026-08-30 22:39:40.314 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 3/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:41.224 21001-22854 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=3 inserted=2 skipped=1 totalInsertedRun=3 consecutiveEmpty=0 totalInDb=47
-2026-08-30 22:39:41.265 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 4/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:42.171 21001-22854 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=4 inserted=1 skipped=1 totalInsertedRun=4 consecutiveEmpty=0 totalInDb=48
-2026-08-30 22:39:42.208 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 5/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:43.114 21001-22854 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=5 inserted=1 skipped=1 totalInsertedRun=5 consecutiveEmpty=0 totalInDb=49
-2026-08-30 22:39:43.154 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 6/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:44.027 21001-22854 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=6 inserted=1 skipped=0 totalInsertedRun=6 consecutiveEmpty=0 totalInDb=50
-2026-08-30 22:39:44.073 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 7/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:44.936 21001-22854 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=7 inserted=0 skipped=2 totalInsertedRun=6 consecutiveEmpty=1 totalInDb=50
-2026-08-30 22:39:44.991 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 8/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:45.942 21001-22854 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=8 inserted=1 skipped=1 totalInsertedRun=7 consecutiveEmpty=0 totalInDb=51
-2026-08-30 22:39:45.979 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 9/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:46.894 21001-22854 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=9 inserted=1 skipped=1 totalInsertedRun=8 consecutiveEmpty=0 totalInDb=52
-2026-08-30 22:39:46.937 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 10/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:47.849 21001-22854 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=10 inserted=1 skipped=1 totalInsertedRun=9 consecutiveEmpty=0 totalInDb=53
-2026-08-30 22:39:47.906 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 11/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:48.845 21001-22855 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=11 inserted=2 skipped=1 totalInsertedRun=11 consecutiveEmpty=0 totalInDb=55
-2026-08-30 22:39:48.898 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 12/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:49.784 21001-22855 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=12 inserted=0 skipped=1 totalInsertedRun=11 consecutiveEmpty=1 totalInDb=55
-2026-08-30 22:39:49.842 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 13/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:50.761 21001-22855 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=13 inserted=0 skipped=0 totalInsertedRun=11 consecutiveEmpty=2 totalInDb=55
-2026-08-30 22:39:50.816 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 14/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-30 22:39:51.743 21001-22855 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=14 inserted=0 skipped=0 totalInsertedRun=11 consecutiveEmpty=3 totalInDb=55
-2026-08-30 22:39:51.759 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: stopping — 3 consecutive empty scrolls.
-2026-08-30 22:39:51.759 21001-21001 IGReaderService         com.example.friendsreels             I  HISTORY: finished — thread='André Pinto' scrolls=14 totalInsertedRun=11 totalSkippedRun=15
-2026-08-30 22:39:51.775 21001-21001 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+---------------------------- PROCESS STARTED (1041) for package com.example.friendsreels ----------------------------
+2026-08-30 22:59:01.843  1041-1041  IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
+2026-08-30 22:59:01.845  1041-1041  IGReaderService         com.example.friendsreels             I  Action receiver registered (build=s37 heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH, reply=com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK, copyUrl=com.example.friendsreels.ACTION_COPY_REEL_URL, discover=com.example.friendsreels.ACTION_DISCOVER_REELS, history=com.example.friendsreels.ACTION_DISCOVER_REELS_HISTORY, applyPending=com.example.friendsreels.ACTION_APPLY_PENDING, enrichUrl=com.example.friendsreels.ACTION_ENRICH_REEL_URL)
+2026-08-30 22:59:01.853  1041-1041  IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-08-30 22:59:18.447  1041-1041  IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
+2026-08-30 22:59:24.907  1041-1041  IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.systemui', bringing Instagram to front.
+2026-08-30 22:59:26.230  1041-1041  IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-30 22:59:26.314  1041-2714  IGReaderService         com.example.friendsreels             I  DISCOVER: thread='Pedro Sardoeira' visibleReceived=1 visibleSent=1 ignoreSent=true kept=1 inserted=1 skipped=0 totalInDb=1
+2026-08-30 22:59:43.688  1041-1041  IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-30 22:59:44.551  1041-1041  IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-30 22:59:44.571  1041-1041  IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=1 author=souofiscal_cs2 thread='Pedro Sardoeira' current='Pedro Sardoeira'
+2026-08-30 22:59:44.628  1041-1041  IGReaderService         com.example.friendsreels             I  LOCATE: matched reelId=1 author=souofiscal_cs2 at index=1 bounds=[147,267][593,969] (scrollsLeft=20, visibleReceived=1)
+2026-08-30 22:59:44.645  1041-1041  IGReaderService         com.example.friendsreels             I  ENRICH_URL: located reelId=1, tapping to open viewer. pendingCopy=PendingCopy(threadTitle=Pedro Sardoeira, direction=RECEIVED, reelAuthor=souofiscal_cs2, kind=portrait, bubbleIndex=1, dmSender=null)
+2026-08-30 22:59:44.651  1041-1041  IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-08-30 22:59:44.739  1041-1041  IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-08-30 22:59:46.763  1041-1041  IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-08-30 22:59:46.939  1041-1041  IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-08-30 22:59:48.894  1041-1041  IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-08-30 22:59:48.897  1041-1041  IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-08-30 22:59:48.985  1041-1041  IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-08-30 22:59:49.620  1041-1041  IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-08-30 22:59:49.706  1041-1041  IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DYYoqyLzniY/?igsi=OXR6NWN5bHUxeDNk'
+2026-08-30 22:59:49.718  1041-2711  IGReaderService         com.example.friendsreels             I  COPY_LINK: promoted 1 discovery-only row(s) to enriched (thread='Pedro Sardoeira' author=souofiscal_cs2 direction=RECEIVED dmSender=Pedro Sardoeira) totalInDb=1.
+2026-08-30 23:00:39.185  1041-1041  IGReaderService         com.example.friendsreels             D  Tracked last conversation title='André Pinto'
+2026-08-30 23:00:47.056  1041-1041  IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.systemui', bringing Instagram to front.
+2026-08-30 23:00:48.367  1041-1041  IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-30 23:00:48.417  1041-2711  IGReaderService         com.example.friendsreels             I  DISCOVER: thread='André Pinto' visibleReceived=1 visibleSent=1 ignoreSent=true kept=1 inserted=1 skipped=0 totalInDb=2
