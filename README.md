@@ -66,6 +66,7 @@ adb shell am broadcast -a com.example.friendsreels.ACTION_DISCOVER_REELS
 adb shell am broadcast -a com.example.friendsreels.ACTION_DISCOVER_REELS_HISTORY
 adb shell am broadcast -a com.example.friendsreels.ACTION_COPY_REEL_URL
 adb shell am broadcast -a com.example.friendsreels.ACTION_APPLY_PENDING
+adb shell am broadcast -a com.example.friendsreels.ACTION_ENRICH_REEL_URL --el reel_id 1
 adb shell am broadcast -a com.example.friendsreels.ACTION_REACT_HEART
 adb shell am broadcast -a com.example.friendsreels.ACTION_REACT_LAUGH
 adb shell am broadcast -a com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK
@@ -77,6 +78,6 @@ Todos os dumps de referência estão em `docs/screen-dumps/`.
 
 ## Estado atual
 
-Ver `PROJECT_PROGRESS.md` — secção **"Estado atual"** e o último log de sessão.
+Ver `PROJECT_PROGRESS.md` — secção **"Estado atual"** e o último log de sessão. Log histórico das sessões 1-32 em `docs/session-log-archive.md`.
 
-Resumo: PoCs 1→7 concluídos. PoC-8 iters 1-4 e PoC-9 iter 1 fechadas. **s35** entregou o feed alinhado com a visão (VerticalPager, reply real, estados, menu, definições). **s36** validada em device: auto-play inline + fix E7 + chip único de reacção. **s37** entregou enrichment on-demand de URL + seleção de conversas (spec §8). Instruções de teste passo-a-passo em `PROJECT_PROGRESS.md` §8.
+**Resumo (fim s37):** MVP tem todos os pilares da spec cobertos e validados em device — feed vertical com auto-play (§3), reagir (§4), responder com texto real (§5), estados por Reel (§7), seleção de conversas (§8), menu 3-pontinhos (§12), definições (§11), descoberta manual + histórico (§9 da spec), enrichment automático de URL. Próxima sessão arranca da §6.1 do PROJECT_PROGRESS.
