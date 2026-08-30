@@ -1,6 +1,8 @@
 package com.example.friendsreels.ui.feed
 
 import android.app.Application
+import android.content.Intent
+import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.friendsreels.data.AppDatabase
@@ -8,9 +10,14 @@ import com.example.friendsreels.data.PendingActionDao
 import com.example.friendsreels.data.PendingActionEntity
 import com.example.friendsreels.data.ReelDao
 import com.example.friendsreels.data.ReelEntity
+import com.example.friendsreels.data.TrackedThreadDao
+import com.example.friendsreels.data.TrackedThreadEntity
+import com.example.friendsreels.service.InstagramReaderService
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -63,9 +70,72 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     private val dao: ReelDao = AppDatabase.get(app).reelDao()
     private val pendingDao: PendingActionDao = AppDatabase.get(app).pendingActionDao()
+    private val trackedDao: TrackedThreadDao = AppDatabase.get(app).trackedThreadDao()
+    private val prefs: SharedPreferences = app.getSharedPreferences(
+        InstagramReaderService.PREFS_NAME,
+        android.content.Context.MODE_PRIVATE,
+    )
 
-    val reels: StateFlow<List<ReelEntity>> = dao.observeAll()
+    /**
+     * Live snapshot of the selection mode (spec §8). Uses a
+     * SharedPreferences change listener so switching mode in the
+     * Settings screen updates the feed immediately.
+     */
+    private val selectionMode: StateFlow<String> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
+            if (key == InstagramReaderService.PREF_SELECTION_MODE) {
+                trySend(
+                    p.getString(
+                        InstagramReaderService.PREF_SELECTION_MODE,
+                        InstagramReaderService.PREF_SELECTION_MODE_DEFAULT,
+                    ) ?: InstagramReaderService.PREF_SELECTION_MODE_DEFAULT
+                )
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        trySend(
+            prefs.getString(
+                InstagramReaderService.PREF_SELECTION_MODE,
+                InstagramReaderService.PREF_SELECTION_MODE_DEFAULT,
+            ) ?: InstagramReaderService.PREF_SELECTION_MODE_DEFAULT
+        )
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        InstagramReaderService.PREF_SELECTION_MODE_DEFAULT,
+    )
+
+    private val trackedTitles: StateFlow<Set<String>> = trackedDao.observeTitles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .let { titlesFlow ->
+            kotlinx.coroutines.flow.MutableStateFlow(emptySet<String>()).also { out ->
+                viewModelScope.launch {
+                    titlesFlow.collect { list -> out.value = list.toSet() }
+                }
+            }
+        }
+
+    /**
+     * Live-filtered list of Reels shown on the feed. Applies the
+     * selection mode filter over the raw `reels` table:
+     * - NONE → show everything
+     * - INCLUDE_ONLY → keep only Reels whose `threadTitle` is in the
+     *   tracked set
+     * - EXCLUDE_SELECTED → drop Reels whose `threadTitle` is in the
+     *   tracked set
+     */
+    val reels: StateFlow<List<ReelEntity>> = combine(
+        dao.observeAll(),
+        trackedTitles,
+        selectionMode,
+    ) { list, tracked, mode ->
+        when (mode) {
+            InstagramReaderService.SELECTION_MODE_INCLUDE_ONLY -> list.filter { it.threadTitle in tracked }
+            InstagramReaderService.SELECTION_MODE_EXCLUDE_SELECTED -> list.filter { it.threadTitle !in tracked }
+            else -> list
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val pendingCount: StateFlow<Int> = pendingDao.observePendingCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
@@ -109,6 +179,22 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearAll() {
         viewModelScope.launch { dao.clearAll() }
+    }
+
+    /**
+     * Fire the [InstagramReaderService.ACTION_ENRICH_REEL_URL] broadcast
+     * for the given [reelId]. The service drives IG to the thread,
+     * scrolls to the specific Reel, opens the viewer, and captures the
+     * URL via the existing copy-link chain. On success the URL is
+     * backfilled into the row and the feed's WebView will pick it up
+     * on the next recomposition.
+     */
+    fun requestUrlEnrichment(reelId: Long) {
+        val ctx = getApplication<Application>()
+        val intent = Intent(InstagramReaderService.ACTION_ENRICH_REEL_URL)
+            .setPackage(ctx.packageName)
+            .putExtra(InstagramReaderService.EXTRA_REEL_ID, reelId)
+        ctx.sendBroadcast(intent)
     }
 
     /**

@@ -161,6 +161,11 @@ class InstagramReaderService : AccessibilityService() {
                     ACTION_DISCOVER_REELS -> runInInstagram { discoverReels() }
                     ACTION_DISCOVER_REELS_HISTORY -> runInInstagram { discoverReelsHistory() }
                     ACTION_APPLY_PENDING -> runInInstagram { applyPendingActions() }
+                    ACTION_ENRICH_REEL_URL -> {
+                        val reelId = intent.getLongExtra(EXTRA_REEL_ID, -1L)
+                        if (reelId > 0) runInInstagram { enrichReelUrl(reelId) }
+                        else Log.w(TAG, "ENRICH_URL: missing/invalid $EXTRA_REEL_ID extra")
+                    }
                 }
             }
         }
@@ -173,6 +178,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_DISCOVER_REELS)
             addAction(ACTION_DISCOVER_REELS_HISTORY)
             addAction(ACTION_APPLY_PENDING)
+            addAction(ACTION_ENRICH_REEL_URL)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -186,7 +192,8 @@ class InstagramReaderService : AccessibilityService() {
             "Action receiver registered ($BUILD_TAG heart=$ACTION_REACT_HEART, " +
                 "laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
                 "copyUrl=$ACTION_COPY_REEL_URL, discover=$ACTION_DISCOVER_REELS, " +
-                "history=$ACTION_DISCOVER_REELS_HISTORY, applyPending=$ACTION_APPLY_PENDING)"
+                "history=$ACTION_DISCOVER_REELS_HISTORY, applyPending=$ACTION_APPLY_PENDING, " +
+                "enrichUrl=$ACTION_ENRICH_REEL_URL)"
         )
     }
 
@@ -510,6 +517,21 @@ class InstagramReaderService : AccessibilityService() {
         )
         Log.i(TAG, "COPY_LINK: pendingCopy=$pendingCopy")
 
+        dispatchOpenReelViewerTap(bounds)
+    }
+
+    /**
+     * Dispatch the short tap gesture on [bounds] to open the Reel
+     * viewer and schedule [tapShareInReelViewer] after the viewer
+     * settle window. Extracted from [openFirstReelViewer] so the
+     * on-demand URL enrichment path (session 37) can call it directly
+     * after locating a specific target via [locateReelWithScroll].
+     *
+     * Callers must set [pendingCopy] BEFORE calling this, since the
+     * clipboard capture broadcast that eventually persists the URL
+     * consults `pendingCopy` for the thread/author/direction key.
+     */
+    private fun dispatchOpenReelViewerTap(bounds: Rect) {
         val path = Path().apply { moveTo(bounds.exactCenterX(), bounds.exactCenterY()) }
         val stroke = GestureDescription.StrokeDescription(path, 0L, TAP_DURATION_MS)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
@@ -1682,6 +1704,93 @@ class InstagramReaderService : AccessibilityService() {
         }
     }
 
+    // -------------------------------------------------------------------
+    // On-demand URL enrichment (session 37) — ACTION_ENRICH_REEL_URL
+    // -------------------------------------------------------------------
+
+    /**
+     * Enrich a specific [reelId] with its canonical share URL. Combines
+     * the PoC-9 navigation with the PoC-8 iter 4 scroll-to-locate and the
+     * PoC-7 copy-link primitive: nav to thread → locate bubble by author
+     * → tap to open viewer → let the existing chain (share sheet → copy
+     * link → clipboard bridge → [handleClipboardCaptured]) persist the
+     * URL back into the row via [ReelDao.promoteDiscoveryRow].
+     *
+     * Fires from the feed's per-page "🔗 Preparar Reel" button when the
+     * user lands on a Reel that hasn't been through the copy-link pass
+     * yet. Failure paths (Reel row deleted, IG missing, thread renamed,
+     * bubble not in history, share sheet doesn't have "Copy link") all
+     * log-and-give-up silently — the placeholder stays and the user can
+     * try again or manually open the IG conversation.
+     */
+    private fun enrichReelUrl(reelId: Long) {
+        serviceScope.launch {
+            val reel = AppDatabase.get(this@InstagramReaderService).reelDao().byId(reelId)
+            if (reel == null) {
+                Log.w(TAG, "ENRICH_URL: reelId=$reelId not in DB, ignoring.")
+                return@launch
+            }
+            if (!reel.reelUrl.isNullOrBlank()) {
+                Log.i(TAG, "ENRICH_URL: reelId=$reelId already has a URL, ignoring.")
+                return@launch
+            }
+            mainHandler.post { startEnrichmentForReel(reel) }
+        }
+    }
+
+    /**
+     * Main-thread entry after we've resolved the Reel row. Navigates to
+     * the correct thread and then locates the bubble.
+     */
+    private fun startEnrichmentForReel(reel: ReelEntity) {
+        Log.i(
+            TAG,
+            "ENRICH_URL: starting for reelId=${reel.id} author=${reel.reelAuthor} " +
+                "thread='${reel.threadTitle}' current='${currentHeaderTitle()}'"
+        )
+        val currentHeader = currentHeaderTitle()
+        if (currentHeader == reel.threadTitle) {
+            locateAndOpenReelViewer(reel)
+        } else {
+            navigateToThreadAsync(reel.threadTitle, attemptsLeft = NAV_MAX_ATTEMPTS) { navOk ->
+                if (!navOk) {
+                    Log.w(TAG, "ENRICH_URL: nav to '${reel.threadTitle}' failed, giving up reelId=${reel.id}")
+                    return@navigateToThreadAsync
+                }
+                mainHandler.postDelayed({ locateAndOpenReelViewer(reel) }, NAV_POST_ARRIVAL_SETTLE_MS)
+            }
+        }
+    }
+
+    private fun locateAndOpenReelViewer(reel: ReelEntity) {
+        locateReelWithScroll(reel, scrollsLeft = BATCH_MAX_SCROLLS) { entry ->
+            if (entry == null) {
+                Log.w(TAG, "ENRICH_URL: could not locate Reel author=${reel.reelAuthor} in '${reel.threadTitle}', giving up reelId=${reel.id}")
+                return@locateReelWithScroll
+            }
+            // Guard against off-screen taps.
+            val windowBounds = findIgApplicationWindow()?.let { w ->
+                Rect().also { w.getBoundsInScreen(it) }
+            }
+            if (windowBounds != null && !windowBounds.contains(entry.bounds.centerX(), entry.bounds.centerY())) {
+                Log.w(TAG, "ENRICH_URL: bubble center outside IG window bounds — refusing to tap off-screen.")
+                return@locateReelWithScroll
+            }
+            // Set pendingCopy BEFORE tapping so the clipboard bridge can
+            // resolve the correct DB row via promoteDiscoveryRow (matched
+            // by threadTitle + reelAuthor + direction).
+            pendingCopy = PendingCopy(
+                threadTitle = reel.threadTitle,
+                direction = entry.direction,
+                reelAuthor = entry.reelAuthor ?: reel.reelAuthor,
+                kind = entry.kind,
+                bubbleIndex = entry.index,
+            )
+            Log.i(TAG, "ENRICH_URL: located reelId=${reel.id}, tapping to open viewer. pendingCopy=$pendingCopy")
+            dispatchOpenReelViewerTap(Rect(entry.bounds))
+        }
+    }
+
     /**
      * Entry point for `ACTION_APPLY_PENDING`. Reads the pending queue on
      * the IO scope, then hops back to the main handler to execute each
@@ -2016,7 +2125,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s36"
+        private const val BUILD_TAG = "build=s37"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -2160,6 +2269,25 @@ class InstagramReaderService : AccessibilityService() {
         const val ACTION_CLIPBOARD_CAPTURED = "com.example.friendsreels.ACTION_CLIPBOARD_CAPTURED"
         const val EXTRA_CLIPBOARD_TEXT = "clipboard_text"
 
+        /**
+         * Capture the URL of a SPECIFIC Reel already in the DB (spec §3 —
+         * "Reels antigos já existentes nas conversas, sem ter de os
+         * reenviar manualmente"). Bring IG to front, navigate to the
+         * Reel's thread via [navigateToThreadAsync], find the exact
+         * bubble by `reelAuthor` via [locateReelWithScroll], tap it to
+         * open the viewer, then let the existing copy-link chain
+         * ([tapShareInReelViewer] → [clickCopyLinkInShareSheet] → clip-
+         * board bridge → [handleClipboardCaptured]) do the persistence.
+         *
+         * Fires with:
+         *   Intent(ACTION_ENRICH_REEL_URL).putExtra(EXTRA_REEL_ID, id)
+         *
+         * Used by the feed's "🔗 Preparar Reel" button that appears on
+         * a page whose Reel has no `reelUrl` yet.
+         */
+        const val ACTION_ENRICH_REEL_URL = "com.example.friendsreels.ACTION_ENRICH_REEL_URL"
+        const val EXTRA_REEL_ID = "reel_id"
+
         /** SharedPreferences file shared between the UI and the service. */
         const val PREFS_NAME = "friends_reels_prefs"
 
@@ -2179,6 +2307,25 @@ class InstagramReaderService : AccessibilityService() {
          */
         const val PREF_INVERT_SWIPE = "invert_swipe_direction"
         const val PREF_INVERT_SWIPE_DEFAULT = false
+
+        /**
+         * Selection mode for the feed (spec §8). Controls whether the
+         * `tracked_threads` list is used as a whitelist or a blacklist:
+         * - [SELECTION_MODE_NONE]: no filter — feed shows every Reel.
+         * - [SELECTION_MODE_INCLUDE_ONLY]: only Reels whose
+         *   `threadTitle` matches a row in `tracked_threads`.
+         * - [SELECTION_MODE_EXCLUDE_SELECTED]: every Reel except those
+         *   from tracked threads.
+         *
+         * Default: [SELECTION_MODE_NONE] — on first launch nothing is
+         * hidden until the user explicitly picks a mode + selects
+         * threads on the Settings screen.
+         */
+        const val PREF_SELECTION_MODE = "selection_mode"
+        const val SELECTION_MODE_NONE = "NONE"
+        const val SELECTION_MODE_INCLUDE_ONLY = "INCLUDE_ONLY"
+        const val SELECTION_MODE_EXCLUDE_SELECTED = "EXCLUDE_SELECTED"
+        const val PREF_SELECTION_MODE_DEFAULT = SELECTION_MODE_NONE
 
         private const val NOTIF_CHANNEL_ID = "friends_reels_controls"
         private const val NOTIF_ID = 1001

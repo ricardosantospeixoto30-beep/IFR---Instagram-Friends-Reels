@@ -41,17 +41,21 @@ Se precisares dos primitivos directos (reagir com ❤/😂, responder com 👀, 
 ## Fluxo recomendado
 
 1. Abrir uma conversa com Reels no Instagram.
-2. Puxar a barra de notificações → tocar **🔍** (só Reels visíveis) OU abrir a app e tocar **"📥 Descobrir histórico (scroll auto)"** (percorre a conversa para trás até 30 scrolls). A app persiste em BD tudo o que encontrar.
-3. Para cada Reel que queres reproduzir no feed, ir até ele estar visível na conversa e tocar **🔗** na notificação para capturar o URL.
-4. Abrir a app → **"▶ Abrir o meu feed"**. Feed vertical full-screen com auto-play (WebView embed por página). Swipe up/down entre Reels — cada um começa a tocar sozinho. Chips no topo mostram estado (`recebido/enviado`, `visto`, reacção actual, `respondido`). Menu **⋮**: "Abrir Reel no Instagram nativo", "Cancelar pendentes", "Definições".
-5. Tocar em **❤ / 😂** → enfileira a reacção nesse Reel (Instagram só permite uma reacção por mensagem; se enfileirares outra, a antiga é substituída). Tocar em **💬** → abre dialog com campo editável para escrever a resposta.
-6. Voltar ao Instagram (opcional — o batching agora navega **sozinho** entre conversas, mesmo partindo da Home do IG) e tocar **▶** na notificação. O executor agrupa a fila por conversa, visita cada thread uma vez, scrolla para trás se o Reel não está visível, e aplica reacção/resposta ao Reel correcto.
+2. Puxar a barra de notificações → tocar **🔍** (só Reels visíveis) OU abrir a app e tocar **"📥 Descobrir histórico (scroll auto)"**. A app persiste em BD tudo o que encontrar.
+3. Abrir a app → **"▶ Abrir o meu feed"**. Feed vertical full-screen com auto-play (WebView embed por página). Se algum Reel ainda não tem URL, aparece um placeholder com **"🔗 Preparar Reel"** — tocar dispara enrichment automático (IG abre, encontra o Reel, copia o URL, volta) e o vídeo passa a fazer auto-play.
+4. Swipe up/down entre Reels. Chips mostram estado (`recebido/enviado`, `visto`, reacção actual, `respondido`). Menu **⋮**: "Abrir Reel no Instagram nativo", "Cancelar pendentes", "Definições".
+5. Tocar em **❤ / 😂** → enfileira a reacção (IG só permite uma reacção por mensagem; se enfileirares outra, a antiga é substituída). Tocar em **💬** → dialog editável para escrever a resposta.
+6. Baixar notif → **▶ Aplicar fila**. O executor agrupa por conversa, navega **sozinho** (mesmo partindo da Home do IG), scrolla para trás se preciso e aplica reacção/resposta ao Reel correcto.
 
 ## Definições (⚙)
 
-- **Ignorar Reels enviados por mim** — quando ligado, as reacções e respostas só se aplicam a Reels que amigos enviaram.
-- **Seleção de conversas** — placeholder, próxima iteração.
-- **Ferramentas de diagnóstico** — broadcasts directos para debug (equivalentes a `adb shell am broadcast`).
+- **Ignorar Reels enviados por mim** — reacções/respostas só afectam Reels que amigos enviaram.
+- **Filtrar conversas no feed** (spec §8): 3 modos —
+  - **Ver tudo** (default): sem filtro.
+  - **Apenas as selecionadas**: feed só mostra Reels das threads escolhidas.
+  - **Todas EXCEPTO as selecionadas**: feed esconde Reels das threads escolhidas.
+  A lista de threads descobertas aparece com checkboxes e contagem de Reels por thread.
+- **Ferramentas de diagnóstico** — broadcasts directos para debug.
 
 ## Broadcasts (opcional — testes via `adb`)
 
@@ -75,4 +79,4 @@ Todos os dumps de referência estão em `docs/screen-dumps/`.
 
 Ver `PROJECT_PROGRESS.md` — secção **"Estado atual"** e o último log de sessão.
 
-Resumo: PoCs 1→7 concluídos. PoC-8 iterações 1-3 (batching, history-scroll, player embed) e iter 4 (localizar Reel por autor + scroll) fechadas. PoC-9 iter 1 (nav cross-thread) validada em device. **Sessão 35 (iteração grande)** entregou o feed VerticalPager full-screen (spec §3), reply real com texto (§5), estados por Reel (§7), menu 3-pontinhos (§12), ecrã Definições (§11), Home limpa. Aguarda validação end-to-end — instruções passo-a-passo em `PROJECT_PROGRESS.md` §8.
+Resumo: PoCs 1→7 concluídos. PoC-8 iters 1-4 e PoC-9 iter 1 fechadas. **s35** entregou o feed alinhado com a visão (VerticalPager, reply real, estados, menu, definições). **s36** validada em device: auto-play inline + fix E7 + chip único de reacção. **s37** entregou enrichment on-demand de URL + seleção de conversas (spec §8). Instruções de teste passo-a-passo em `PROJECT_PROGRESS.md` §8.

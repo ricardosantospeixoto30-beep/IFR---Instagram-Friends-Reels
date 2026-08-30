@@ -5,6 +5,9 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,12 +18,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -28,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.friendsreels.R
 import com.example.friendsreels.service.InstagramReaderService
@@ -43,17 +51,20 @@ import com.example.friendsreels.service.InstagramReaderService
 /**
  * Settings screen (spec §11). Currently exposes:
  *
- * - Ignorar Reels enviados por mim (`PREF_IGNORE_SENT`).
- * - Inverter direção do swipe no feed (`PREF_INVERT_SWIPE`).
- * - Placeholder para "seleção de conversas" (spec §8) — próxima iteração.
+ * - Ignore Reels I sent myself (`PREF_IGNORE_SENT`).
+ * - Conversation selection (spec §8) with 3 modes: Ver tudo /
+ *   Apenas selecionadas / Excluir selecionadas — with the discovered
+ *   thread list rendered as a checkbox list with Reel counts.
+ * - Ferramentas de diagnóstico — direct broadcast buttons that used to
+ *   clutter the Home screen (PoC-tools; may go away in v1).
  *
- * Also provides shortcut buttons for the diagnostic actions that used to
- * clutter the Home screen: 🔍 Descobrir, 📥 Descobrir histórico, 🔗 Copiar
- * URL do 1.º Reel, ❤ / 😂 / 👀 no 1.º Reel visível. These are POC-tools
- * and probably going away in v1; kept behind the settings screen so the
- * Home stays focused on the vision.
+ * The "Inverter direção do swipe" toggle from s35 stays out until we
+ * have a visual indicator of direction in the feed (see PROJECT_
+ * PROGRESS §6.2). Preference key is still maintained in the service.
  */
 class SettingsActivity : ComponentActivity() {
+
+    private val vm: SettingsViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +73,7 @@ class SettingsActivity : ComponentActivity() {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     SettingsScreen(
+                        vm = vm,
                         initialIgnoreSent = prefs.getBoolean(
                             InstagramReaderService.PREF_IGNORE_SENT,
                             InstagramReaderService.PREF_IGNORE_SENT_DEFAULT,
@@ -80,12 +92,17 @@ class SettingsActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsScreen(
+    vm: SettingsViewModel,
     initialIgnoreSent: Boolean,
     onIgnoreSentChange: (Boolean) -> Unit,
     onFinish: () -> Unit,
 ) {
     var ignoreSent by remember { mutableStateOf(initialIgnoreSent) }
     val context = LocalContext.current
+
+    val selectionMode by vm.selectionMode.collectAsState()
+    val trackedTitles by vm.trackedTitles.collectAsState()
+    val threadCounts by vm.threadCounts.collectAsState()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) },
@@ -108,25 +125,51 @@ private fun SettingsScreen(
                     onIgnoreSentChange(it)
                 },
             )
-            // The "Inverter direção do swipe" toggle was removed from the UI
-            // in session 36 pending a visual indicator in the feed that
-            // shows which direction is "next" — the user's E6 feedback in
-            // session 35 was that flipping it without a hint made the feed
-            // disorienting. Preference key + default are kept alive in
-            // InstagramReaderService (PREF_INVERT_SWIPE / _DEFAULT) and the
-            // FeedActivity still reads them, so re-exposing the toggle in a
-            // future session is a one-line change here.
 
             HorizontalDivider()
 
             Text(
-                text = stringResource(R.string.settings_placeholder_selection_title),
+                text = stringResource(R.string.settings_selection_title),
                 style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = stringResource(R.string.settings_placeholder_selection_body),
+                text = stringResource(R.string.settings_selection_subtitle),
                 style = MaterialTheme.typography.bodySmall,
             )
+            SelectionModeRow(
+                current = selectionMode,
+                onChange = { vm.setSelectionMode(it) },
+            )
+
+            if (selectionMode != InstagramReaderService.SELECTION_MODE_NONE) {
+                if (threadCounts.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.settings_selection_no_threads),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                } else {
+                    Text(
+                        text = when (selectionMode) {
+                            InstagramReaderService.SELECTION_MODE_INCLUDE_ONLY ->
+                                stringResource(R.string.settings_selection_include_hint)
+                            else -> stringResource(R.string.settings_selection_exclude_hint)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    threadCounts.forEach { tc ->
+                        ThreadSelectionRow(
+                            title = tc.threadTitle,
+                            reelCount = tc.reelCount,
+                            checked = tc.threadTitle in trackedTitles,
+                            onCheckedChange = { checked ->
+                                vm.setTrackedThread(tc.threadTitle, checked)
+                            },
+                        )
+                    }
+                }
+            }
 
             HorizontalDivider()
 
@@ -190,6 +233,73 @@ private fun SettingToggle(
         }
         Box(contentAlignment = Alignment.Center) {
             Switch(checked = value, onCheckedChange = onChange)
+        }
+    }
+}
+
+@Composable
+private fun SelectionModeRow(
+    current: String,
+    onChange: (String) -> Unit,
+) {
+    val options = listOf(
+        InstagramReaderService.SELECTION_MODE_NONE to R.string.settings_selection_mode_none,
+        InstagramReaderService.SELECTION_MODE_INCLUDE_ONLY to R.string.settings_selection_mode_include,
+        InstagramReaderService.SELECTION_MODE_EXCLUDE_SELECTED to R.string.settings_selection_mode_exclude,
+    )
+    Column {
+        options.forEach { (value, labelRes) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onChange(value) }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(
+                    selected = current == value,
+                    onClick = { onChange(value) },
+                )
+                Spacer(Modifier.padding(start = 8.dp))
+                Text(stringResource(labelRes), style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThreadSelectionRow(
+    title: String,
+    reelCount: Int,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) },
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+            Spacer(Modifier.padding(start = 8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    text = stringResource(R.string.settings_selection_reel_count, reelCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            }
         }
     }
 }

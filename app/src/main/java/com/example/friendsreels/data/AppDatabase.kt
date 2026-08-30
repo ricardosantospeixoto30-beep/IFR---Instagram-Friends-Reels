@@ -15,18 +15,21 @@ import androidx.room.RoomDatabase
  * - v3 (sessão 26 — PoC-8 iteração 3): adds `pending_actions` table for
  *   batching of reactions/replies. Enqueued from the feed and drained by
  *   `InstagramReaderService.ACTION_APPLY_PENDING` in a single IG pass.
+ * - v4 (sessão 37): adds `tracked_threads` table for the conversation
+ *   selection feature (spec §8) — see [TrackedThreadEntity].
  *
  * We use `fallbackToDestructiveMigration()` — the PoC data is regenerated
  * by the user with a quick "Descobrir" pass.
  */
 @Database(
-    entities = [ReelEntity::class, PendingActionEntity::class],
-    version = 3,
+    entities = [ReelEntity::class, PendingActionEntity::class, TrackedThreadEntity::class],
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun reelDao(): ReelDao
     abstract fun pendingActionDao(): PendingActionDao
+    abstract fun trackedThreadDao(): TrackedThreadDao
 
     companion object {
         private const val DB_NAME = "friends_reels.db"

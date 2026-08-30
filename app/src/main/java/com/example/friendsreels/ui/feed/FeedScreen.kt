@@ -149,6 +149,10 @@ fun FeedScreen(invertSwipe: Boolean = false) {
                     onMarkSeen = { vm.markSeen(reel.id) },
                     onOpenInInstagram = { openReelInInstagram(context, reel) },
                     onOpenPlayer = { openReelInPlayer(context, reel) },
+                    onRequestUrl = {
+                        vm.requestUrlEnrichment(reel.id)
+                        Toast.makeText(context, R.string.feed_enrich_url_toast, Toast.LENGTH_LONG).show()
+                    },
                     onQueueHeart = {
                         vm.enqueueReaction(reel, PendingActionEntity.KIND_REACT_HEART) { r ->
                             toastFor(context, r)
@@ -243,6 +247,7 @@ private fun ReelPage(
     onMarkSeen: () -> Unit,
     onOpenInInstagram: () -> Unit,
     onOpenPlayer: () -> Unit,
+    onRequestUrl: () -> Unit,
     onQueueHeart: () -> Unit,
     onQueueLaugh: () -> Unit,
     onQueueReply: (String) -> Unit,
@@ -272,6 +277,7 @@ private fun ReelPage(
             reel = reel,
             isCurrent = isCurrent,
             onOpenPlayer = onOpenPlayer,
+            onRequestUrl = onRequestUrl,
         )
 
         // Top-right 3-dot menu.
@@ -366,6 +372,7 @@ private fun InlineReelPlayer(
     reel: ReelEntity,
     isCurrent: Boolean,
     onOpenPlayer: () -> Unit,
+    onRequestUrl: () -> Unit,
 ) {
     val url = reel.reelUrl
     if (url.isNullOrBlank()) {
@@ -373,7 +380,10 @@ private fun InlineReelPlayer(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(horizontal = 32.dp),
+            ) {
                 Text(
                     text = stringResource(R.string.feed_no_url_yet_title),
                     color = Color.White,
@@ -382,10 +392,13 @@ private fun InlineReelPlayer(
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = stringResource(R.string.feed_no_url_yet_hint),
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = Color.White.copy(alpha = 0.75f),
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 32.dp),
                 )
+                Spacer(Modifier.height(24.dp))
+                Button(onClick = onRequestUrl) {
+                    Text(stringResource(R.string.feed_enrich_url_button))
+                }
             }
         }
         return

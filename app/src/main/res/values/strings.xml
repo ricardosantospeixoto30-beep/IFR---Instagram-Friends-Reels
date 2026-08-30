@@ -46,6 +46,18 @@
     <string name="settings_invert_swipe_subtitle">Padrão: swipe para cima passa para o próximo Reel. Ativado: swipe para cima volta ao anterior.</string>
     <string name="settings_placeholder_selection_title">Seleção de conversas</string>
     <string name="settings_placeholder_selection_body">Em breve: escolher pessoas e grupos a incluir/excluir (modo "Apenas selecionados" ou "Excluir selecionados") — spec §8.</string>
+
+    <!-- Selection of conversations (spec §8) — s37 -->
+    <string name="settings_selection_title">Filtrar conversas no feed</string>
+    <string name="settings_selection_subtitle">Escolhe se o feed mostra Reels de todas as conversas descobertas, ou só um subconjunto.</string>
+    <string name="settings_selection_mode_none">Ver tudo</string>
+    <string name="settings_selection_mode_include">Apenas as selecionadas em baixo</string>
+    <string name="settings_selection_mode_exclude">Todas EXCEPTO as selecionadas em baixo</string>
+    <string name="settings_selection_include_hint">Marca as conversas cujos Reels queres ver no feed:</string>
+    <string name="settings_selection_exclude_hint">Marca as conversas cujos Reels queres esconder do feed:</string>
+    <string name="settings_selection_no_threads">Ainda não descobriste Reels em nenhuma conversa. Corre \"🔍 Descobrir\" primeiro.</string>
+    <string name="settings_selection_reel_count">%1$d Reels descobertos</string>
+
     <string name="settings_diagnostics_title">Ferramentas de diagnóstico</string>
     <string name="settings_diagnostics_body">Botões que disparam broadcasts directos ao serviço. Úteis para debug — o fluxo normal usa o feed e a notificação persistente.</string>
 
@@ -76,7 +88,9 @@
     <string name="feed_open_in_ig">Abrir no Instagram</string>
     <string name="feed_no_url_yet">URL ainda não capturado (usar 🔗)</string>
     <string name="feed_no_url_yet_title">URL ainda não capturado</string>
-    <string name="feed_no_url_yet_hint">Este Reel ainda não tem URL capturado. Volta ao Instagram, abre a conversa, e usa o botão 🔗 na notificação para capturar o URL antes de o poderes reproduzir aqui.</string>
+    <string name="feed_no_url_yet_hint">Este Reel ainda não tem URL capturado. Toca no botão abaixo para o Friends Reels ir buscá-lo automaticamente ao Instagram (podes ver o IG a abrir durante uns segundos).</string>
+    <string name="feed_enrich_url_button">🔗 Preparar Reel</string>
+    <string name="feed_enrich_url_toast">A ir buscar o URL ao Instagram… mantém-te por aqui.</string>
     <string name="feed_open_failed">Não foi possível abrir o Reel</string>
     <string name="feed_open_thread_hint">Instagram aberto. Vai manualmente para a conversa \"%1$s\".</string>
     <string name="feed_play_in_app">▶ Ver Reel aqui</string>

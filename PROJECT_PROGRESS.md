@@ -7,46 +7,40 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC → MVP). **Sessão 36** — feed com auto-play inline (WebView por página), fix ao E7 (nav falsa-positiva na Home do IG), refinamento dos estados (reacção única em vez de acumular). E5/E6 corrigidos por feedback do utilizador (remoção do "abrir conversa", esconder toggle de swipe).
-**Última atualização:** 2025-08-30 (sessão 36)
-**Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`. Pesquisa iniciada nesta sessão sobre alternativas (Socialite, apps semelhantes).
-**HEAD actual:** `build=s36`.
+**Fase atual:** Fase 1 (PoC → MVP). **Sessão 37** — enriquecimento de URL on-demand (feed pede URL sozinho quando não tem) + seleção de conversas (spec §8) totalmente implementada. Bug do E7 confirmado corrigido em device na s36.
+**Última atualização:** 2025-08-30 (sessão 37)
+**Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`. Manter (§9 confirma que é a via mais segura).
+**HEAD actual:** `build=s37`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s36 ...)`.
-2. **Ler primeiro:**
-    - Esta secção "Estado atual".
-    - §6 "Próximos passos concretos".
-    - Último log em §7.
-    - Bateria de testes actualizada em §8.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s37 ...)`.
+2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F/G).
 3. **Ficheiros-chave:**
-    - `service/InstagramReaderService.kt` — motor a11y, batching, navegação. Fix da s36: `isInboxVisible()` usa `direct_tab.isSelected` em vez de matching de "Mensagens" (que dava falso positivo na Home do IG).
-    - `ui/feed/FeedScreen.kt` — feed VerticalPager com **WebView inline auto-play** por página (novo na s36); page current instantia WebView, page off-current desmonta.
-    - `ui/player/EmbedPlayer.kt` (novo na s36) — helpers partilhados: `buildReelWebView`, `FriendsReelsWebViewClient`, `toEmbedUrl`. Reutilizados no feed e no `ReelPlayerActivity` fallback.
-    - `ui/feed/FeedViewModel.kt` — `ReelUiState.currentReaction: String?` (única reacção actual em vez de `reactedHeart`+`reactedLaugh`).
-    - `ui/settings/SettingsActivity.kt` — toggle "Inverter swipe" escondido (não priority).
-    - `ui/player/ReelPlayerActivity.kt` — fallback full-screen para quando o WebView inline falha.
+    - `service/InstagramReaderService.kt` — motor a11y, batching, navegação, `enrichReelUrl(reelId)` novo. Prefs: `PREF_IGNORE_SENT`, `PREF_INVERT_SWIPE` (escondida), `PREF_SELECTION_MODE` (novo).
+    - `ui/feed/FeedScreen.kt` — VerticalPager com WebView inline. Placeholder com botão "🔗 Preparar Reel" quando o Reel não tem URL.
+    - `ui/feed/FeedViewModel.kt` — filtro por selection mode (INCLUDE_ONLY / EXCLUDE_SELECTED / NONE) + `requestUrlEnrichment(reelId)`.
+    - `ui/settings/SettingsActivity.kt` + `SettingsViewModel.kt` — UI real de selecção de conversas com radio (modo) + lista de threads com checkboxes.
+    - `ui/player/EmbedPlayer.kt` — helpers partilhados WebView.
+    - `data/TrackedThreadEntity.kt`, `TrackedThreadDao.kt` — nova entidade Room v4 para spec §8.
     - `instagram/IgSelectors.kt` — IDs/labels do IG.
-    - `data/` — Room v3 (`ReelEntity`, `PendingActionEntity`, DAOs).
-    - Dumps: `docs/screen-dumps/feed.txt` (última corrida s35).
+    - Dumps: `docs/screen-dumps/feed.txt` (última corrida s36 — F1-F5 todos ok).
 4. **Constraints:**
-    - Testes só no OnePlus Nord 5 / Android 16. Iterações grandes preferidas.
+    - Testes só no OnePlus Nord 5 / Android 16.
     - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
     - Cada refactor visível deve bumpar `BUILD_TAG`.
 5. **UX actual em device:**
     - **Home:** protagonismo ao `▶ Abrir o meu feed`. Descoberta (🔍 conversa aberta, 📥 histórico). Configuração (a11y toggle, abrir IG, ⚙ Definições).
-    - **Feed:** full-screen VerticalPager. Cada page tem **WebView inline com auto-play** (novo s36). Chip único no topo: `recebido/enviado`, `visto`, `❤ reagido` OU `😂 reagido` (única activa), `💬 respondido`. Bottom: metadata + row `❤ / 😂 / 💬`. Menu ⋮: "Abrir Reel no IG nativo", "Cancelar pendentes", "Definições" (o "Abrir conversa no IG" foi removido — E5 feedback).
-    - **Reply:** dialog com campo editável (default "👀").
-    - **Definições:** toggle "Ignorar Reels enviados", placeholder de "Seleção de conversas", ferramentas de diagnóstico.
-    - **Notificação:** 3 botões (🔍 🔗 ▶) inalterados.
+    - **Feed:** full-screen VerticalPager. **Auto-play inline** por page. Chip único de reacção. Menu ⋮ com 3 opções. Reels sem URL mostram placeholder com **"🔗 Preparar Reel"** que dispara enrichment automático (nav+scroll+viewer+share+copy+backfill).
+    - **Definições:** toggle "Ignorar Reels enviados" + **secção "Filtrar conversas no feed"** (3 radios: Ver tudo / Apenas selecionadas / Excluir selecionadas + lista de threads descobertas com checkboxes e contagem de Reels) + Ferramentas de diagnóstico.
+    - **Notificação:** 3 botões (🔍 🔗 ▶).
 6. **Limitações conhecidas:**
-    - **URLs manuais** — a auto-play só funciona em Reels com `reelUrl` capturado (via 🔗 na notif). Reels sem URL mostram placeholder. Fix futuro: `ACTION_ENRICH_REEL_URL` on-demand quando o utilizador chega ao page.
     - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem (top-most vence).
-    - Cap de 20 scrolls por step no `locateReelWithScroll`.
-    - Seleção de conversas (spec §8) — placeholder no ecrã Definições.
+    - Cap de 20 scrolls no `locateReelWithScroll`.
+    - Enrichment on-demand faz uma round-trip completa no IG (nav → scroll → viewer → share → copy). Pode demorar 5-8s por Reel — utilizador deve deixar acontecer sem tocar.
     - Consulta de respostas anteriores dentro da app (spec §5) — não temos sync.
-    - **Reacção "actual" só reflecte as que corrémos via app** — se o utilizador reagiu directamente no IG antes, não sabemos. Fix futuro: reader que percorre a conversa e lê o `message_reactions_pill_container`.
+    - Reacção "actual" só reflecte as que corremos via app.
+    - `threadTitle` como chave — se o utilizador renomear um grupo, a selecção perde-se para essa thread (aparece como thread nova na lista descoberta).
 
 ---
 
@@ -220,36 +214,29 @@ Já entregue no primeiro commit:
 - ✅ PoC-8 iter 3 parte C — player embed (`.../reel/<code>/embed`) com JS injection para autoplay (unmuted → fallback muted); WebViewClient intercepta `instagram://` e `intent://` redirects; overlay de erro com fallback nativo
 - ✅ PoC-9 iter 1 — batching navega entre conversas via `header_title` na inbox (validado em device na s34)
 - ✅ PoC-8 iter 4 — batching localiza o Reel específico por `reelAuthor` + `ACTION_SCROLL_BACKWARD` até 20× + fallback swipe DOWN (validado em device s35).
-- ✅ **s35 — feed alinhado com a visão (spec §3-§12):** VerticalPager full-screen, reply real (§5), estados por Reel (§7), menu 3-pontinhos (§12), `SettingsActivity` (§11), Home limpa. Validada em device com feedback (nuances E3/E5/E6 registadas e resolvidas em s36).
-- 🚧 **s36 — auto-play + fixes de feedback:**
-    - Feed com **WebView inline auto-play** por page do VerticalPager (spec §3 "swipe rápido entre Reels").
-    - Fix E7: `isInboxVisible()` passa a usar `direct_tab.isSelected` — não mais falso-positivo na Home do IG (que dava match em nomes de story rings e o executor gastava 10 attempts a clicar em rows fantasma).
-    - Fix E3: `ReelUiState.currentReaction` (única) em vez de `reactedHeart` + `reactedLaugh` — IG só permite uma reacção por mensagem, agora reflectimos isso.
-    - Fix E5: opção "Abrir conversa no Instagram" removida do menu 3-pontinhos (só fazia launcher intent, sem valor).
-    - Fix E6: toggle "Inverter direção do swipe" escondido do UI (prefKey mantida no service para futuro).
+- ✅ s35 — feed alinhado com a visão (VerticalPager, reply real, estados por Reel, 3-pontinhos, Settings). Validada em device com nuances registadas.
+- ✅ s36 — auto-play inline (WebView por page) + fix E7 (isInboxVisible estrito) + chip único de reacção + limpeza do menu e Settings. **Validada em device: F1-F5 todos passaram, F6 sanity ok.**
+- 🚧 **s37 — enriquecimento de URL on-demand + seleção de conversas (spec §8):**
+    - **`ACTION_ENRICH_REEL_URL`** com extra `reel_id`: service compõe nav → locate → viewer tap → share → copy → backfill numa única round-trip por Reel. Feed dispara automaticamente quando o utilizador toca "🔗 Preparar Reel" no placeholder.
+    - **Seleção de conversas**: novo `TrackedThreadEntity` (Room v4), `PREF_SELECTION_MODE` com 3 valores (NONE / INCLUDE_ONLY / EXCLUDE_SELECTED), UI de radios + checkboxes em Definições, filtro no `FeedViewModel.reels`.
     - Aguarda validação em device.
 
-### 6.1 Próxima sessão — validar s36 (auto-play + fix E7)
+### 6.1 Próxima sessão — validar s37 (enrichment + selecção)
 
-**Bateria E1-E7** actualizada em §8 abaixo. Recomendo repetir a mesma bateria da s35 focada nos pontos que mudaram:
+**Bateria G1-G3** actualizada em §8. TL;DR:
 
-- **E1 (feed)** → verificar que ao abrir o feed, o **primeiro Reel COM URL faz auto-play** sem tocar em nada. Swipe para cima/baixo → o próximo Reel também faz auto-play. Se o Reel não tem URL, aparece o placeholder "URL ainda não capturado".
-- **E3 (reagir)** → o chip do topo deve mostrar UMA reacção (a mais recente), não duas. Se reagires com ❤ e depois 😂, o chip passa a 😂 (sem duplicação).
-- **E5 (menu 3-pontinhos)** → só devem aparecer 3 opções: "Abrir Reel no Instagram nativo", "Cancelar acções pendentes", "Definições". Sem "Abrir conversa no Instagram" (removido).
-- **E6 (definições)** → só deve aparecer o toggle "Ignorar Reels enviados por mim", secção "Seleção de conversas" (placeholder) e "Ferramentas de diagnóstico". SEM toggle de "Inverter direção do swipe".
-- **E7 (batching cross-thread + Reel fora do ecrã)** — o cenário que falhou na s35. Testar **partindo da Home do IG** (não da inbox). O executor deve navegar correctamente via `direct_tab`, não deve entrar em loop de "clicar row de story" como aconteceu na s35 (`NAV: gave up navigating to 'Pedro Sardoeira' after 10 attempts`).
+- **G1 — Enrichment on-demand:** entrar num Reel sem URL, tocar **"🔗 Preparar Reel"**. IG abre, navega para a conversa, faz scroll até ao Reel, abre viewer, copia URL, volta. Feed passa a mostrar o vídeo em auto-play.
+- **G2 — Selecção "Apenas selecionadas":** definir modo, escolher 1 thread, voltar ao feed. Só devem aparecer Reels dessa thread.
+- **G3 — Selecção "Excluir selecionadas":** definir modo, escolher 1 thread para excluir, voltar ao feed. Reels dessa thread desaparecem, restantes ficam.
 
-**Instruções passo-a-passo detalhadas em §8.**
+### 6.2 Backlog (roadmap)
 
-### 6.2 Polish e próximos passos (backlog)
-
-- **On-demand URL enrichment** — quando o utilizador chega a um page sem `reelUrl`, botão "▶ Preparar Reel" que dispara um `ACTION_ENRICH_REEL_URL` para esse `reelId` específico. Combinaria `navigateToThreadAsync` + `locateReelWithScroll` + a rotina existente do `ACTION_COPY_REEL_URL` (viewer → share → copy → backfill).
-- **Seleção de conversas (spec §8)** — placeholder actual no ecrã Definições. Implementar: entidade Room `TrackedThread(threadTitle, mode: INCLUDE|EXCLUDE, addedAt)` + UI de gestão + filtro no `observeAll()` do feed. **Prioridade alta** para MVP.
-- **Indicador visual de direcção no feed** — pré-requisito para re-expor o toggle "Inverter direção do swipe" (setinhas, ou label do estilo "swipe ↑ para próximo").
-- **Sync de reacção actual** (spec §7 "Reagido = reacção existe agora") — passo de refresh que percorre a conversa e lê o `message_reactions_pill_container`, cruzando com `pending_actions.DONE`. Fica também servir consultar reacções que o utilizador fez directamente no IG.
+- **Sync de reacção actual** (spec §7 "Reagido = reacção existe agora") — passo de refresh que percorre a conversa e lê o `message_reactions_pill_container`, cruzando com `pending_actions.DONE`. Também serve para consultar reacções que o utilizador fez directamente no IG.
 - **Match estrito por URL** — só se o matching por `reelAuthor` mostrar colisões reais em uso.
-- **UX polish** — thumbnails/preview no feed, ordem dos chips por `createdAt`.
+- **Indicador visual de direcção no feed** — pré-requisito para re-expor o toggle "Inverter direção do swipe".
+- **UX polish** — thumbnails/preview no feed, animação de loading enquanto o WebView arranca.
 - **Tuning de latência** — reduzir vários `_SETTLE_MS` progressivamente.
+- **Enrichment em batch** — botão em Definições ou notif que enfileira o enrichment para TODOS os Reels sem URL (ver §6.4 s37 nota — pode ser aditivo mas UX é: espera muito).
 - **Deep-link `instagram://direct/t/<thread_id>`** — só se o fallback por título mostrar problemas.
 
 ### 6.3 Alternativas arquitecturais (investigação da s36)
@@ -1128,117 +1115,139 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 
 ---
 
-## 8. Instruções para o Ricardo — testes end-to-end da s36
+### 2026-08-30 — Sessão 37 (Ricardo + Copilot CLI) — enrichment on-demand + selecção de conversas
 
-**Prep (1×):**
-1. Pull do repo.
-2. Rebuild + reinstalar o APK no OnePlus Nord 5.
-3. Abrir a app **Friends Reels**. Home deve estar limpa (`▶ Abrir o meu feed` no topo).
-4. Logcat filtro `IGReaderService`. Confirmar **`Action receiver registered (build=s36 ...)`**. Se aparecer `build=s35` ou anterior é APK antigo — reinstalar.
-5. Serviço de acessibilidade activo (se não estiver, tocar **"Ativar serviço de acessibilidade"**).
-
-### Bateria (ordem sugerida)
-
-#### Teste F1 — Feed com auto-play inline (NOVO na s36)
-
-**Passos:**
-1. Ir a uma conversa X no IG que já tem alguns Reels descobertos + URLs capturados (usar 🔗 se ainda não tiveres).
-2. Voltar ao Friends Reels → **"▶ Abrir o meu feed"**.
-
-**O que verificar VISUALMENTE:**
-- ✅ O primeiro Reel com URL deve começar a **tocar sozinho** (auto-play) alguns segundos após abrir. Sem tocar em nada.
-- ✅ **Swipe up** → o próximo Reel também dá auto-play, sem toque.
-- ✅ **Swipe down** → volta ao Reel anterior, também auto-play.
-- ✅ Reels sem URL mostram placeholder centrado "URL ainda não capturado" + hint. Não deve tentar carregar.
-- ✅ Chips no topo: `recebido`/`enviado`, `visto` (aparece assim que passas pelo Reel), `❤ reagido` OU `😂 reagido` (só uma), `💬 respondido`.
-- ❓ Se o WebView ficar preto ou mostrar erro, **tocar em qualquer sítio do vídeo** — abre a versão full-screen (ReelPlayerActivity) que tem retry + fallback nativo.
-
-**Se falhar (auto-play não acontece):**
-- Confirmar que o Reel realmente tem URL (chip "URL ainda não capturado" não deve estar visível).
-- Ver Logcat para mensagens de WebView (podem aparecer erros do Chromium se o embed URL for bloqueado).
-
-#### Teste F2 — Chip único de reacção (fix E3)
-
-**Passos:**
-1. No feed, num Reel qualquer, tocar **❤** (na action row em baixo).
-2. Aplicar via notif **▶**. Voltar ao feed.
-3. Confirmar que aparece chip **"❤ reagido"** no topo.
-4. Agora tocar **😂** no mesmo Reel. Aplicar. Voltar.
-5. O chip do topo deve passar a **"😂 reagido"** — **não** deve aparecer os dois em simultâneo.
-6. Repetir com ❤ mais uma vez — chip volta a **"❤ reagido"**.
-
-**Se falhar** (aparecem 2 chips): reportar o `Logcat` da última corrida — os DAOs estão a ordenar por `executedAt` mas pode haver bug se todas as rows tiverem `executedAt` iguais.
-
-#### Teste F3 — Menu 3-pontinhos limpo (fix E5)
-
-**Passos:**
-1. No feed, tocar no ícone **⋮** no canto superior direito.
-2. Contar as opções.
-
-**O que verificar:**
-- ✅ Devem aparecer **exactamente 3 opções**:
-  - "Abrir Reel no Instagram nativo"
-  - "Cancelar acções pendentes deste Reel"
-  - "Definições"
-- ✅ **NÃO** deve aparecer "Abrir conversa no Instagram" (removida).
-
-#### Teste F4 — Definições limpas (fix E6)
-
-**Passos:**
-1. Home → **⚙ Definições** OU 3-pontinhos → **Definições**.
-2. Ver o conteúdo do ecrã.
-
-**O que verificar:**
-- ✅ **Um único toggle** no topo: "Ignorar Reels enviados por mim".
-- ✅ **NÃO** deve aparecer "Inverter direção do swipe" (escondido nesta sessão).
-- ✅ Secções seguintes: "Seleção de conversas" (placeholder), "Ferramentas de diagnóstico" (com botões dos broadcasts directos).
-
-#### Teste F5 — E7 refeito com IG na Home (fix crítico)
-
-**Este é o teste mais importante desta sessão.**
-
-**Passos:**
-1. Enfileirar via feed 1 acção para thread X e 1 acção para thread Y. (Se só tiveres Reels em 1 thread com URL, enfileirar 2 acções para 2 Reels diferentes na mesma thread ainda serve.)
-2. Abrir o Instagram e **ir para a Home** (feed principal do IG, com Stories no topo, etc.). **NÃO** ir para a inbox.
-3. Baixar a notificação e tocar **▶ Aplicar fila**.
-
-**O que verificar VISUALMENTE:**
-- ✅ Feed do IG some, aparece transição para a inbox (`direct_tab` acende).
-- ✅ Inbox abre, clica na conversa correcta.
-- ✅ Dentro da conversa, faz scroll para trás (se necessário) e reage.
-- ✅ Se houver 2 threads, repete o processo para a segunda.
-- ✅ No fim volta ao estado normal (notif com "Sem acções pendentes").
-
-**Logcat esperado (importante):**
-```
-APPLY_PENDING: starting drain (currentThread='null')     ← estamos na Home do IG
-APPLY_PENDING: step 1/N needs navigation — current='null' target='...'
-NAV: attempt 1 stage=open-direct-tab dispatched=true    ← esta linha É A NOVA — s35 dava 'inbox-click' aqui!
-NAV: attempt 2 stage=inbox-click dispatched=true
-NAV: arrived at 'X'
-LOCATE: ...
-LONG_PRESS: ...
-```
-
-**Se falhar** (mesmo comportamento do s35 — 10 attempts spammando "inbox-click"):
-- Copiar Logcat completo desde `starting drain` até `drain finished`.
-- Confirmar visualmente qual ecrã do IG estava a mostrar quando disparaste ▶.
-- Ver se o `NAV: attempt 1 stage=` é `open-direct-tab` (esperado, novo) ou `inbox-click` (bug, fix não pegou).
-
-#### Teste F6 — Regressão sanidade (E1-E4 da s35)
-
-Não precisas de correr por completo — basta confirmar que continuam a funcionar:
-- Descobrir Reels + histórico ainda enche a BD.
-- 🔗 na notif captura URL.
-- Reagir via feed + ▶ Aplicar → reacção aplicada.
-- Responder via feed + ▶ Aplicar → texto que digitaste chega ao IG.
+- **Contexto:** utilizador validou s36 (F1-F5 ok). Iteração grande sem testes intermédios. Duas features grandes para MVP: (a) URLs manuais eram o principal bloqueio da UX vision-aligned (a maioria dos Reels ficava com placeholder no feed) e (b) seleção de conversas (spec §8) faltava por completo.
+- **Feature 1: On-demand URL enrichment (`ACTION_ENRICH_REEL_URL`)**
+  - Novo broadcast com extra `reel_id`. Handler no serviço faz: loadReel → `runInInstagram` → `navigateToThreadAsync` → `locateReelWithScroll` → `dispatchOpenReelViewerTap` → chain existente PoC-7 (share sheet → copy link → clipboard bridge → `handleClipboardCaptured` → `promoteDiscoveryRow`).
+  - Refactor de `openFirstReelViewer`: extraí `dispatchOpenReelViewerTap(bounds)` para reuso.
+  - Novo `pendingCopy` é set pelo caminho de enrichment ANTES do tap → o clipboard resolve a row correcta.
+  - `FeedViewModel.requestUrlEnrichment(reelId)` dispara o broadcast.
+  - `FeedScreen.InlineReelPlayer`: placeholder ganha botão **"🔗 Preparar Reel"** que chama a acção + toast.
+- **Feature 2: Seleção de conversas (spec §8)**
+  - Nova entidade `TrackedThreadEntity` + `TrackedThreadDao` + DB v3→v4 (destructive migration — PoC data).
+  - Nova pref `PREF_SELECTION_MODE` com 3 valores: `NONE`, `INCLUDE_ONLY`, `EXCLUDE_SELECTED` (default NONE).
+  - `FeedViewModel.reels` passa a ser `combine(observeAll, trackedTitles, selectionMode)` que aplica o filtro.
+  - Novo `SettingsViewModel` — expõe `selectionMode` (via SharedPreferences listener), `trackedTitles` (via DAO), `threadCounts` (join reels agrupado por threadTitle) e métodos `setSelectionMode` / `setTrackedThread(title, checked)`.
+  - `SettingsActivity` reescrita: secção "Filtrar conversas no feed" com 3 radios (Ver tudo / Apenas selecionadas / Excluir selecionadas) + lista de threads descobertas com checkboxes e contagem de Reels por thread.
+  - "?"-titled rows são filtradas do UI (rows antigas pré-PoC-4 sem título).
+- **`BUILD_TAG` bumped para `build=s37`.** DB v3 → v4 (destructive). `PREF_SELECTION_MODE_DEFAULT = NONE` — na 1.ª abertura utilizador vê tudo, só sente diferença se for às Definições.
+- **Ficheiros novos:**
+  - `data/TrackedThreadEntity.kt`, `data/TrackedThreadDao.kt`
+  - `ui/settings/SettingsViewModel.kt`
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — `ACTION_ENRICH_REEL_URL`, `EXTRA_REEL_ID`, `enrichReelUrl`, `startEnrichmentForReel`, `locateAndOpenReelViewer`, `dispatchOpenReelViewerTap` (extraído), prefs de selecção, `BUILD_TAG=s37`, log do receiver.
+  - `data/AppDatabase.kt` — v4, adiciona `TrackedThreadEntity`.
+  - `ui/feed/FeedViewModel.kt` — filtro por selection mode, `requestUrlEnrichment`, `selectionMode` StateFlow.
+  - `ui/feed/FeedScreen.kt` — `onRequestUrl` callback, placeholder ganha botão "🔗 Preparar Reel" + toast.
+  - `ui/settings/SettingsActivity.kt` — reescrita (radios + lista de threads).
+  - `res/values/strings.xml` — 15 novos strings para selection + enrichment.
+  - `README.md` — actualização do Fluxo + Definições (enrichment + selecção).
+- **Validação em ambiente do agente:** kotlinc parse-check OK sobre todos os 12 ficheiros Kotlin.
 
 ---
 
-**Como enviar os resultados** (mesmo modelo da s35):
-- Copiar Logcat filtrado `IGReaderService` desde `Action receiver registered` até ao fim do último batch.
-- Colar em `docs/screen-dumps/feed.txt` (substituir o antigo — o histórico está no git).
-- Descrever brevemente o que aconteceu visualmente por teste (F1 a F6), especialmente onde não bateu com o esperado.
+## 8. Instruções para o Ricardo — testes end-to-end da s37
+
+**Prep (1×):**
+1. Pull do repo. Rebuild + reinstalar APK.
+2. Abrir Friends Reels. **A BD foi apagada** (migração destrutiva v3→v4). Vai ter que descobrir Reels de novo.
+3. Confirmar Logcat: `Action receiver registered (build=s37 ... enrichUrl=com.example.friendsreels.ACTION_ENRICH_REEL_URL)`.
+
+### **G0 — Setup mínimo**
+
+**Passos:**
+1. Abrir uma conversa X no IG que tenha Reels partilhados por amigos.
+2. Baixar notif → tocar **🔍**.
+3. **NÃO** correr o 🔗 desta vez (queremos Reels sem URL para testar G1).
+4. Voltar ao Friends Reels → **"▶ Abrir o meu feed"**.
+
+**O que verificar:** feed aparece com Reels do X, todos com placeholder **"URL ainda não capturado"** + botão **"🔗 Preparar Reel"**.
+
+### **G1 — Enrichment on-demand (novo na s37)**
+
+**Passos:**
+1. No feed, num Reel sem URL, tocar **"🔗 Preparar Reel"**.
+2. Toast aparece: "A ir buscar o URL ao Instagram… mantém-te por aqui."
+3. Ver visualmente:
+
+**O que deve acontecer:**
+- ✅ IG abre (se estava fechado), navega para a conversa correcta.
+- ✅ Faz scroll para trás até encontrar o Reel (scroll é visível).
+- ✅ Tap no bubble abre o Reel viewer.
+- ✅ IG vai à partilha, copia a ligação, faz BACK.
+- ✅ (Podes voltar manualmente ao Friends Reels ou esperar.)
+- ✅ No feed, o placeholder desaparece e o **vídeo faz auto-play** para esse Reel.
+
+**Logcat esperado:**
+```
+ENRICH_URL: starting for reelId=… author=… thread='…' current='…'
+NAV: … arrived at '…' (se preciso)
+LOCATE: matched reelId=… author=… ...
+ENRICH_URL: located reelId=…, tapping to open viewer.
+OPEN_REEL: tap gesture completed
+SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true
+COPY_LINK: Reel URL = 'https://www.instagram.com/reel/…'
+COPY_LINK: inserted row / promoted row …
+```
+
+**Se falhar:**
+- Se `ENRICH_URL: reelId=… not in DB` → algum bug de sincronização; reportar `reel.id` do card.
+- Se nav ok mas `LOCATE: could not find` → o Reel real foi apagado da conversa ou o autor mudou; aceitável.
+- Se copy funciona mas o placeholder não desaparece do feed → problema de refresh do StateFlow; reportar.
+
+### **G2 — Selecção "Apenas seleccionadas" (spec §8)**
+
+**Passos:**
+1. Ter Reels em pelo menos 2 conversas (X e Y).
+2. Home → **⚙ Definições** OU 3-pontinhos → **Definições**.
+3. Rolar até **"Filtrar conversas no feed"**. Deve ver os 3 radios e o modo por defeito **"Ver tudo"** selecionado.
+4. Tocar em **"Apenas as selecionadas em baixo"**.
+5. Aparece a lista de threads descobertas com checkboxes.
+6. Marcar apenas a thread X (deixar Y desmarcada).
+7. Tocar em **"Concluído"** (ou back).
+8. Abrir o feed.
+
+**O que verificar:**
+- ✅ Só aparecem Reels da thread X.
+- ✅ Fazer swipe para cima só passa entre Reels do X — Y não aparece.
+
+### **G3 — Selecção "Excluir seleccionadas"**
+
+**Passos:**
+1. Definições → Filtrar conversas.
+2. Tocar em **"Todas EXCEPTO as selecionadas em baixo"**.
+3. Marcar a thread X.
+4. Voltar ao feed.
+
+**O que verificar:**
+- ✅ Reels da thread X somem.
+- ✅ Reels da thread Y (e outras) continuam a aparecer.
+
+**Voltar ao normal:**
+5. Definições → **"Ver tudo"**.
+6. Feed volta ao completo.
+
+### **F5 (regressão) — E7 refeito**
+
+Só confirmar que o fix da s36 continua a funcionar:
+1. Enfileirar 1 ação numa thread X.
+2. Ir para a Home do IG.
+3. Baixar notif → **▶ Aplicar fila**.
+4. ✅ IG navega correctamente para X via `open-direct-tab`, aplica reacção.
+
+### **F6 (regressão) — Fluxo base**
+
+Confirmar em 30 segundos:
+- Descobrir Reels + histórico ainda funciona.
+- Reagir/responder via feed + ▶ Aplicar → aplica.
+
+---
+
+**Como enviar os resultados:**
+- Copiar Logcat filtrado `IGReaderService` para `docs/screen-dumps/feed.txt`.
+- Descrever brevemente por teste. Modelo aceite: **"G1 ok / G2 ok / G3 falhou porque X"**.
+
 
 ---
 
