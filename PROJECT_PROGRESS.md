@@ -8,27 +8,28 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-08-31 (sessão 46 — detecção real de topo de conversa).
+**Última actualização:** 2026-08-31 (sessão 47 — instrumentação de scroll skipping + forward budget maior).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s46`.
+**HEAD actual:** `build=s47`.
 
-**Recap sessões 41-46 (as validadas ou próximas de validação):**
+**Recap sessões 41-47 (as validadas ou próximas de validação):**
 
 - **s41-s42** (validadas): Cancelar apply pending, auto-enrich após descoberta, fail-fast quando enrichment falha, `locateReelWithForwardScroll` como fallback ao backward, heads-up notifications no canal `friends_reels_status_v2` (IMPORTANCE_HIGH).
 - **s43** (validada, mas expôs 2 bugs): budgets 5x maiores (100 backward + 5 forward × 300ms settle), `runInInstagram` entre steps para trazer IG à frente se utilizador saiu para outra app. Bugs: stall detection falsa positiva, callbacks stale de steps antigos a interleaving.
-- **s44** (validada em parte): remove stall detection buggy, adiciona epoch guard (`enrichmentStepEpoch`) para callbacks stale, e traz botão de Dump em Diagnóstico. Bug do dump: capturava sempre a UI das Definições porque tocar no botão rouba foco ao IG.
-- **s45** (validada em device): dump adiado com Toast countdown ("🌳 Muda para o IG! Dump em 5s"). Dump da s45 em `docs/screen-dumps/dump.txt` capturou o header start-of-conversation da DM `astrid_gutierrez` com 4 selectors estáveis (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username`).
-- **s46** (aguarda validação): `isThreadTopVisible(root)` usa esses 4 selectors para substituir a stall detection removida na s44. Integrada em `locateReelWithScroll` (aborta backward budget cedo, salta para forward-scroll) e `doHistoryScroll` (para no topo real em vez de esperar por 5 scrolls vazios).
+- **s44** (validada em parte): remove stall detection, adiciona epoch guard (`enrichmentStepEpoch`) para callbacks stale, e traz botão de Dump em Diagnóstico. Bug do dump: capturava sempre a UI das Definições porque tocar rouba foco ao IG.
+- **s45** (validada): dump adiado com Toast countdown ("🌳 Muda para o IG! Dump em 5s"). Dump em `docs/screen-dumps/dump.txt` capturou o header start-of-conversation da DM `astrid_gutierrez` com 4 selectors estáveis (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username`).
+- **s46** (validada em parte — `TopStop-History` OK, `TopStop-Batch` inconclusivo por falta de Reel apropriado): `isThreadTopVisible(root)` usa esses 4 selectors para substituir a stall detection removida na s44. Integrada em `locateReelWithScroll` e `doHistoryScroll`.
+- **s47** (aguarda validação): **instrumentação** de `seenAuthors` durante backward+forward sweep para expor no log quando o autor procurado foi visto mas nunca deu match (bug reportado pelo utilizador na s46: "se ele já tiver passado por ele não volta para baixo para o reencontrar"). Bump de `BATCH_MAX_FORWARD_SCROLLS` 5 → 15 para dar retracement suficiente quando o backward passou por cima do Reel.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s46 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s47 ...)`.
 2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
-    - `instagram/IgSelectors.kt` — objecto `Thread` ganhou 4 novas constantes: `HEADER_VIEW_PROFILE_BUTTON`, `HEADER_USER_AVATAR`, `HEADER_OTHER_USER_FULLNAME`, `HEADER_NETWORK_ATTRIBUTION` (identificam o header "start-of-conversation" que aparece quando a `message_list` chega ao topo absoluto).
-    - `service/InstagramReaderService.kt` — nova helper `isThreadTopVisible(root)` verifica presença dos 4 selectors acima (view_profile_button primeiro, os outros como fallback). Integrada em `locateReelWithScroll` (aborta backward budget cedo, log `LOCATE: thread top reached at scroll N/100 — skipping remaining backward budget.`) e em `doHistoryScroll` (log `HISTORY: thread top reached ... after N scrolls — stopping.`). Dump com delay (s45) mantém-se. Epoch guard (s44) mantém-se.
-    - `ui/settings/SettingsActivity.kt` — botão de Dump com delay (s45), sem alterações na s46.
-    - Dumps: `docs/screen-dumps/dump.txt` (s45 — mostra o topo da conversa, base para os selectors da s46).
+    - `instagram/IgSelectors.kt` — objecto `Thread` tem `HEADER_VIEW_PROFILE_BUTTON` + 3 fallbacks (s46).
+    - `service/InstagramReaderService.kt` — `isThreadTopVisible(root)` (s46) usada em `locateReelWithScroll` + `doHistoryScroll`. **s47:** ambas as `locateReelWith(Forward)Scroll` recebem um `seenAuthors: MutableSet<String>` que acumula todos os autores RECEIVED enumerados a cada scroll. Nos pontos de falha (top reached, backward exhausted, forward exhausted) o log passa a incluir `seenDuringSweep=…` e — quando `wantedAuthor in seenAuthors` — uma warning explícita "Reel likely skipped due to layout timing". `BATCH_MAX_FORWARD_SCROLLS = 15` (era 5).
+    - `ui/settings/SettingsActivity.kt` — botão de Dump com delay (s45), sem alterações.
+    - Dumps: `docs/screen-dumps/dump.txt` (s45 — topo de conversa, base dos selectors da s46).
 4. **Constraints:**
     - Testes só no OnePlus Nord 5 / Android 16.
     - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
@@ -41,8 +42,9 @@
     - **Notificação de conclusão:** heads-up.
 6. **Limitações conhecidas:**
     - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem.
-    - Locate com 100 backward × 300ms + 5 forward × 300ms = ~35s worst case por Reel. **s46:** worst-case só se aplica em conversas longas onde o Reel não está no histórico visível; quando a conversa é curta, `isThreadTopVisible` corta imediatamente.
-    - Enrichment success ~5-8s; fail depende do tamanho da conversa (agora rápido em conversas curtas graças à s46, lento em conversas gigantes com Reels em falta).
+    - **Reel skipped mid-backward-sweep (reportado na s46, instrumentado na s47):** durante o backward-scroll dentro de `locateReelWithScroll`, o Reel-alvo pode aparecer brevemente em vista mas o snapshot de `enumerateReels` no momento seguinte não o apanha (mid-layout/recycler transitions). O código actual só descobre isso quando esgota o backward budget ou detecta topo e passa ao forward. Se o `BATCH_MAX_FORWARD_SCROLLS` for pequeno, não retrata o suficiente para o reencontrar. **s47** mitiga com bump de 5 → 15 forward e log explícito `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched` a informar quando isto acontece. **Não é uma correcção total** — a fix estrutural implicaria (a) enumerar 2x por scroll com pequena separação de tempo para captar bubbles transientes, ou (b) implementar retracement dinâmico que scrolla forward até reencontrar o autor observado. Registado como próximo passo em §6.
+    - Locate com 100 backward × 300ms + 15 forward × 300ms = ~35s worst case por Reel; `isThreadTopVisible` corta em conversas curtas.
+    - Enrichment success ~5-8s; fail depende do tamanho da conversa.
     - Batch enrichment partilha `pendingCopy` com o fluxo on-demand.
     - Consulta de respostas anteriores dentro da app (spec §5) — não temos sync.
     - Reacção "actual" só reflecte as que corremos via app.
@@ -231,91 +233,61 @@ Já entregue no primeiro commit:
 - ✅ **s42 — fail-fast + forward-scroll + heads-up.** L1+L3 confirmados.
 - ✅ **s43 — 5x mais scrolls + faster + IG-focus recovery.** M1 (recovery) esperado ok, M2-M3 revelaram interleaving + stall detection buggy.
 - ✅ **s44 — remove stall detection + epoch guard + botão dump em Diagnóstico.** Epoch guard aceite; botão de dump implementado mas em device capturou a árvore das Definições (não do IG) porque tocar no botão rouba o foco.
-- ✅ **s45 — dump com atraso de 5s + Toast countdown.** Validada em device (`docs/screen-dumps/dump.txt` capturou topo da conversa `astrid_gutierrez` com `view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username`).
-- 🟡 **s46 — detecção real de topo de conversa (`isThreadTopVisible`) integrada em `locateReelWithScroll` e `doHistoryScroll`.** Pronta em código; aguarda validação em device (P1/P2).
+- ✅ **s45 — dump com atraso de 5s + Toast countdown.** Validada em device (`docs/screen-dumps/dump.txt`).
+- 🟡 **s46 — detecção real de topo de conversa (`isThreadTopVisible`).** `TopStop-History` (Teste 2) validado em device. `TopStop-Batch` (Teste 1) inconclusivo por falta de Reel apropriado — utilizador aceitou como implicitamente validado dado que o mesmo código sustenta ambos.
+- 🟡 **s47 — instrumentação de scroll skipping + `BATCH_MAX_FORWARD_SCROLLS` 5 → 15.** Pronta em código; aguarda validação em device (Q1).
 
 ### 6.1 Próxima sessão — arranque
 
-**Estado no fim da s46:** substituição da stall detection (removida na s44) pela detecção real via selectors do dump da s45.
-1. **`Thread.HEADER_VIEW_PROFILE_BUTTON` (+3 fallback constantes)** em `IgSelectors.kt` — capturados do dump da s45 no topo da conversa `astrid_gutierrez`.
-2. **`isThreadTopVisible(root)`** no serviço — probe `view_profile_button` primeiro (o mais exclusivo), depois `user_avatar` / `other_user_full_name_or_username` / `network_attribution` como fallback caso IG renomeie um deles.
-3. **`locateReelWithScroll`** — depois de enumerar candidatos e não achar match, se `isThreadTopVisible == true` pula o resto do budget backward, salta directamente para `locateReelWithForwardScroll` (se houver budget), ou termina com `onDone(null)`. Log: `LOCATE: thread top reached at scroll K/100 — skipping remaining backward budget.`
-4. **`doHistoryScroll`** — check antes de cada scroll. Se topo visível, chama `finishHistory(state)`. Log: `HISTORY: thread top reached (view_profile_button visible) after N scrolls — stopping.`
-5. **Nada mais mudou** — dump com delay (s45), epoch guard (s44), stall detection removida (s44), 100 backward + 5 forward + 300ms settle (s43), `runInInstagram` entre steps (s43), tudo intacto.
+**Estado no fim da s47:** resposta directa ao bug reportado pelo utilizador após validar a s46 — *"ao procurar o reel se ele já tiver passado por ele não volta para baixo para o reencontrar"*.
+1. **`seenAuthors: MutableSet<String>`** propagado por toda a recursão de `locateReelWithScroll` e `locateReelWithForwardScroll`. Cada iteração acumula `candidates.mapNotNull { it.reelAuthor }` — assim sabemos exactamente que autores estiveram em vista durante o sweep.
+2. **Log warning quando `wantedAuthor in seenAuthors` mas nunca deu match** — dispara em 3 pontos: (a) topo detectado, (b) backward exhausted, (c) `LOCATE_FWD` exhausted. Mensagem: `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing.` Isto expõe a frequência real do bug no logcat.
+3. **`BATCH_MAX_FORWARD_SCROLLS` bumpado 5 → 15**. Total worst-case mantém-se ~35s: com `isThreadTopVisible` (s46) a cortar backward cedo, o forward tem "orçamento" para retracement quando o Reel foi passado por cima.
+4. **Nada mais mudou** — não há alteração ao critério de match, à detecção de topo, ao epoch guard, ao dump com delay, à navegação PoC-9, ao filtro selecção, ao apply pending, ao schema Room.
 
-**Bateria proposta — Sessão 46 (nomes descritivos + passos concretos, formato §8.1):**
+**Não é a fix estrutural do bug.** A fix estrutural implicaria enumerar duas vezes por scroll com pequena separação temporal ou implementar retracement dinâmico (scrollar forward até reencontrar o autor observado, sem contar contra o budget fixo). A s47 é (a) instrumentação para saber com que frequência isto acontece, e (b) mitigação parcial com forward budget maior. Se depois do Q1 o `seenDuringSweep` mostrar que o bug é comum, avanço para a fix estrutural na s48.
 
-Se um teste falhar, para e reporta — não passes ao seguinte. Ambos são não-destrutivos.
+**Bateria proposta — Sessão 47 (formato §8.1):**
 
-#### Teste 1 — "Batch enrichment aborta cedo quando chega ao topo da conversa" (`TopStop-Batch`)
+#### Teste 1 — "Log expõe quando o autor procurado foi visto mas não deu match" (`SeenSkipped`)
 
-**O que se está a validar:** um Reel na DB com URL null cujo autor não existe na conversa activa faz o `locateReelWithScroll` scrollar até ao topo e depois parar imediatamente em vez de esgotar os 100 scrolls.
-
-**Preparação:**
-1. `git pull` no telemóvel-de-testes; recompilar e reinstalar o APK em `build=s46`.
-2. Confirmar no logcat inicial: `Action receiver registered (build=s46 ...)`.
-3. Escolher **uma conversa 1-a-1 CURTA** (~20-40 mensagens no total; mesma da s45 se possível, `astrid_gutierrez` ideal) onde tens **1 Reel na DB com autor inexistente** (podes inventar via `INSERT` manual em `adb shell` na Room DB, ou seleccionar um Reel já apagado no IG). Alternativa mais simples: criar um Reel fake com `reelAuthor="foobar_notexists_9999"` associado à threadTitle desta conversa.
-4. Abrir `logcat -s IGReaderService` num terminal.
-
-**Passos:**
-1. Abrir Friends Reels → **⚙ Definições** → **"🔗 Preparar todos"**.
-2. Deixar o batch correr sobre o Reel fake.
-3. Ficar quieto (não abrir shade, não mudar de app).
-
-**O que confirmar no logcat:**
-- `ENRICH_ALL: step K/N reelId=X author=foobar_notexists_9999 thread='<titulo>'`.
-- Sequência de `LOCATE: scroll M/100 author=foobar_notexists_9999` (com rate-limit — só 1/10/20/…).
-- Em algum ponto **antes de atingir 100 scrolls**: `LOCATE: thread top reached at scroll K/100 (view_profile_button visible) — skipping remaining backward budget.`
-- Imediatamente a seguir: `LOCATE_FWD: scroll 1/5 ...` (o forward fallback continua a ser tentado).
-- Depois: `LOCATE_FWD: could not find reelId=X author=foobar_notexists_9999 after 5 forward scrolls.`
-- Batch conclui com `ENRICH_ALL: batch complete (succeeded=0 failed=1)`.
-
-**NÃO** deve aparecer:
-- `LOCATE: scroll 100/100 ...` (indicaria que o budget esgotou sem detectar o topo).
-- `LOCATE_FWD: scroll 5/5` **antes** do `thread top reached`.
-
-**Passa se:** o log mostra `thread top reached at scroll K/100` para algum K < 100, com K correspondendo ao número de scrolls necessário para chegar ao topo da conversa. Duração total do step ≪ 30s.
-**Falha se:**
-- **F1:** `thread top reached` nunca aparece → `isThreadTopVisible` não encontrou nenhum dos 4 selectors. Verificar dump manual desta conversa (via botão + delay) — se `view_profile_button` estiver com outro `resource-id`, adicionar ao array em `isThreadTopVisible`.
-- **F2:** batch faz os 100 scrolls completos → mesma causa que F1. Ver F1.
-- **F3:** `thread top reached` aparece imediatamente à primeira iteração → o dump foi obtido numa conversa onde o topo já estava visível quando o batch arrancou. Testar com conversa maior onde é necessário scrollar.
-
----
-
-#### Teste 2 — "History-scroll para de scrollar quando genuinamente chega ao topo" (`TopStop-History`)
-
-**O que se está a validar:** o botão `📥 Descobrir histórico (scroll auto)` para no topo real da conversa em vez de esperar pelos 5 scrolls vazios consecutivos.
+**O que se está a validar:** o novo warning "wanted author '$X' was observed mid-backward-sweep but no bubble matched" aparece no logcat quando o batch enrichment falha em encontrar um Reel cujo autor apareceu em algum snapshot durante o sweep.
 
 **Preparação:**
-1. Mesmo build `s46`.
-2. Escolher **uma conversa 1-a-1 curta com pelo menos 1 Reel recebido** (para gerar inserts). O `astrid_gutierrez` da s45 serve — tem mensagens até `6/06, 11:06 DA TARDE` e o header logo por cima.
-3. Limpar Room DB para esta thread (via `adb shell pm clear com.example.friendsreels` — cuidado, apaga tudo) ou aceitar duplicados detectados como skips.
+1. `git pull` no telemóvel; recompilar e reinstalar o APK em `build=s47`.
+2. Confirmar no logcat: `Action receiver registered (build=s47 ...)`.
+3. Escolher **a mesma conversa da s46 (`astrid_gutierrez` ideal)** com **1 Reel na DB sem URL** cujo autor **exista noutro Reel visível** — assim garantimos que `enumerateReels` vai enumerar autores durante o sweep sem match no target row.
+   - Alternativa: seleccionar 1 Reel real da DB e forçar-lhe `reelUrl = null` via `adb shell` + `sqlite3` na Room DB para provocar o path de enrichment.
 4. Abrir `logcat -s IGReaderService`.
 
 **Passos:**
-1. Abrir o Instagram.
-2. Ir à conversa.
-3. Puxar o shade e tocar 📥 na notificação persistente (OU voltar ao Friends Reels → Home → 📥).
-4. Deixar o history-scroll correr — vai fazer múltiplas iterações de `ACTION_SCROLL_BACKWARD`.
+1. Abrir Friends Reels → **⚙ Definições** → **"🔗 Preparar todos"**.
+2. Observar o logcat até o batch terminar.
 
 **O que confirmar no logcat:**
-- `HISTORY: doHistoryEnumerate ...` a cada scroll (inserts / skips como habitual).
-- Múltiplos `HISTORY: scroll K/100 via ACTION_SCROLL_BACKWARD accepted` até chegar ao topo.
-- Em algum ponto: `HISTORY: thread top reached (view_profile_button visible) after N scrolls — stopping.`
-- Segue com `HISTORY: finished — thread='<titulo>' scrolls=N ...`
+- `ENRICH_ALL: step K/N reelId=X author=<autor>`.
+- Uma das duas: match (`LOCATE: matched ...` ou `LOCATE_FWD: matched ...`) ou falha.
+- Se falha: `LOCATE: could not find reelId=X author=<autor> ... seenDuringSweep=[<lista_de_autores>]`.
+- Se `<autor>` estiver nessa `seenDuringSweep`: **acima da linha de falha** aparece `LOCATE: wanted author '<autor>' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing.`
 
-**NÃO** deve aparecer:
-- `HISTORY: stopping — 5 consecutive empty scrolls.` (esse era o fallback pré-s46; agora só deve activar em conversas gigantes onde o topo não está próximo).
-- `HISTORY: stopping — safety cap 100 scrolls hit.` (só se a conversa for enorme e a s46 não detectar topo).
+**Alternativa (garantir que o warning dispara):**
+1. Escolher um Reel cujo autor apareça 2× na conversa (Reel real N.º 1 duplicado num N.º 2 mais antigo). O `locateReelWithScroll` vai fazer match no N.º 1 (topo-most). Não vai disparar o warning — o match acontece.
+2. Alternativa mais fiável: dbg via adb — `sqlite3` para setar `reelUrl=null` no Reel 2 (o mais antigo) e apagar o Reel 1 do IG. Batch enrichment do Reel 2 vai varrer para trás. Se topo detectado antes de o encontrar (fica atrás do topo?), warning dispara.
 
-**Passa se:** aparece a linha `HISTORY: thread top reached ... after N scrolls`, com N igual ao número real de scrolls necessário para chegar ao topo (≪ 100 nesta conversa curta).
+**Passa se:** o log mostra a nova linha "wanted author '...' was observed mid-backward-sweep but no bubble matched" sempre que aplicável, OU o batch encontra o Reel com sucesso.
 **Falha se:**
-- **F1:** `thread top reached` nunca aparece; para por `5 consecutive empty scrolls` → o topo passou-lhe ao lado. Ver F1 do Teste 1.
-- **F2:** para com `safety cap 100 scrolls hit` → topo não detectado. Reforçar a bateria — pode ser que os selectors variem por versão do IG.
+- **F1:** o batch falha e NÃO mostra a linha `seenDuringSweep=...` em nenhum log de falha → o `seenAuthors` não está a acumular. Verificar código.
+- **F2:** o batch encontra o Reel sem falhar → cenário certo mas match aconteceu antes; testar com Reel cujo autor não exista de todo (garante falha) para confirmar que a linha `seenDuringSweep` aparece mesmo com set vazio.
 
 ---
 
-**Priorização depois de P validado:**
+**Priorização depois de Q validado:**
+1. **Fix estrutural do "Reel skipped mid-sweep"** — dependendo do que Q1 mostrar sobre frequência: (a) enumerar 2× por scroll com pequena separação (~150ms), OU (b) retracement dinâmico que scroll forward até reencontrar autor visto.
+2. **Sync de reacção actual (spec §7)** — coluna nova em Room + migração.
+3. **Match estrito por Reel URL no locate** — para colisões de mesmo autor.
+4. **Cosmético:** thumbnails / preview no feed; indicador visual de direcção de swipe.
+5. **Deep-link `instagram://direct/t/<thread_id>`** — investigar em dump da inbox.
+6. **Tuning de latência de scroll** — profilar `LOCATE_SCROLL_SETTLE_MS` real.
 
 1. **Sync de reacção actual (spec §7)** — ler `message_reactions_pill_container` de cada Reel na DM e persistir a reacção actual, para reflectir no chip do feed. Adiciona coluna `currentReaction` a `ReelEntity` (migração Room).
 2. **Match estrito por Reel URL no `locateReelWithScroll`** — para casos de 2 Reels do mesmo criador na mesma conversa. Precisa de expandir o viewer para cada match candidato — não trivial. Investigar alternativas (posição relativa no thread, timestamp).
@@ -547,6 +519,32 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 1181 erros totais (só compilo `IgSelectors.kt` + `InstagramReaderService.kt`), todos classpath (K2 sem Android SDK). Zero erros novos de sintaxe: `isThreadTopVisible`, os 4 `HEADER_*` constantes e as chamadas em `locateReelWithScroll`/`doHistoryScroll` não geram erros específicos além do baseline.
 - **Validação em device (esperada na próxima sessão):** bateria P (2 testes: `TopStop-Batch`, `TopStop-History`) descrita em §6.1 no formato §8.1.
 - **Nada mudou** no dump com delay (s45), no epoch guard (s44), no schema Room, na UI, nos primitivos react/reply/copy URL, na navegação PoC-9, no filtro de selecção, no batching de apply pending, nas prefs. A s46 é uma substituição cirúrgica da (não-)detecção de topo por um sinal real.
+
+---
+
+### 2026-08-31 — Sessão 47 (Ricardo + Copilot CLI) — instrumentação de "Reel skipped mid-sweep"
+
+- **Feedback do utilizador após validar s46 em device:** *"Não consegui muito bem testar o primeiro teste pois não tinha nenhum mas como o segundo funcionou bem acredito que esteja a funcionar, a coisa é que ao procurar o reel se ele já tiver passado por ele não volta para baixo para o reencontrar anota esse comportamento pois mesmo que não se corrija já é necessário saber isso."*
+- **Root cause hipotético:** durante o backward-scroll dentro de `locateReelWithScroll`, o bubble do Reel-alvo pode aparecer brevemente em vista mas o snapshot de `enumerateReels` no momento em que corre (300ms após scroll accepted) pode não o apanhar — a bubble pode estar mid-layout, com `bounds.height() < MIN_REEL_BUBBLE_HEIGHT_PX` (200px) e ser filtrada. Próximo scroll happens e a bubble sobe para fora do viewport. O código só descobre o skip depois de esgotar backward budget ou detectar topo, e o forward budget (5 scrolls, s43) é curto demais para retracement.
+- **Correcções:**
+  1. **`seenAuthors: MutableSet<String>` propagado por toda a recursão** de `locateReelWithScroll` e `locateReelWithForwardScroll`. Cada iteração acumula `candidates.mapNotNull { it.reelAuthor }`. Set partilhado entre backward + forward — o forward pode ver autores que o backward já viu (e vice-versa).
+  2. **Log warning explícito quando `wantedAuthor in seenAuthors` mas nunca deu match**, disparando em 3 pontos:
+     - `isThreadTopVisible == true` sem match.
+     - `scrollsLeft <= 0` (backward exhausted) sem match.
+     - `forwardScrollsLeft <= 0` (forward exhausted) sem match.
+     Mensagem base: `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing. Forward retracement will scan up to N scrolls to recover.`
+     No `LOCATE_FWD` a mensagem final ganha sufixo `— author WAS seen at some point (skipped bubble); consider bumping BATCH_MAX_FORWARD_SCROLLS`.
+  3. **`BATCH_MAX_FORWARD_SCROLLS` bumpado 5 → 15.** Justificação no comentário da constante: com `isThreadTopVisible` (s46) a cortar backward cedo em conversas curtas, sobra "slack" no budget total (100 × 0.3s = 30s backward + 15 × 0.3s = 4.5s forward = ~35s worst case, igual ao pre-s47). Ganha-se retracement suficiente para reencontrar bubbles skipped num range de ~15 scrolls.
+- **Trade-offs:**
+  - Não é a fix estrutural do bug. Instrumentação + mitigação parcial.
+  - A fix estrutural implicaria: (a) enumerar 2× por scroll com pequena separação (~150ms) para captar bubbles transientes, OU (b) retracement dinâmico ilimitado — scrollar forward até reencontrar o autor observado no `seenAuthors`. Ambas exigem alterações mais invasivas ao control-flow. Deixado para s48 dependendo do que a bateria Q1 mostrar.
+- **`BUILD_TAG` bumped para `build=s47`.**
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — `seenAuthors` como parâmetro nas duas locate functions e nas 4 chamadas recursivas (backward → forward, forward → forward), 3 novos log warnings, comentário da constante `BATCH_MAX_FORWARD_SCROLLS` reescrito para explicar o bump, `BUILD_TAG=s47`.
+  - `PROJECT_PROGRESS.md` — Estado atual (secção "Recap" + nova limitação em §6), quick start, §6/6.1 (bateria Q), este log.
+- **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 1199 erros totais, todos classpath (K2 sem Android SDK). Zero erros novos mencionando `seenAuthors` ou `BATCH_MAX_FORWARD_SCROLLS`. O aumento vs baseline s46 (1181 → 1199) é ruído de duplicação de erros nas mesmas linhas — nenhum erro real.
+- **Validação em device (esperada na próxima sessão):** bateria Q (1 teste: `SeenSkipped`) descrita em §6.1.
+- **Nada mudou** na detecção de topo (s46), no dump com delay (s45), no epoch guard (s44), no schema Room, na UI, nos primitivos react/reply/copy URL, na navegação PoC-9, no filtro de selecção, no batching de apply pending, nas prefs. A s47 é 100% cirúrgica sobre o control-flow do locate — sem alterações estruturais.
 
 ---
 

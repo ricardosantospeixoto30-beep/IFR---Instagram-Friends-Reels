@@ -1679,6 +1679,7 @@ class InstagramReaderService : AccessibilityService() {
         scrollsLeft: Int,
         forwardScrollsLeft: Int = BATCH_MAX_FORWARD_SCROLLS,
         epoch: Long = enrichmentStepEpoch,
+        seenAuthors: MutableSet<String> = mutableSetOf(),
         onDone: (DmReelEntry?) -> Unit,
     ) {
         // s44: stale-callback guard. If the batch executor has already
@@ -1710,6 +1711,16 @@ class InstagramReaderService : AccessibilityService() {
         val candidates = enumerateReels(messageList)
             .filter { it.bounds.width() > 0 && it.bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX }
             .filter { it.direction == Direction.RECEIVED }
+        // s47: track every RECEIVED reel author we've observed while
+        // sweeping backward. If we finish the sweep without a match but
+        // the target's author appears in this set, the Reel WAS on
+        // screen at some point but we skipped past it (transient
+        // layout, mid-scroll enumeration timing, etc.). This is
+        // reported by the user after s46 device validation — the batch
+        // doesn't retrace when it overshoots. The set is used both to
+        // log the observation (§limitation §6) and to bias the
+        // forward-scroll retracement below.
+        candidates.mapNotNull { it.reelAuthor }.forEach { seenAuthors.add(it) }
         val wantedAuthor = target.reelAuthor
         val match = if (wantedAuthor != null) {
             candidates.firstOrNull { it.reelAuthor == wantedAuthor }
@@ -1748,8 +1759,19 @@ class InstagramReaderService : AccessibilityService() {
                 "LOCATE: thread top reached at scroll $stepIndex/$BATCH_MAX_SCROLLS " +
                     "(view_profile_button visible) — skipping remaining backward budget."
             )
+            if (wantedAuthor != null && wantedAuthor in seenAuthors) {
+                Log.w(
+                    TAG,
+                    "LOCATE: wanted author '$wantedAuthor' was observed mid-backward-sweep but " +
+                        "no bubble matched — Reel likely skipped due to layout timing. Forward " +
+                        "retracement will scan up to $forwardScrollsLeft scrolls to recover."
+                )
+            }
             if (forwardScrollsLeft > 0) {
-                locateReelWithForwardScroll(target, forwardScrollsLeft, epoch = epoch, onDone = onDone)
+                locateReelWithForwardScroll(
+                    target, forwardScrollsLeft, epoch = epoch,
+                    seenAuthors = seenAuthors, onDone = onDone,
+                )
                 return
             }
             val visibleAuthors = candidates.map { it.reelAuthor ?: "?" }
@@ -1757,7 +1779,7 @@ class InstagramReaderService : AccessibilityService() {
                 TAG,
                 "LOCATE: could not find reelId=${target.id} author=$wantedAuthor — " +
                     "thread top reached and no forward budget. visibleReceived=${candidates.size} " +
-                    "authors=$visibleAuthors"
+                    "authors=$visibleAuthors seenDuringSweep=$seenAuthors"
             )
             onDone(null)
             return
@@ -1767,13 +1789,24 @@ class InstagramReaderService : AccessibilityService() {
             // Backward budget exhausted. If we haven't tried scrolling
             // forward yet, do so — the Reel might live BELOW the
             // current view.
+            if (wantedAuthor != null && wantedAuthor in seenAuthors) {
+                Log.w(
+                    TAG,
+                    "LOCATE: wanted author '$wantedAuthor' was observed mid-backward-sweep but " +
+                        "no bubble matched — Reel likely skipped due to layout timing. Forward " +
+                        "retracement will scan up to $forwardScrollsLeft scrolls to recover."
+                )
+            }
             if (forwardScrollsLeft > 0) {
                 Log.i(
                     TAG,
                     "LOCATE: backward exhausted after $BATCH_MAX_SCROLLS scrolls, switching to forward " +
                         "scroll fallback (author=$wantedAuthor forwardScrollsLeft=$forwardScrollsLeft)"
                 )
-                locateReelWithForwardScroll(target, forwardScrollsLeft, epoch = epoch, onDone = onDone)
+                locateReelWithForwardScroll(
+                    target, forwardScrollsLeft, epoch = epoch,
+                    seenAuthors = seenAuthors, onDone = onDone,
+                )
                 return
             }
             val visibleAuthors = candidates.map { it.reelAuthor ?: "?" }
@@ -1781,7 +1814,7 @@ class InstagramReaderService : AccessibilityService() {
                 TAG,
                 "LOCATE: could not find reelId=${target.id} author=$wantedAuthor after " +
                     "$BATCH_MAX_SCROLLS backward + $BATCH_MAX_FORWARD_SCROLLS forward scrolls. " +
-                    "visibleReceived=${candidates.size} authors=$visibleAuthors"
+                    "visibleReceived=${candidates.size} authors=$visibleAuthors seenDuringSweep=$seenAuthors"
             )
             onDone(null)
             return
@@ -1800,7 +1833,7 @@ class InstagramReaderService : AccessibilityService() {
                 )
             }
             mainHandler.postDelayed({
-                locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, epoch, onDone)
+                locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, epoch, seenAuthors, onDone)
             }, LOCATE_SCROLL_SETTLE_MS)
             return
         }
@@ -1833,7 +1866,7 @@ class InstagramReaderService : AccessibilityService() {
                     "LOCATE: swipe fallback completed scrollsLeft=$scrollsLeft author=$wantedAuthor"
                 )
                 mainHandler.postDelayed({
-                    locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, epoch, onDone)
+                    locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, epoch, seenAuthors, onDone)
                 }, LOCATE_SCROLL_SETTLE_MS)
             }
             override fun onCancelled(g: GestureDescription?) {
@@ -1841,7 +1874,10 @@ class InstagramReaderService : AccessibilityService() {
                 Log.w(TAG, "LOCATE: swipe fallback cancelled by system.")
                 if (forwardScrollsLeft > 0) {
                     Log.i(TAG, "LOCATE: switching to forward-scroll fallback (author=$wantedAuthor).")
-                    locateReelWithForwardScroll(target, forwardScrollsLeft, epoch = epoch, onDone = onDone)
+                    locateReelWithForwardScroll(
+                        target, forwardScrollsLeft, epoch = epoch,
+                        seenAuthors = seenAuthors, onDone = onDone,
+                    )
                 } else {
                     onDone(null)
                 }
@@ -1851,7 +1887,10 @@ class InstagramReaderService : AccessibilityService() {
             Log.w(TAG, "LOCATE: swipe fallback rejected by dispatchGesture.")
             if (forwardScrollsLeft > 0) {
                 Log.i(TAG, "LOCATE: switching to forward-scroll fallback (author=$wantedAuthor).")
-                locateReelWithForwardScroll(target, forwardScrollsLeft, epoch = epoch, onDone = onDone)
+                locateReelWithForwardScroll(
+                    target, forwardScrollsLeft, epoch = epoch,
+                    seenAuthors = seenAuthors, onDone = onDone,
+                )
             } else {
                 onDone(null)
             }
@@ -1871,6 +1910,7 @@ class InstagramReaderService : AccessibilityService() {
         target: ReelEntity,
         forwardScrollsLeft: Int,
         epoch: Long = enrichmentStepEpoch,
+        seenAuthors: MutableSet<String> = mutableSetOf(),
         onDone: (DmReelEntry?) -> Unit,
     ) {
         if (epoch != enrichmentStepEpoch) {
@@ -1899,6 +1939,7 @@ class InstagramReaderService : AccessibilityService() {
         val candidates = enumerateReels(messageList)
             .filter { it.bounds.width() > 0 && it.bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX }
             .filter { it.direction == Direction.RECEIVED }
+        candidates.mapNotNull { it.reelAuthor }.forEach { seenAuthors.add(it) }
         val wantedAuthor = target.reelAuthor
         val match = if (wantedAuthor != null) {
             candidates.firstOrNull { it.reelAuthor == wantedAuthor }
@@ -1917,10 +1958,13 @@ class InstagramReaderService : AccessibilityService() {
         }
 
         if (forwardScrollsLeft <= 0) {
+            val seenNote = if (wantedAuthor != null && wantedAuthor in seenAuthors)
+                " — author WAS seen at some point (skipped bubble); consider bumping BATCH_MAX_FORWARD_SCROLLS"
+            else ""
             Log.w(
                 TAG,
                 "LOCATE_FWD: could not find reelId=${target.id} author=$wantedAuthor after " +
-                    "$BATCH_MAX_FORWARD_SCROLLS forward scrolls."
+                    "$BATCH_MAX_FORWARD_SCROLLS forward scrolls.$seenNote seenDuringSweep=$seenAuthors"
             )
             onDone(null)
             return
@@ -1939,7 +1983,7 @@ class InstagramReaderService : AccessibilityService() {
                 )
             }
             mainHandler.postDelayed({
-                locateReelWithForwardScroll(target, forwardScrollsLeft - 1, epoch, onDone)
+                locateReelWithForwardScroll(target, forwardScrollsLeft - 1, epoch, seenAuthors, onDone)
             }, LOCATE_SCROLL_SETTLE_MS)
             return
         }
@@ -1968,7 +2012,7 @@ class InstagramReaderService : AccessibilityService() {
                     "LOCATE_FWD: swipe UP fallback completed forwardScrollsLeft=$forwardScrollsLeft author=$wantedAuthor"
                 )
                 mainHandler.postDelayed({
-                    locateReelWithForwardScroll(target, forwardScrollsLeft - 1, epoch, onDone)
+                    locateReelWithForwardScroll(target, forwardScrollsLeft - 1, epoch, seenAuthors, onDone)
                 }, LOCATE_SCROLL_SETTLE_MS)
             }
             override fun onCancelled(g: GestureDescription?) {
@@ -2820,7 +2864,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s46"
+        private const val BUILD_TAG = "build=s47"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -2924,13 +2968,29 @@ class InstagramReaderService : AccessibilityService() {
         /** Duration of the fallback swipe DOWN when a11y scroll is refused. */
         private const val LOCATE_SWIPE_DURATION_MS = 500L
         /**
-         * Budget for the forward-scroll fallback (s42, tuned in s43).
-         * The common case is the Reel being ABOVE the current view;
-         * forward is only useful when IG restored a mid-thread scroll
-         * position. Reduced from 10 to 5 in s43 — 10 was wasting time
-         * on the common case per user feedback.
+         * Budget for the forward-scroll fallback (s42, tuned s43/s47).
+         * Purpose: after backward-scroll exhausts (or top of thread is
+         * detected via [isThreadTopVisible] in s46), the Reel may still
+         * live somewhere BELOW the current position — either because
+         * IG restored a mid-thread scroll or because we SCROLLED PAST
+         * IT during the backward sweep (bubble was mid-layout at the
+         * exact moment [enumerateReels] ran; observed & reported by
+         * the user after s46 device validation).
+         *
+         * s43 reduced this from 10 → 5 assuming the common case is a
+         * Reel above the current view. s47 bumps back to 15 because:
+         *  - s46's `isThreadTopVisible` now short-circuits backward
+         *    early, so we have "slack" left in the total budget.
+         *  - When the Reel is skipped mid-backward (see [seenAuthors]
+         *    instrumentation in [locateReelWithScroll]), forward needs
+         *    enough runway to retrace the scrolls we did after the
+         *    miss. 5 was too few for anything past the first ~15 lines
+         *    of the thread.
+         *
+         * Total worst case remains ~35s (100×300ms backward + 15×300ms
+         * forward = ~34.5s, plus the very short thread-top short-circuit).
          */
-        private const val BATCH_MAX_FORWARD_SCROLLS = 5
+        private const val BATCH_MAX_FORWARD_SCROLLS = 15
         /**
          * Log rate-limit (s43): with 100 backward scrolls per Reel a
          * verbose per-scroll log makes the a11y logcat unreadable.
