@@ -131,6 +131,30 @@ object IgSelectors {
         // reply-preview strip on top of the composer. Useful as a positive
         // signal that the reply flow is truly active.
         const val COMPOSER_REPLY_BAR_CONTAINER = "message_composer_reply_bar_container"
+
+        // ---------------------------------------------------------------
+        // Top-of-conversation header (validated 2026-08-31 in
+        // `docs/screen-dumps/dump.txt`, s45 device dump). When the user
+        // scrolls the `message_list` all the way to the very first
+        // message of a DM, IG renders a "header" card at the top with:
+        //
+        //   FrameLayout id=user_avatar                    (large 330×330 avatar)
+        //   TextView   id=other_user_full_name_or_username (display name)
+        //   TextView   id=network_attribution              (the @handle)
+        //   Button     id=view_profile_button              (text "Ver perfil" / "View profile")
+        //
+        // The presence of any of these — but especially the
+        // `view_profile_button` — is the definitive signal that we've
+        // reached the beginning of the conversation and further backward
+        // scrolls will not surface new content. s46 uses this to abort
+        // both the batch-enrichment locate loop and the history-scroll
+        // discovery early, replacing the buggy "stall detection" heuristic
+        // that was removed in s44.
+        // ---------------------------------------------------------------
+        const val HEADER_VIEW_PROFILE_BUTTON = "view_profile_button"
+        const val HEADER_USER_AVATAR = "user_avatar"
+        const val HEADER_OTHER_USER_FULLNAME = "other_user_full_name_or_username"
+        const val HEADER_NETWORK_ATTRIBUTION = "network_attribution"
     }
 
     // ---------------------------------------------------------------------

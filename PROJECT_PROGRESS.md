@@ -7,20 +7,20 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC → MVP). **Sessões 37-42 validadas em device.** Sessão 43 introduziu 5x mais scrolls + IG-focus recovery entre steps, mas o log da s43 revelou 2 bugs: (1) stall detection falsa positiva quando há mensagens de texto entre Reels, (2) callbacks de steps antigos a interleaving com o step actual. Sessão 44 removeu a stall detection, adicionou epoch guard para callbacks stale, e trouxe de volta um botão de Dump em Diagnóstico — mas o teste em device confirmou que o botão captura o ecrã das Definições, não o do IG (tocar no botão rouba o foco). Sessão 45 corrige isso: o dump agora é feito com atraso de 5s + Toast a avisar o utilizador para mudar para o IG (o `adb shell am broadcast` continua imediato).
-**Última atualização:** 2026-08-31 (sessão 45 — dump com delay + Toast countdown).
+**Fase atual:** Fase 1 (PoC → MVP). Sessões 37-42 validadas em device. s43 introduziu 5x mais scrolls + IG-focus recovery entre steps mas o log revelou 2 bugs (stall detection falsa positiva, callbacks stale interleaving). s44 removeu a stall detection, adicionou epoch guard, e trouxe um botão de Dump em Diagnóstico — que capturava a UI errada porque tocar rouba foco ao IG. s45 corrigiu com dump adiado + Toast countdown; validado em device (`docs/screen-dumps/dump.txt` mostra o topo da conversa de `astrid_gutierrez` com `view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username`). **s46 usa esses selectors para implementar `isThreadTopVisible` e integrar em `locateReelWithScroll` (aborta backward budget cedo) e `doHistoryScroll` (para de scrollar quando genuinamente chega ao topo).**
+**Última atualização:** 2026-08-31 (sessão 46 — detecção real de topo de conversa).
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s45`.
+**HEAD actual:** `build=s46`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s45 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s46 ...)`.
 2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
-    - `service/InstagramReaderService.kt` — motor a11y. Nova função `handleDumpTreeBroadcast(intent)` lê `EXTRA_DUMP_DELAY_MS` (Long); se > 0, mostra Toast "Muda para o IG! Dump em Xs" e adia `dumpAllWindows("manual-delayed")` via `mainHandler.postDelayed`. Se 0/ausente (caso adb), dumpa imediatamente com `reason=manual`. Epoch guard e remoção da stall detection da s44 continuam intactos.
-    - `ui/settings/SettingsActivity.kt` — botão "🌳 Dump" agora chama `triggerDelayedDump(context)` que envia o broadcast com extra `EXTRA_DUMP_DELAY_MS=5000L` e mostra `Toast` local. `sendServiceBroadcast` intacto para as outras acções.
-    - `res/values/strings.xml` — novo `dump_tree_countdown` ("🌳 Muda para o IG! Dump em %1$d s.").
-    - Dumps: `docs/screen-dumps/feed.txt` (última corrida s44 — mostra o dump a capturar Definições, motivo do fix da s45).
+    - `instagram/IgSelectors.kt` — objecto `Thread` ganhou 4 novas constantes: `HEADER_VIEW_PROFILE_BUTTON`, `HEADER_USER_AVATAR`, `HEADER_OTHER_USER_FULLNAME`, `HEADER_NETWORK_ATTRIBUTION` (identificam o header "start-of-conversation" que aparece quando a `message_list` chega ao topo absoluto).
+    - `service/InstagramReaderService.kt` — nova helper `isThreadTopVisible(root)` verifica presença dos 4 selectors acima (view_profile_button primeiro, os outros como fallback). Integrada em `locateReelWithScroll` (aborta backward budget cedo, log `LOCATE: thread top reached at scroll N/100 — skipping remaining backward budget.`) e em `doHistoryScroll` (log `HISTORY: thread top reached ... after N scrolls — stopping.`). Dump com delay (s45) mantém-se. Epoch guard (s44) mantém-se.
+    - `ui/settings/SettingsActivity.kt` — botão de Dump com delay (s45), sem alterações na s46.
+    - Dumps: `docs/screen-dumps/dump.txt` (s45 — mostra o topo da conversa, base para os selectors da s46).
 4. **Constraints:**
     - Testes só no OnePlus Nord 5 / Android 16.
     - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
@@ -28,14 +28,13 @@
 5. **UX actual em device:**
     - **Home:** protagonismo ao `▶ Abrir o meu feed`. Descoberta (🔍, 📥, 🔗 Preparar URLs (N) condicional). Configuração.
     - **Feed:** full-screen VerticalPager. Auto-play inline. Chip único de reacção. Menu ⋮.
-    - **Definições:** 3 toggles + Filtrar conversas + Preparar URLs em lote + Diagnóstico com botão "🌳 Dump" que **agora conta 5s antes de dumpar** para dar tempo ao utilizador de voltar ao IG.
+    - **Definições:** 3 toggles + Filtrar conversas + Preparar URLs em lote + Diagnóstico com botão "🌳 Dump" que conta 5s antes de dumpar.
     - **Notificação persistente:** 3 botões (🔍 🔗 ▶) + progresso + Cancelar durante lotes.
     - **Notificação de conclusão:** heads-up.
 6. **Limitações conhecidas:**
     - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem.
-    - Locate com 100 backward × 300ms + 5 forward × 300ms = ~35s worst case por Reel. Sem stall detection, sempre corre budget completo se não encontrar.
-    - "Fim de conversa" ainda não é detectado — precisa de dump manual (via botão com delay ou `adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_TREE`) para identificar o selector do header "@handle" + "Ver perfil".
-    - Enrichment success ~5-8s; fail ~30s.
+    - Locate com 100 backward × 300ms + 5 forward × 300ms = ~35s worst case por Reel. **s46:** worst-case só se aplica em conversas longas onde o Reel não está no histórico visível; quando a conversa é curta, `isThreadTopVisible` corta imediatamente.
+    - Enrichment success ~5-8s; fail depende do tamanho da conversa (agora rápido em conversas curtas graças à s46, lento em conversas gigantes com Reels em falta).
     - Batch enrichment partilha `pendingCopy` com o fluxo on-demand.
     - Consulta de respostas anteriores dentro da app (spec §5) — não temos sync.
     - Reacção "actual" só reflecte as que corremos via app.
@@ -224,75 +223,97 @@ Já entregue no primeiro commit:
 - ✅ **s42 — fail-fast + forward-scroll + heads-up.** L1+L3 confirmados.
 - ✅ **s43 — 5x mais scrolls + faster + IG-focus recovery.** M1 (recovery) esperado ok, M2-M3 revelaram interleaving + stall detection buggy.
 - ✅ **s44 — remove stall detection + epoch guard + botão dump em Diagnóstico.** Epoch guard aceite; botão de dump implementado mas em device capturou a árvore das Definições (não do IG) porque tocar no botão rouba o foco.
-- 🟡 **s45 — dump com atraso de 5s + Toast countdown.** Pronta em código; aguarda validação em device (O1).
+- ✅ **s45 — dump com atraso de 5s + Toast countdown.** Validada em device (`docs/screen-dumps/dump.txt` capturou topo da conversa `astrid_gutierrez` com `view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username`).
+- 🟡 **s46 — detecção real de topo de conversa (`isThreadTopVisible`) integrada em `locateReelWithScroll` e `doHistoryScroll`.** Pronta em código; aguarda validação em device (P1/P2).
 
 ### 6.1 Próxima sessão — arranque
 
-**Estado no fim da s45:** correcção cirúrgica ao botão de Dump da s44.
-1. **Dump com delay** — o botão em Definições agora envia `ACTION_DUMP_TREE` com extra `EXTRA_DUMP_DELAY_MS=5000L`. O serviço mostra um Toast a dizer "🌳 Muda para o IG! Dump em 5 s." e adia `dumpAllWindows("manual-delayed")` por 5s. Utilizador toca no botão, muda para o IG, e 5s depois o dump captura a conversa correcta.
-2. **adb continua imediato** — `adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_TREE` (sem extra) dumpa já, para o caso em que o utilizador tem o IG em primeiro plano e dispara o broadcast por adb sem sair da conversa.
-3. **Nada mais mudou** — epoch guard (s44), stall detection removida (s44), 100 scrolls + 5 forward (s43), `runInInstagram` entre steps (s43), tudo intacto.
+**Estado no fim da s46:** substituição da stall detection (removida na s44) pela detecção real via selectors do dump da s45.
+1. **`Thread.HEADER_VIEW_PROFILE_BUTTON` (+3 fallback constantes)** em `IgSelectors.kt` — capturados do dump da s45 no topo da conversa `astrid_gutierrez`.
+2. **`isThreadTopVisible(root)`** no serviço — probe `view_profile_button` primeiro (o mais exclusivo), depois `user_avatar` / `other_user_full_name_or_username` / `network_attribution` como fallback caso IG renomeie um deles.
+3. **`locateReelWithScroll`** — depois de enumerar candidatos e não achar match, se `isThreadTopVisible == true` pula o resto do budget backward, salta directamente para `locateReelWithForwardScroll` (se houver budget), ou termina com `onDone(null)`. Log: `LOCATE: thread top reached at scroll K/100 — skipping remaining backward budget.`
+4. **`doHistoryScroll`** — check antes de cada scroll. Se topo visível, chama `finishHistory(state)`. Log: `HISTORY: thread top reached (view_profile_button visible) after N scrolls — stopping.`
+5. **Nada mais mudou** — dump com delay (s45), epoch guard (s44), stall detection removida (s44), 100 backward + 5 forward + 300ms settle (s43), `runInInstagram` entre steps (s43), tudo intacto.
 
-**Bateria proposta — Sessão 45 (só 1 teste; o resto da bateria N da s44 já foi validado ou não é bloqueado por este fix):**
+**Bateria proposta — Sessão 46 (nomes descritivos + passos concretos, formato §8.1):**
 
-Nome curto: `Dump-IG`. Formato conforme §8.1.
+Se um teste falhar, para e reporta — não passes ao seguinte. Ambos são não-destrutivos.
 
-#### Teste 1 — "Dump captura a árvore da conversa do IG, não a das Definições" (`Dump-IG`)
+#### Teste 1 — "Batch enrichment aborta cedo quando chega ao topo da conversa" (`TopStop-Batch`)
 
-**O que se está a validar:** o botão em Definições dispara o dump com 5s de atraso; o Toast avisa o utilizador; ao mudar para o IG dentro do intervalo, o dump que sai no logcat contém nós da UI do Instagram (não da app Friends Reels).
+**O que se está a validar:** um Reel na DB com URL null cujo autor não existe na conversa activa faz o `locateReelWithScroll` scrollar até ao topo e depois parar imediatamente em vez de esgotar os 100 scrolls.
 
 **Preparação:**
-1. `git pull` no telemóvel-de-testes; recompilar e reinstalar o APK em `build=s45`.
-2. Confirmar no logcat inicial: `Action receiver registered (build=s45 ... dumpTree=com.example.friendsreels.ACTION_DUMP_TREE)`.
-3. Escolher **uma conversa 1-a-1 curta** (~20 mensagens) para o teste — quanto mais curta, mais fácil chegar ao topo com o dedo.
-4. Abrir `logcat -s IGReaderService` num terminal ligado ao telemóvel.
+1. `git pull` no telemóvel-de-testes; recompilar e reinstalar o APK em `build=s46`.
+2. Confirmar no logcat inicial: `Action receiver registered (build=s46 ...)`.
+3. Escolher **uma conversa 1-a-1 CURTA** (~20-40 mensagens no total; mesma da s45 se possível, `astrid_gutierrez` ideal) onde tens **1 Reel na DB com autor inexistente** (podes inventar via `INSERT` manual em `adb shell` na Room DB, ou seleccionar um Reel já apagado no IG). Alternativa mais simples: criar um Reel fake com `reelAuthor="foobar_notexists_9999"` associado à threadTitle desta conversa.
+4. Abrir `logcat -s IGReaderService` num terminal.
 
 **Passos:**
-1. Abrir Friends Reels → **⚙ Definições** → rolar até **"Ferramentas de diagnóstico"**.
-2. Tocar **"🌳 Dump da árvore da página atual (Logcat)"**.
-3. **Confirmar imediatamente** que aparece um Toast na parte de baixo do ecrã com o texto **"🌳 Muda para o IG! Dump em 5 s."** (deve manter-se visível ~3.5s — `Toast.LENGTH_LONG`).
-4. **Sem esperar**, mudar para o Instagram (via Recents ou ícone home), abrir a conversa escolhida, e **rolar o dedo até ao topo** da conversa. Deve aparecer:
-    - Foto de perfil da pessoa em grande no centro.
-    - Nome da pessoa por baixo.
-    - `@handle` (username com @).
-    - Botão / link "Ver perfil".
-5. **Ficar parado no topo da conversa até ~5s depois de teres tocado no botão.**
+1. Abrir Friends Reels → **⚙ Definições** → **"🔗 Preparar todos"**.
+2. Deixar o batch correr sobre o Reel fake.
+3. Ficar quieto (não abrir shade, não mudar de app).
 
 **O que confirmar no logcat:**
-- Aparece **antes** do dump: `DUMP_TREE: scheduled in 5000ms (5s) — switch to IG now.`
-- ~5 segundos depois: `===== DUMP_ALL START reason=manual-delayed windowCount=N =====`.
-- Um dos blocos `----- WINDOW[...] type=APPLICATION pkg=com.instagram.android active=true focused=true` (o crítico — se o `pkg` for `com.example.friendsreels`, falha).
-- Dentro desse bloco: nós com `text="<Nome da pessoa>"`, um nó com `text="@<handle>"` ou `desc` contendo o handle, e um botão/link com `text="Ver perfil"`.
-- Termina com `===== DUMP_ALL END reason=manual-delayed =====`.
+- `ENRICH_ALL: step K/N reelId=X author=foobar_notexists_9999 thread='<titulo>'`.
+- Sequência de `LOCATE: scroll M/100 author=foobar_notexists_9999` (com rate-limit — só 1/10/20/…).
+- Em algum ponto **antes de atingir 100 scrolls**: `LOCATE: thread top reached at scroll K/100 (view_profile_button visible) — skipping remaining backward budget.`
+- Imediatamente a seguir: `LOCATE_FWD: scroll 1/5 ...` (o forward fallback continua a ser tentado).
+- Depois: `LOCATE_FWD: could not find reelId=X author=foobar_notexists_9999 after 5 forward scrolls.`
+- Batch conclui com `ENRICH_ALL: batch complete (succeeded=0 failed=1)`.
 
-**Alternativa via adb (para confirmar que o path imediato ainda funciona):**
-```
-adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_TREE
-```
-Isto deve dumpar imediatamente com `reason=manual` (sem `-delayed`) e capturar o que quer que esteja em foco no momento — testar depois do Teste 1 principal, com o IG em primeiro plano numa conversa qualquer.
+**NÃO** deve aparecer:
+- `LOCATE: scroll 100/100 ...` (indicaria que o budget esgotou sem detectar o topo).
+- `LOCATE_FWD: scroll 5/5` **antes** do `thread top reached`.
 
-**Após o teste (importante!):**
-1. Copiar o bloco **inteiro** (`===== DUMP_ALL START ...` até `===== DUMP_ALL END ...`) para `docs/screen-dumps/feed.txt`, substituindo o dump antigo da s44 (ou mantendo-o abaixo para comparação).
-2. Adicionar uma linha de contexto no topo do bloco: `# s45 — dump do topo da conversa 'NOME_DA_PESSOA' — 2026-08-31`.
-3. Isto permite identificar na próxima sessão o `resource-id` exacto do header (algo como `com.instagram.android:id/thread_header_profile_pic` ou similar) para implementar `isThreadHeaderVisible()` que servirá de sinal real de fim-de-conversa.
-
-**Passa se:** aparece `reason=manual-delayed` com `pkg=com.instagram.android` como janela `focused=true` e nós com o nome/handle da pessoa.
+**Passa se:** o log mostra `thread top reached at scroll K/100` para algum K < 100, com K correspondendo ao número de scrolls necessário para chegar ao topo da conversa. Duração total do step ≪ 30s.
 **Falha se:**
-- **F1:** Toast não aparece → o `strings.xml` não foi actualizado ou a permissão de Toast está a falhar. Verificar `dump_tree_countdown` em `app/src/main/res/values/strings.xml`.
-- **F2:** dump aparece imediatamente com `reason=manual` (não `manual-delayed`) → o extra `EXTRA_DUMP_DELAY_MS` não está a chegar. Verificar chamada de `sendBroadcast` em `SettingsActivity.triggerDelayedDump`.
-- **F3:** dump aparece 5s depois mas continua a capturar Friends Reels → utilizador não mudou para o IG a tempo. Repetir teste.
-- **F4:** dump aparece 5s depois no IG mas o topo da conversa não tem `@handle`/foto grande → utilizador não chegou ao topo absoluto. Repetir com uma conversa ainda mais curta.
+- **F1:** `thread top reached` nunca aparece → `isThreadTopVisible` não encontrou nenhum dos 4 selectors. Verificar dump manual desta conversa (via botão + delay) — se `view_profile_button` estiver com outro `resource-id`, adicionar ao array em `isThreadTopVisible`.
+- **F2:** batch faz os 100 scrolls completos → mesma causa que F1. Ver F1.
+- **F3:** `thread top reached` aparece imediatamente à primeira iteração → o dump foi obtido numa conversa onde o topo já estava visível quando o batch arrancou. Testar com conversa maior onde é necessário scrollar.
 
 ---
 
-**Priorização depois de O1 validado (bateria N da s44 continua pendente para reconfirmar em s45):**
+#### Teste 2 — "History-scroll para de scrollar quando genuinamente chega ao topo" (`TopStop-History`)
 
-1. **Detecção real de "topo de conversa"** usando o selector identificado no Teste 1. Termina o batch antes de esgotar o budget quando genuinamente chega ao topo.
-2. **Sync de reacção actual (spec §7).**
-3. **Match estrito por URL no `locateReelWithScroll`.**
-4. **Cosmético:** thumbnails / preview no feed; ordem dos chips por `createdAt`; indicador visual de direcção de swipe.
-5. **Tuning de latência.**
-6. **Deep-link `instagram://direct/t/<thread_id>`.**
+**O que se está a validar:** o botão `📥 Descobrir histórico (scroll auto)` para no topo real da conversa em vez de esperar pelos 5 scrolls vazios consecutivos.
+
+**Preparação:**
+1. Mesmo build `s46`.
+2. Escolher **uma conversa 1-a-1 curta com pelo menos 1 Reel recebido** (para gerar inserts). O `astrid_gutierrez` da s45 serve — tem mensagens até `6/06, 11:06 DA TARDE` e o header logo por cima.
+3. Limpar Room DB para esta thread (via `adb shell pm clear com.example.friendsreels` — cuidado, apaga tudo) ou aceitar duplicados detectados como skips.
+4. Abrir `logcat -s IGReaderService`.
+
+**Passos:**
+1. Abrir o Instagram.
+2. Ir à conversa.
+3. Puxar o shade e tocar 📥 na notificação persistente (OU voltar ao Friends Reels → Home → 📥).
+4. Deixar o history-scroll correr — vai fazer múltiplas iterações de `ACTION_SCROLL_BACKWARD`.
+
+**O que confirmar no logcat:**
+- `HISTORY: doHistoryEnumerate ...` a cada scroll (inserts / skips como habitual).
+- Múltiplos `HISTORY: scroll K/100 via ACTION_SCROLL_BACKWARD accepted` até chegar ao topo.
+- Em algum ponto: `HISTORY: thread top reached (view_profile_button visible) after N scrolls — stopping.`
+- Segue com `HISTORY: finished — thread='<titulo>' scrolls=N ...`
+
+**NÃO** deve aparecer:
+- `HISTORY: stopping — 5 consecutive empty scrolls.` (esse era o fallback pré-s46; agora só deve activar em conversas gigantes onde o topo não está próximo).
+- `HISTORY: stopping — safety cap 100 scrolls hit.` (só se a conversa for enorme e a s46 não detectar topo).
+
+**Passa se:** aparece a linha `HISTORY: thread top reached ... after N scrolls`, com N igual ao número real de scrolls necessário para chegar ao topo (≪ 100 nesta conversa curta).
+**Falha se:**
+- **F1:** `thread top reached` nunca aparece; para por `5 consecutive empty scrolls` → o topo passou-lhe ao lado. Ver F1 do Teste 1.
+- **F2:** para com `safety cap 100 scrolls hit` → topo não detectado. Reforçar a bateria — pode ser que os selectors variem por versão do IG.
+
+---
+
+**Priorização depois de P validado:**
+
+1. **Sync de reacção actual (spec §7)** — ler `message_reactions_pill_container` de cada Reel na DM e persistir a reacção actual, para reflectir no chip do feed. Adiciona coluna `currentReaction` a `ReelEntity` (migração Room).
+2. **Match estrito por Reel URL no `locateReelWithScroll`** — para casos de 2 Reels do mesmo criador na mesma conversa. Precisa de expandir o viewer para cada match candidato — não trivial. Investigar alternativas (posição relativa no thread, timestamp).
+3. **Cosmético:** thumbnails / preview no feed; ordem dos chips por `createdAt`; indicador visual de direcção de swipe.
+4. **Deep-link `instagram://direct/t/<thread_id>`** — investigar onde IG expõe o thread_id (dump da inbox).
+5. **Tuning de latência de scroll** — perfilar `LOCATE_SCROLL_SETTLE_MS` em conversas reais.
 
 ### 6.2 Alternativas arquitecturais
 
@@ -780,6 +801,38 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 1577 erros totais, todos classpath (K2 sem Android SDK). Zero erros novos de sintaxe: as novas funções `handleDumpTreeBroadcast` e `triggerDelayedDump`, o novo import `android.widget.Toast`, e a nova constante `EXTRA_DUMP_DELAY_MS` aparecem sem erros específicos além dos classpath baseline.
 - **Validação em device (esperada na próxima sessão):** teste "Dump-IG" descrito em §6.1 (só 1 teste — a bateria N da s44 dos testes de Interleaving e Budget não foi bloqueada por esta correcção, mas convém reconfirmá-los em s45 se ainda não foram validados).
 - **Nada mudou** no epoch guard (s44), na remoção da stall detection (s44), no budget de 100 backward + 5 forward (s43), no `runInInstagram` entre steps (s43), nos primitivos react/reply/copy URL, na navegação PoC-9, no filtro de selecção, no batching de apply pending, nas prefs (excepto o novo extra `EXTRA_DUMP_DELAY_MS`), no schema Room, na UI (excepto o Toast). A s45 é 100% cirúrgica sobre o botão de Dump.
+
+---
+
+### 2026-08-31 — Sessão 46 (Ricardo + Copilot CLI) — detecção real de topo de conversa
+
+- **Input:** utilizador confirmou o teste `Dump-IG` da s45 funcionou e colou o dump em `docs/screen-dumps/dump.txt`. Instrução: "junta o máximo de features que consegues fazer e só depois eu dou feedback… de vez em quando limpa a documentação para a manter atualizada e sem lixo".
+- **Análise do dump (`docs/screen-dumps/dump.txt`):** o topo da conversa `astrid_gutierrez` (`WINDOW[3] type=APPLICATION pkg=com.instagram.android`) contém dentro de `message_list` um `LinearLayout` inicial com:
+  - `FrameLayout id=com.instagram.android:id/user_avatar` (foto grande 330×330).
+  - `TextView id=com.instagram.android:id/other_user_full_name_or_username text="astrid☀️"`.
+  - `TextView id=com.instagram.android:id/network_attribution text="astrid_gutierrez"` (o `@handle` real).
+  - `Button id=com.instagram.android:id/view_profile_button text="Ver perfil"`.
+  Estes 4 nodes são o header "start-of-conversation" pedido pelo utilizador na s44 e são a base para substituir a stall detection removida na s44.
+- **Correcções:**
+  1. **`IgSelectors.Thread` ganha 4 novas constantes:** `HEADER_VIEW_PROFILE_BUTTON`, `HEADER_USER_AVATAR`, `HEADER_OTHER_USER_FULLNAME`, `HEADER_NETWORK_ATTRIBUTION`. Comentário no ficheiro remete para o dump da s45 como fonte.
+  2. **Nova helper `isThreadTopVisible(root: AccessibilityNodeInfo?): Boolean`** no serviço. Probe `view_profile_button` primeiro (mais exclusivo dos 4) e cai nos outros como fallback caso IG renomeie um deles num futuro build.
+  3. **`locateReelWithScroll`** — depois de enumerar candidatos e não achar match, chama `isThreadTopVisible(root)`. Se `true`, log `LOCATE: thread top reached at scroll K/100 (view_profile_button visible) — skipping remaining backward budget.` e transita imediatamente para `locateReelWithForwardScroll` (se ainda houver budget forward) ou termina com `onDone(null)`. Substitui o "budget completo obrigatório" que a s44 introduziu ao remover a stall detection.
+  4. **`doHistoryScroll`** — check idêntico no início de cada iteração. Se topo visível, chama `finishHistory(state)` com log `HISTORY: thread top reached (view_profile_button visible) after N scrolls — stopping.` Substitui o critério "`HISTORY_STOP_AFTER_N_EMPTY == 5`" como sinal primário (esse continua como fallback para casos onde os selectors do header falhem).
+- **Impacto na performance esperado:**
+  - Conversas curtas com Reel em falta → falha em ~5-15s em vez de 30-35s (só faz os scrolls até chegar ao topo).
+  - Conversas gigantes → sem mudança (o topo continua longe, budget de 100 aplica-se como habitualmente).
+  - History-scroll em conversas curtas → termina no topo real em vez de scroll fantasma até `HISTORY_STOP_AFTER_N_EMPTY`.
+- **Trade-offs:**
+  - Custo de `findAccessibilityNodeInfosByViewId` por 4 IDs a cada iteração — desprezável (~1ms por check).
+  - Se IG mudar o `resource-id` do `view_profile_button`, os 3 fallbacks compensam; se mudar todos 4, cai no comportamento pré-s46 (esgotar budget).
+- **`BUILD_TAG` bumped para `build=s46`.**
+- **Ficheiros alterados:**
+  - `instagram/IgSelectors.kt` — 4 novas constantes em `Thread` + comentário longo referenciando `docs/screen-dumps/dump.txt`.
+  - `service/InstagramReaderService.kt` — nova `isThreadTopVisible`, check em `locateReelWithScroll` (substitui bloco de comentário "stall detection removed"), check em `doHistoryScroll` no início da função, `BUILD_TAG=s46`.
+  - `PROJECT_PROGRESS.md` — Estado atual, quick start, §6/6.1 (bateria P), este log.
+- **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 1181 erros totais (só compilo `IgSelectors.kt` + `InstagramReaderService.kt`), todos classpath (K2 sem Android SDK). Zero erros novos de sintaxe: `isThreadTopVisible`, os 4 `HEADER_*` constantes e as chamadas em `locateReelWithScroll`/`doHistoryScroll` não geram erros específicos além do baseline.
+- **Validação em device (esperada na próxima sessão):** bateria P (2 testes: `TopStop-Batch`, `TopStop-History`) descrita em §6.1 no formato §8.1.
+- **Nada mudou** no dump com delay (s45), no epoch guard (s44), no schema Room, na UI, nos primitivos react/reply/copy URL, na navegação PoC-9, no filtro de selecção, no batching de apply pending, nas prefs. A s46 é uma substituição cirúrgica da (não-)detecção de topo por um sinal real.
 
 ---
 

@@ -1242,6 +1242,19 @@ class InstagramReaderService : AccessibilityService() {
             finishHistory(state)
             return
         }
+        // s46: real top-of-conversation detection. Beats waiting for
+        // HISTORY_STOP_AFTER_N_EMPTY empties (which can wrongly trigger
+        // mid-conversation on a stretch of text-only messages) when the
+        // user genuinely has few Reels far apart in a long thread.
+        if (isThreadTopVisible(root)) {
+            Log.i(
+                TAG,
+                "HISTORY: thread top reached (view_profile_button visible) after " +
+                    "${state.totalScrolls} scrolls — stopping."
+            )
+            finishHistory(state)
+            return
+        }
         val messageList = root
             .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
             .firstOrNull()
@@ -1718,11 +1731,37 @@ class InstagramReaderService : AccessibilityService() {
         // received-Reel authors are identical across 5 consecutive
         // scrolls we assume top-of-conversation" heuristic was buggy —
         // a stretch of 5 text messages (or sent Reels filtered out by
-        // ignore_sent) triggers it even mid-conversation. Proper top-
-        // of-conversation detection needs an IG-specific selector
-        // (large profile pic + "@handle" + "Ver perfil" header) which
-        // we can't identify without a real device dump. Until then,
-        // just let the budget run to completion.
+        // ignore_sent) triggers it even mid-conversation.
+        //
+        // s46: proper top-of-conversation detection via
+        // [isThreadTopVisible]. When the `view_profile_button` (or any
+        // of the sibling header nodes) is on screen, the message_list
+        // is genuinely at position 0 — no more backward scrolls will
+        // reveal anything. Skip the rest of the budget and jump
+        // straight to the forward-scroll fallback (which handles the
+        // rare case where IG restored the scroll position above the
+        // Reel we're looking for).
+        if (isThreadTopVisible(root)) {
+            val stepIndex = BATCH_MAX_SCROLLS - scrollsLeft + 1
+            Log.i(
+                TAG,
+                "LOCATE: thread top reached at scroll $stepIndex/$BATCH_MAX_SCROLLS " +
+                    "(view_profile_button visible) — skipping remaining backward budget."
+            )
+            if (forwardScrollsLeft > 0) {
+                locateReelWithForwardScroll(target, forwardScrollsLeft, epoch = epoch, onDone = onDone)
+                return
+            }
+            val visibleAuthors = candidates.map { it.reelAuthor ?: "?" }
+            Log.w(
+                TAG,
+                "LOCATE: could not find reelId=${target.id} author=$wantedAuthor — " +
+                    "thread top reached and no forward budget. visibleReceived=${candidates.size} " +
+                    "authors=$visibleAuthors"
+            )
+            onDone(null)
+            return
+        }
 
         if (scrollsLeft <= 0) {
             // Backward budget exhausted. If we haven't tried scrolling
@@ -2632,6 +2671,41 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     /**
+     * Return `true` when the IG conversation is scrolled all the way to
+     * the top and the "start-of-conversation" header is on screen. The
+     * header, validated via `docs/screen-dumps/dump.txt` on s45, contains
+     * the large avatar (`user_avatar`), the display name
+     * (`other_user_full_name_or_username`), the `@handle`
+     * (`network_attribution`) and a "Ver perfil" / "View profile" button
+     * (`view_profile_button`).
+     *
+     * We probe [IgSelectors.Thread.HEADER_VIEW_PROFILE_BUTTON] first (the
+     * lowest-noise selector — this ID is virtually exclusive to the top-
+     * of-thread card) and fall back to the other three so a minor IG
+     * refactor renaming one of them doesn't defeat the check.
+     *
+     * Used from [locateReelWithScroll] and [doHistoryScroll] to abort
+     * early instead of exhausting the full scroll budget when we
+     * genuinely can't scroll any further backward — replacing the
+     * "stall detection" heuristic that was removed in s44 because it
+     * false-positive'd on stretches of text messages between Reels.
+     */
+    private fun isThreadTopVisible(root: AccessibilityNodeInfo?): Boolean {
+        if (root == null) return false
+        val ids = listOf(
+            IgSelectors.Thread.HEADER_VIEW_PROFILE_BUTTON,
+            IgSelectors.Thread.HEADER_USER_AVATAR,
+            IgSelectors.Thread.HEADER_OTHER_USER_FULLNAME,
+            IgSelectors.Thread.HEADER_NETWORK_ATTRIBUTION,
+        )
+        for (shortId in ids) {
+            val nodes = root.findAccessibilityNodeInfosByViewId(IgSelectors.id(shortId))
+            if (!nodes.isNullOrEmpty()) return true
+        }
+        return false
+    }
+
+    /**
      * Dump every window currently reported by the accessibility framework.
      *
      * The active/main app window is what `rootInActiveWindow` returns, but
@@ -2746,7 +2820,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s45"
+        private const val BUILD_TAG = "build=s46"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
