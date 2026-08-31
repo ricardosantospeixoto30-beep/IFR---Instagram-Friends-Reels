@@ -86,6 +86,7 @@
     <string name="settings_diagnostics_title">Ferramentas de diagnóstico</string>
     <string name="settings_diagnostics_body">Botões que disparam broadcasts directos ao serviço. Úteis para debug — o fluxo normal usa o feed e a notificação persistente.</string>
     <string name="btn_dump_tree">🌳 Dump da árvore da página atual (Logcat)</string>
+    <string name="dump_tree_countdown">🌳 Muda para o IG! Dump em %1$d s.</string>
 
     <!-- Batch URL enrichment (s38) -->
     <string name="settings_batch_enrich_title">Preparar URLs em lote</string>

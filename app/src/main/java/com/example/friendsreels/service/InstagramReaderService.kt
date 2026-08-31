@@ -18,6 +18,7 @@ import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.friendsreels.R
@@ -170,7 +171,7 @@ class InstagramReaderService : AccessibilityService() {
                     }
                     ACTION_ENRICH_ALL_MISSING_URLS -> enrichAllMissingUrls()
                     ACTION_ENRICH_ALL_CANCEL -> cancelBatchEnrichment()
-                    ACTION_DUMP_TREE -> dumpAllWindows("manual")
+                    ACTION_DUMP_TREE -> handleDumpTreeBroadcast(intent)
                 }
             }
         }
@@ -2641,6 +2642,37 @@ class InstagramReaderService : AccessibilityService() {
      * Requires `flagRetrieveInteractiveWindows` in the service config, which
      * is already enabled in accessibility_service_config.xml.
      */
+    /**
+     * Handle `ACTION_DUMP_TREE` broadcasts. If the broadcast carries a
+     * positive [EXTRA_DUMP_DELAY_MS], we post a Toast countdown and defer
+     * [dumpAllWindows] by that many milliseconds — giving the user time
+     * to switch to Instagram so the dump captures the IG conversation
+     * instead of the button that fired it. Zero/absent delay dumps
+     * immediately (matches the direct `adb shell am broadcast` use case).
+     *
+     * Introduced in s45 after s44 revealed the button always captured the
+     * Settings screen because pressing it stole focus from Instagram.
+     */
+    private fun handleDumpTreeBroadcast(intent: Intent) {
+        val delayMs = intent.getLongExtra(EXTRA_DUMP_DELAY_MS, 0L).coerceAtLeast(0L)
+        if (delayMs <= 0L) {
+            dumpAllWindows("manual")
+            return
+        }
+        val seconds = ((delayMs + 500L) / 1000L).toInt().coerceAtLeast(1)
+        Log.i(TAG, "DUMP_TREE: scheduled in ${delayMs}ms (${seconds}s) — switch to IG now.")
+        try {
+            Toast.makeText(
+                this,
+                getString(R.string.dump_tree_countdown, seconds),
+                Toast.LENGTH_LONG,
+            ).show()
+        } catch (e: Exception) {
+            Log.w(TAG, "DUMP_TREE: could not show countdown toast", e)
+        }
+        mainHandler.postDelayed({ dumpAllWindows("manual-delayed") }, delayMs)
+    }
+
     private fun dumpAllWindows(reason: String) {
         val allWindows = try { windows } catch (_: Exception) { emptyList() }
         if (allWindows.isNullOrEmpty()) {
@@ -2714,7 +2746,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s44"
+        private const val BUILD_TAG = "build=s45"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -3002,6 +3034,17 @@ class InstagramReaderService : AccessibilityService() {
          * removidas".
          */
         const val ACTION_DUMP_TREE = "com.example.friendsreels.ACTION_DUMP_TREE"
+
+        /**
+         * Optional long extra for [ACTION_DUMP_TREE]. When present and
+         * `> 0`, the service defers the dump by this many milliseconds
+         * so the user has time to switch to Instagram before the tree
+         * snapshot is taken. Absent or `<= 0` means dump immediately
+         * (used by `adb shell am broadcast` where IG is already in
+         * front). Introduced in s45 — s44's button-tap always captured
+         * the Settings screen because the button stole focus.
+         */
+        const val EXTRA_DUMP_DELAY_MS = "dump_delay_ms"
 
         /** SharedPreferences file shared between the UI and the service. */
         const val PREFS_NAME = "friends_reels_prefs"

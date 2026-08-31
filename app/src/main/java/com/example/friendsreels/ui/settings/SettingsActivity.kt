@@ -253,7 +253,7 @@ private fun SettingsScreen(
             )
             DiagnosticActionButton(
                 labelRes = R.string.btn_dump_tree,
-                onClick = { sendServiceBroadcast(context, InstagramReaderService.ACTION_DUMP_TREE) },
+                onClick = { triggerDelayedDump(context) },
             )
 
             Spacer(Modifier.height(16.dp))
@@ -452,4 +452,29 @@ private fun BatchEnrichmentSection(vm: SettingsViewModel) {
 
 private fun sendServiceBroadcast(context: Context, action: String) {
     context.sendBroadcast(Intent(action).setPackage(context.packageName))
+}
+
+/**
+ * Fires an `ACTION_DUMP_TREE` broadcast with a 5-second delay embedded
+ * as [InstagramReaderService.EXTRA_DUMP_DELAY_MS] and shows a Toast so
+ * the user knows they have to swap to Instagram before the dump lands.
+ *
+ * Rationale (s45): the s44 version broadcast immediately, and because
+ * tapping the button focused the Friends Reels Settings activity, the
+ * dump always captured the settings screen instead of the intended IG
+ * conversation. Deferring the actual [dumpAllWindows] call gives the
+ * user a window to bring IG back to the foreground.
+ */
+private fun triggerDelayedDump(context: Context) {
+    val delayMs = 5000L
+    val intent = Intent(InstagramReaderService.ACTION_DUMP_TREE)
+        .setPackage(context.packageName)
+        .putExtra(InstagramReaderService.EXTRA_DUMP_DELAY_MS, delayMs)
+    context.sendBroadcast(intent)
+    val seconds = (delayMs / 1000L).toInt()
+    Toast.makeText(
+        context,
+        context.getString(R.string.dump_tree_countdown, seconds),
+        Toast.LENGTH_LONG,
+    ).show()
 }
