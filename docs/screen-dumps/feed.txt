@@ -1,374 +1,346 @@
----------------------------- PROCESS ENDED (24362) for package com.example.friendsreels ----------------------------
----------------------------- PROCESS STARTED (11286) for package com.example.friendsreels ----------------------------
-2026-08-31 12:22:58.007 11286-11286 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
-2026-08-31 12:22:58.008 11286-11286 IGReaderService         com.example.friendsreels             I  Action receiver registered (build=s42 heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH, reply=com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK, copyUrl=com.example.friendsreels.ACTION_COPY_REEL_URL, discover=com.example.friendsreels.ACTION_DISCOVER_REELS, history=com.example.friendsreels.ACTION_DISCOVER_REELS_HISTORY, applyPending=com.example.friendsreels.ACTION_APPLY_PENDING, applyCancel=com.example.friendsreels.ACTION_APPLY_PENDING_CANCEL, enrichUrl=com.example.friendsreels.ACTION_ENRICH_REEL_URL, enrichAll=com.example.friendsreels.ACTION_ENRICH_ALL_MISSING_URLS, enrichCancel=com.example.friendsreels.ACTION_ENRICH_ALL_CANCEL)
-2026-08-31 12:22:58.022 11286-11286 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-31 12:22:58.033 11286-11286 IGReaderService         com.example.friendsreels             I  restorePersistedBatchEnrichResult: restored LastResult(succeeded=0, failed=7, cancelled=false) to bus.
-2026-08-31 12:23:11.120 11286-11286 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
-2026-08-31 12:23:24.652 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.systemui', bringing Instagram to front.
-2026-08-31 12:23:25.753 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-31 12:23:25.824 11286-12180 IGReaderService         com.example.friendsreels             I  DISCOVER: thread='Pedro Sardoeira' visibleReceived=2 visibleSent=1 ignoreSent=true kept=2 inserted=0 skipped=2 totalInDb=16
-2026-08-31 12:23:25.835 11286-11286 IGReaderService         com.example.friendsreels             I  Completion notification posted: '🔍 Descoberta concluída' — Sem Reels novos em 'Pedro Sardoeira'.
-2026-08-31 12:23:31.281 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.systemui', bringing Instagram to front.
-2026-08-31 12:23:32.141 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-31 12:23:32.203 11286-12180 IGReaderService         com.example.friendsreels             I  DISCOVER: thread='Pedro Sardoeira' visibleReceived=2 visibleSent=1 ignoreSent=true kept=2 inserted=0 skipped=2 totalInDb=16
-2026-08-31 12:23:32.217 11286-11286 IGReaderService         com.example.friendsreels             I  Completion notification posted: '🔍 Descoberta concluída' — Sem Reels novos em 'Pedro Sardoeira'.
-2026-08-31 12:23:45.361 11286-12182 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: starting batch for 7 reel(s) across 1 thread(s).
-2026-08-31 12:23:45.409 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-31 12:23:46.286 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-31 12:23:46.298 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1/7 reelId=10 author=legiaoesportsgg thread='Pedro Sardoeira'
-2026-08-31 12:23:46.313 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=10 author=legiaoesportsgg thread='Pedro Sardoeira' current='Pedro Sardoeira'
-2026-08-31 12:23:46.360 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=legiaoesportsgg
-2026-08-31 12:23:47.231 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=legiaoesportsgg
-2026-08-31 12:23:48.108 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=legiaoesportsgg
-2026-08-31 12:23:48.982 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=legiaoesportsgg
-2026-08-31 12:23:49.898 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=16 author=legiaoesportsgg
-2026-08-31 12:23:50.807 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=15 author=legiaoesportsgg
-2026-08-31 12:23:51.700 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=14 author=legiaoesportsgg
-2026-08-31 12:23:52.611 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=13 author=legiaoesportsgg
-2026-08-31 12:23:53.499 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=12 author=legiaoesportsgg
-2026-08-31 12:23:54.361 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=11 author=legiaoesportsgg
-2026-08-31 12:23:55.252 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=10 author=legiaoesportsgg
-2026-08-31 12:23:56.146 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=9 author=legiaoesportsgg
-2026-08-31 12:23:57.034 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=8 author=legiaoesportsgg
-2026-08-31 12:23:57.936 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=7 author=legiaoesportsgg
-2026-08-31 12:23:58.827 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=6 author=legiaoesportsgg
-2026-08-31 12:23:59.716 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=5 author=legiaoesportsgg
-2026-08-31 12:24:00.614 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=4 author=legiaoesportsgg
-2026-08-31 12:24:01.502 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=3 author=legiaoesportsgg
-2026-08-31 12:24:02.380 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=2 author=legiaoesportsgg
-2026-08-31 12:24:03.243 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=1 author=legiaoesportsgg
-2026-08-31 12:24:04.168 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: backward exhausted, switching to forward scroll fallback (forwardScrollsLeft=10 author=legiaoesportsgg)
-2026-08-31 12:24:04.247 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=10 author=legiaoesportsgg
-2026-08-31 12:24:05.152 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=9 author=legiaoesportsgg
-2026-08-31 12:24:06.082 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=8 author=legiaoesportsgg
-2026-08-31 12:24:06.987 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=7 author=legiaoesportsgg
-2026-08-31 12:24:07.913 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=6 author=legiaoesportsgg
-2026-08-31 12:24:08.812 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=5 author=legiaoesportsgg
-2026-08-31 12:24:09.732 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=4 author=legiaoesportsgg
-2026-08-31 12:24:10.646 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=3 author=legiaoesportsgg
-2026-08-31 12:24:11.562 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=2 author=legiaoesportsgg
-2026-08-31 12:24:12.459 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=1 author=legiaoesportsgg
-2026-08-31 12:24:13.350 11286-11286 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=10 author=legiaoesportsgg after 10 forward scrolls.
-2026-08-31 12:24:13.350 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=legiaoesportsgg in 'Pedro Sardoeira', giving up reelId=10
-2026-08-31 12:24:13.696 11286-12182 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:24:13.702 11286-12182 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1 result stepOk=false failedFast=true (succeeded=0 failed=1 cancelled=false)
-2026-08-31 12:24:15.231 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 2/7 reelId=11 author=your.friend.andy thread='Pedro Sardoeira'
-2026-08-31 12:24:15.258 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=11 author=your.friend.andy thread='Pedro Sardoeira' current='Pedro Sardoeira'
-2026-08-31 12:24:15.338 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=your.friend.andy
-2026-08-31 12:24:16.194 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=your.friend.andy
-2026-08-31 12:24:17.104 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=your.friend.andy
-2026-08-31 12:24:18.030 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=your.friend.andy
-2026-08-31 12:24:18.942 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=16 author=your.friend.andy
-2026-08-31 12:24:19.857 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=15 author=your.friend.andy
-2026-08-31 12:24:20.789 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=14 author=your.friend.andy
-2026-08-31 12:24:21.676 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=13 author=your.friend.andy
-2026-08-31 12:24:22.603 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=12 author=your.friend.andy
-2026-08-31 12:24:23.519 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=11 author=your.friend.andy
-2026-08-31 12:24:24.425 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=10 author=your.friend.andy
-2026-08-31 12:24:25.336 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=9 author=your.friend.andy
-2026-08-31 12:24:26.279 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=8 author=your.friend.andy
-2026-08-31 12:24:27.197 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=7 author=your.friend.andy
-2026-08-31 12:24:28.088 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=6 author=your.friend.andy
-2026-08-31 12:24:28.982 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=5 author=your.friend.andy
-2026-08-31 12:24:29.884 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=4 author=your.friend.andy
-2026-08-31 12:24:30.786 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=3 author=your.friend.andy
-2026-08-31 12:24:31.665 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=2 author=your.friend.andy
-2026-08-31 12:24:32.563 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=1 author=your.friend.andy
-2026-08-31 12:24:33.475 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: backward exhausted, switching to forward scroll fallback (forwardScrollsLeft=10 author=your.friend.andy)
-2026-08-31 12:24:33.592 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=10 author=your.friend.andy
-2026-08-31 12:24:34.489 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=9 author=your.friend.andy
-2026-08-31 12:24:35.367 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=8 author=your.friend.andy
-2026-08-31 12:24:36.258 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=7 author=your.friend.andy
-2026-08-31 12:24:37.181 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=6 author=your.friend.andy
-2026-08-31 12:24:38.085 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=5 author=your.friend.andy
-2026-08-31 12:24:39.004 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=4 author=your.friend.andy
-2026-08-31 12:24:39.934 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=3 author=your.friend.andy
-2026-08-31 12:24:40.832 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=2 author=your.friend.andy
-2026-08-31 12:24:41.743 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=1 author=your.friend.andy
-2026-08-31 12:24:42.681 11286-11286 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=11 author=your.friend.andy after 10 forward scrolls.
-2026-08-31 12:24:42.682 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=your.friend.andy in 'Pedro Sardoeira', giving up reelId=11
-2026-08-31 12:24:43.186 11286-12181 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 2 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:24:43.186 11286-12181 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 2 result stepOk=false failedFast=true (succeeded=0 failed=2 cancelled=false)
-2026-08-31 12:24:44.721 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 3/7 reelId=12 author=play.nighthub thread='Pedro Sardoeira'
-2026-08-31 12:24:44.751 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=12 author=play.nighthub thread='Pedro Sardoeira' current='Pedro Sardoeira'
-2026-08-31 12:24:44.872 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=play.nighthub
-2026-08-31 12:24:45.758 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=play.nighthub
-2026-08-31 12:24:46.682 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=play.nighthub
-2026-08-31 12:24:47.568 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=play.nighthub
-2026-08-31 12:24:48.381 11286-11286 IGReaderService         com.example.friendsreels             W  LOCATE: no IG root available (pkg=com.android.launcher), giving up.
-2026-08-31 12:24:48.381 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=play.nighthub in 'Pedro Sardoeira', giving up reelId=12
-2026-08-31 12:24:48.780 11286-12181 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 3 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:24:48.781 11286-12181 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 3 result stepOk=false failedFast=true (succeeded=0 failed=3 cancelled=false)
-2026-08-31 12:24:50.294 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 4/7 reelId=13 author=the_clip_vault_7 thread='Pedro Sardoeira'
-2026-08-31 12:24:50.308 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=13 author=the_clip_vault_7 thread='Pedro Sardoeira' current='Pedro Sardoeira'
-2026-08-31 12:24:50.373 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=the_clip_vault_7
-2026-08-31 12:24:51.268 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=the_clip_vault_7
-2026-08-31 12:24:52.166 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=the_clip_vault_7
-2026-08-31 12:24:53.079 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=the_clip_vault_7
-2026-08-31 12:24:54.004 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=16 author=the_clip_vault_7
-2026-08-31 12:24:54.909 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=15 author=the_clip_vault_7
-2026-08-31 12:24:55.833 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=14 author=the_clip_vault_7
-2026-08-31 12:24:56.733 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=13 author=the_clip_vault_7
-2026-08-31 12:24:57.605 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=12 author=the_clip_vault_7
-2026-08-31 12:24:58.465 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=11 author=the_clip_vault_7
-2026-08-31 12:24:59.355 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=10 author=the_clip_vault_7
-2026-08-31 12:25:00.208 11286-11286 IGReaderService         com.example.friendsreels             W  LOCATE: no IG root available (pkg=com.android.systemui), giving up.
-2026-08-31 12:25:00.208 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=the_clip_vault_7 in 'Pedro Sardoeira', giving up reelId=13
-2026-08-31 12:25:00.430 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 4 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:25:00.430 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 4 result stepOk=false failedFast=true (succeeded=0 failed=4 cancelled=false)
-2026-08-31 12:25:01.510 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: cancel requested — batch will stop after the current Reel.
-2026-08-31 12:25:01.933 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: batch cancelled at 5/7 (succeeded=0 failed=4).
-2026-08-31 12:25:01.955 11286-11286 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-31 12:25:01.961 11286-11286 IGReaderService         com.example.friendsreels             I  Completion notification posted: '🔗 Lote de URLs terminado' — 0 preparado(s) · 4 falhou(aram) — cancelado.
-2026-08-31 12:25:01.980 11286-11286 IGReaderService         com.example.friendsreels             I  returnToAppIfEnabled: FeedActivity launched.
-2026-08-31 12:25:10.135 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
-2026-08-31 12:25:11.011 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-31 12:25:11.030 11286-11286 IGReaderService         com.example.friendsreels             I  HISTORY: starting thread='Pedro Sardoeira' ignoreSent=true
-2026-08-31 12:25:11.130 11286-12180 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=0 inserted=1 skipped=0 totalInsertedRun=1 consecutiveEmpty=0 totalInDb=17
-2026-08-31 12:25:11.168 11286-11286 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 1/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-31 12:25:12.081 11286-12180 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=1 inserted=0 skipped=2 totalInsertedRun=1 consecutiveEmpty=1 totalInDb=17
-2026-08-31 12:25:12.124 11286-11286 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 2/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-31 12:25:13.000 11286-12180 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=2 inserted=1 skipped=0 totalInsertedRun=2 consecutiveEmpty=0 totalInDb=18
-2026-08-31 12:25:13.046 11286-11286 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 3/30 via ACTION_SCROLL_BACKWARD accepted
-2026-08-31 12:25:13.882 11286-11286 IGReaderService         com.example.friendsreels             W  HISTORY: IG no longer foreground during enumerate, stopping.
-2026-08-31 12:25:13.883 11286-11286 IGReaderService         com.example.friendsreels             I  HISTORY: finished — thread='Pedro Sardoeira' scrolls=3 totalInsertedRun=2 totalSkippedRun=2
-2026-08-31 12:25:13.897 11286-11286 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-31 12:25:13.902 11286-11286 IGReaderService         com.example.friendsreels             I  Completion notification posted: '📥 Histórico descoberto' — 2 Reel(s) novo(s) em 'Pedro Sardoeira' (3 scrolls).
-2026-08-31 12:25:13.913 11286-11286 IGReaderService         com.example.friendsreels             I  returnToAppIfEnabled: FeedActivity launched.
-2026-08-31 12:25:13.913 11286-11286 IGReaderService         com.example.friendsreels             I  AUTO_ENRICH: pref enabled, insertedCount=2 — chaining ACTION_ENRICH_ALL_MISSING_URLS.
-2026-08-31 12:25:16.418 11286-12181 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: starting batch for 9 reel(s) across 1 thread(s).
-2026-08-31 12:25:16.443 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.systemui', bringing Instagram to front.
-2026-08-31 12:25:18.782 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-31 12:25:18.795 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1/9 reelId=10 author=legiaoesportsgg thread='Pedro Sardoeira'
-2026-08-31 12:25:18.809 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=10 author=legiaoesportsgg thread='Pedro Sardoeira' current='Pedro Sardoeira'
-2026-08-31 12:25:18.876 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=legiaoesportsgg
-2026-08-31 12:25:19.714 11286-11286 IGReaderService         com.example.friendsreels             W  LOCATE: no IG root available (pkg=com.android.systemui), giving up.
-2026-08-31 12:25:19.714 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=legiaoesportsgg in 'Pedro Sardoeira', giving up reelId=10
-2026-08-31 12:25:19.807 11286-12181 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:25:19.807 11286-12181 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1 result stepOk=false failedFast=true (succeeded=0 failed=1 cancelled=false)
-2026-08-31 12:25:21.012 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: cancel requested — batch will stop after the current Reel.
-2026-08-31 12:25:21.309 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: batch cancelled at 2/9 (succeeded=0 failed=1).
-2026-08-31 12:25:21.328 11286-11286 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-31 12:25:21.334 11286-11286 IGReaderService         com.example.friendsreels             I  Completion notification posted: '🔗 Lote de URLs terminado' — 0 preparado(s) · 1 falhou(aram) — cancelado.
-2026-08-31 12:25:21.348 11286-11286 IGReaderService         com.example.friendsreels             I  returnToAppIfEnabled: FeedActivity launched.
-2026-08-31 12:25:24.935 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.systemui', bringing Instagram to front.
-2026-08-31 12:25:25.808 11286-11286 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
-2026-08-31 12:25:25.888 11286-12181 IGReaderService         com.example.friendsreels             I  DISCOVER: thread='Pedro Sardoeira' visibleReceived=3 visibleSent=0 ignoreSent=true kept=3 inserted=3 skipped=0 totalInDb=21
-2026-08-31 12:25:25.918 11286-11286 IGReaderService         com.example.friendsreels             I  Completion notification posted: '🔍 Descoberta concluída' — 3 Reel(s) novo(s) em 'Pedro Sardoeira'.
-2026-08-31 12:25:25.918 11286-11286 IGReaderService         com.example.friendsreels             I  AUTO_ENRICH: pref enabled, insertedCount=3 — chaining ACTION_ENRICH_ALL_MISSING_URLS.
-2026-08-31 12:25:28.428 11286-12181 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: starting batch for 12 reel(s) across 1 thread(s).
-2026-08-31 12:25:28.480 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1/12 reelId=10 author=legiaoesportsgg thread='Pedro Sardoeira'
-2026-08-31 12:25:28.498 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=10 author=legiaoesportsgg thread='Pedro Sardoeira' current='Pedro Sardoeira'
-2026-08-31 12:25:28.611 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=legiaoesportsgg
-2026-08-31 12:25:29.530 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=legiaoesportsgg
-2026-08-31 12:25:30.449 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=legiaoesportsgg
-2026-08-31 12:25:31.352 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=legiaoesportsgg
-2026-08-31 12:25:32.230 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=16 author=legiaoesportsgg
-2026-08-31 12:25:33.128 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=15 author=legiaoesportsgg
-2026-08-31 12:25:34.031 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=14 author=legiaoesportsgg
-2026-08-31 12:25:34.934 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=13 author=legiaoesportsgg
-2026-08-31 12:25:35.837 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=12 author=legiaoesportsgg
-2026-08-31 12:25:36.691 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=11 author=legiaoesportsgg
-2026-08-31 12:25:37.612 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=10 author=legiaoesportsgg
-2026-08-31 12:25:38.502 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=9 author=legiaoesportsgg
-2026-08-31 12:25:39.420 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=8 author=legiaoesportsgg
-2026-08-31 12:25:40.286 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=7 author=legiaoesportsgg
-2026-08-31 12:25:41.197 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=6 author=legiaoesportsgg
-2026-08-31 12:25:42.108 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=5 author=legiaoesportsgg
-2026-08-31 12:25:42.992 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=4 author=legiaoesportsgg
-2026-08-31 12:25:43.933 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=3 author=legiaoesportsgg
-2026-08-31 12:25:44.774 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=2 author=legiaoesportsgg
-2026-08-31 12:25:45.687 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=1 author=legiaoesportsgg
-2026-08-31 12:25:46.588 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: backward exhausted, switching to forward scroll fallback (forwardScrollsLeft=10 author=legiaoesportsgg)
-2026-08-31 12:25:46.657 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=10 author=legiaoesportsgg
-2026-08-31 12:25:47.572 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=9 author=legiaoesportsgg
-2026-08-31 12:25:48.431 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=8 author=legiaoesportsgg
-2026-08-31 12:25:49.348 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=7 author=legiaoesportsgg
-2026-08-31 12:25:50.250 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=6 author=legiaoesportsgg
-2026-08-31 12:25:51.164 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=5 author=legiaoesportsgg
-2026-08-31 12:25:52.058 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=4 author=legiaoesportsgg
-2026-08-31 12:25:52.930 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=3 author=legiaoesportsgg
-2026-08-31 12:25:53.816 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=2 author=legiaoesportsgg
-2026-08-31 12:25:54.743 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=1 author=legiaoesportsgg
-2026-08-31 12:25:55.644 11286-11286 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=10 author=legiaoesportsgg after 10 forward scrolls.
-2026-08-31 12:25:55.644 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=legiaoesportsgg in 'Pedro Sardoeira', giving up reelId=10
-2026-08-31 12:25:55.902 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:25:55.903 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1 result stepOk=false failedFast=true (succeeded=0 failed=1 cancelled=false)
-2026-08-31 12:25:57.430 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 2/12 reelId=11 author=your.friend.andy thread='Pedro Sardoeira'
-2026-08-31 12:25:57.461 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=11 author=your.friend.andy thread='Pedro Sardoeira' current='Pedro Sardoeira'
-2026-08-31 12:25:57.543 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=your.friend.andy
-2026-08-31 12:25:58.454 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=your.friend.andy
-2026-08-31 12:25:59.354 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=your.friend.andy
-2026-08-31 12:26:00.213 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=your.friend.andy
-2026-08-31 12:26:01.091 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=16 author=your.friend.andy
-2026-08-31 12:26:01.981 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=15 author=your.friend.andy
-2026-08-31 12:26:02.902 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=14 author=your.friend.andy
-2026-08-31 12:26:03.810 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=13 author=your.friend.andy
-2026-08-31 12:26:04.713 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=12 author=your.friend.andy
-2026-08-31 12:26:05.588 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=11 author=your.friend.andy
-2026-08-31 12:26:06.502 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=10 author=your.friend.andy
-2026-08-31 12:26:07.412 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=9 author=your.friend.andy
-2026-08-31 12:26:08.312 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=8 author=your.friend.andy
-2026-08-31 12:26:09.273 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=7 author=your.friend.andy
-2026-08-31 12:26:10.167 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=6 author=your.friend.andy
-2026-08-31 12:26:11.098 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=5 author=your.friend.andy
-2026-08-31 12:26:11.973 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=4 author=your.friend.andy
-2026-08-31 12:26:12.868 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=3 author=your.friend.andy
-2026-08-31 12:26:13.753 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=2 author=your.friend.andy
-2026-08-31 12:26:14.649 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=1 author=your.friend.andy
-2026-08-31 12:26:15.543 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: backward exhausted, switching to forward scroll fallback (forwardScrollsLeft=10 author=your.friend.andy)
-2026-08-31 12:26:15.639 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=10 author=your.friend.andy
-2026-08-31 12:26:16.506 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=9 author=your.friend.andy
-2026-08-31 12:26:17.369 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=8 author=your.friend.andy
-2026-08-31 12:26:18.234 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=7 author=your.friend.andy
-2026-08-31 12:26:19.121 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=6 author=your.friend.andy
-2026-08-31 12:26:20.025 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=5 author=your.friend.andy
-2026-08-31 12:26:20.946 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=4 author=your.friend.andy
-2026-08-31 12:26:21.828 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=3 author=your.friend.andy
-2026-08-31 12:26:22.726 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=2 author=your.friend.andy
-2026-08-31 12:26:23.603 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=1 author=your.friend.andy
-2026-08-31 12:26:24.540 11286-11286 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=11 author=your.friend.andy after 10 forward scrolls.
-2026-08-31 12:26:24.540 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=your.friend.andy in 'Pedro Sardoeira', giving up reelId=11
-2026-08-31 12:26:24.920 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 2 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:26:24.921 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 2 result stepOk=false failedFast=true (succeeded=0 failed=2 cancelled=false)
-2026-08-31 12:26:26.449 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 3/12 reelId=12 author=play.nighthub thread='Pedro Sardoeira'
-2026-08-31 12:26:26.474 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=12 author=play.nighthub thread='Pedro Sardoeira' current='Pedro Sardoeira'
-2026-08-31 12:26:26.591 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=play.nighthub
-2026-08-31 12:26:27.502 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=play.nighthub
-2026-08-31 12:26:28.424 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=play.nighthub
-2026-08-31 12:26:29.318 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=play.nighthub
-2026-08-31 12:26:30.256 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=16 author=play.nighthub
-2026-08-31 12:26:31.173 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=15 author=play.nighthub
-2026-08-31 12:26:32.058 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=14 author=play.nighthub
-2026-08-31 12:26:32.962 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=13 author=play.nighthub
-2026-08-31 12:26:33.868 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=12 author=play.nighthub
-2026-08-31 12:26:34.797 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=11 author=play.nighthub
-2026-08-31 12:26:35.704 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=10 author=play.nighthub
-2026-08-31 12:26:36.613 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=9 author=play.nighthub
-2026-08-31 12:26:37.539 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=8 author=play.nighthub
-2026-08-31 12:26:38.436 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=7 author=play.nighthub
-2026-08-31 12:26:39.309 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=6 author=play.nighthub
-2026-08-31 12:26:40.208 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=5 author=play.nighthub
-2026-08-31 12:26:41.133 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=4 author=play.nighthub
-2026-08-31 12:26:42.022 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=3 author=play.nighthub
-2026-08-31 12:26:42.901 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=2 author=play.nighthub
-2026-08-31 12:26:43.797 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=1 author=play.nighthub
-2026-08-31 12:26:44.698 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: backward exhausted, switching to forward scroll fallback (forwardScrollsLeft=10 author=play.nighthub)
-2026-08-31 12:26:44.769 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=10 author=play.nighthub
-2026-08-31 12:26:45.661 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=9 author=play.nighthub
-2026-08-31 12:26:46.559 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=8 author=play.nighthub
-2026-08-31 12:26:47.465 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=7 author=play.nighthub
-2026-08-31 12:26:48.380 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=6 author=play.nighthub
-2026-08-31 12:26:49.307 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=5 author=play.nighthub
-2026-08-31 12:26:50.223 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=4 author=play.nighthub
-2026-08-31 12:26:51.094 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=3 author=play.nighthub
-2026-08-31 12:26:52.039 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=2 author=play.nighthub
-2026-08-31 12:26:52.943 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=1 author=play.nighthub
-2026-08-31 12:26:53.829 11286-11286 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=12 author=play.nighthub after 10 forward scrolls.
-2026-08-31 12:26:53.830 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=play.nighthub in 'Pedro Sardoeira', giving up reelId=12
-2026-08-31 12:26:53.910 11286-12182 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 3 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:26:53.911 11286-12182 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 3 result stepOk=false failedFast=true (succeeded=0 failed=3 cancelled=false)
-2026-08-31 12:26:55.437 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 4/12 reelId=13 author=the_clip_vault_7 thread='Pedro Sardoeira'
-2026-08-31 12:26:55.462 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=13 author=the_clip_vault_7 thread='Pedro Sardoeira' current='Pedro Sardoeira'
-2026-08-31 12:26:55.535 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=the_clip_vault_7
-2026-08-31 12:26:56.434 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=the_clip_vault_7
-2026-08-31 12:26:57.348 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=the_clip_vault_7
-2026-08-31 12:26:58.218 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=the_clip_vault_7
-2026-08-31 12:26:59.111 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=16 author=the_clip_vault_7
-2026-08-31 12:27:00.050 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=15 author=the_clip_vault_7
-2026-08-31 12:27:00.950 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=14 author=the_clip_vault_7
-2026-08-31 12:27:01.864 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=13 author=the_clip_vault_7
-2026-08-31 12:27:02.777 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=12 author=the_clip_vault_7
-2026-08-31 12:27:03.683 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=11 author=the_clip_vault_7
-2026-08-31 12:27:04.598 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=10 author=the_clip_vault_7
-2026-08-31 12:27:05.525 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=9 author=the_clip_vault_7
-2026-08-31 12:27:06.430 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=8 author=the_clip_vault_7
-2026-08-31 12:27:07.362 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=7 author=the_clip_vault_7
-2026-08-31 12:27:08.258 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=6 author=the_clip_vault_7
-2026-08-31 12:27:09.188 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=5 author=the_clip_vault_7
-2026-08-31 12:27:10.089 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=4 author=the_clip_vault_7
-2026-08-31 12:27:10.979 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=3 author=the_clip_vault_7
-2026-08-31 12:27:11.836 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=2 author=the_clip_vault_7
-2026-08-31 12:27:12.730 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=1 author=the_clip_vault_7
-2026-08-31 12:27:13.626 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: backward exhausted, switching to forward scroll fallback (forwardScrollsLeft=10 author=the_clip_vault_7)
-2026-08-31 12:27:13.696 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=10 author=the_clip_vault_7
-2026-08-31 12:27:14.600 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=9 author=the_clip_vault_7
-2026-08-31 12:27:15.527 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=8 author=the_clip_vault_7
-2026-08-31 12:27:16.435 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=7 author=the_clip_vault_7
-2026-08-31 12:27:17.350 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=6 author=the_clip_vault_7
-2026-08-31 12:27:18.257 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=5 author=the_clip_vault_7
-2026-08-31 12:27:19.176 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=4 author=the_clip_vault_7
-2026-08-31 12:27:20.033 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=3 author=the_clip_vault_7
-2026-08-31 12:27:20.923 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=2 author=the_clip_vault_7
-2026-08-31 12:27:21.858 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted forwardScrollsLeft=1 author=the_clip_vault_7
-2026-08-31 12:27:22.768 11286-11286 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=13 author=the_clip_vault_7 after 10 forward scrolls.
-2026-08-31 12:27:22.768 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=the_clip_vault_7 in 'Pedro Sardoeira', giving up reelId=13
-2026-08-31 12:27:22.884 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 4 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:27:22.885 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 4 result stepOk=false failedFast=true (succeeded=0 failed=4 cancelled=false)
-2026-08-31 12:27:24.412 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 5/12 reelId=14 author=notsafe4wear thread='Pedro Sardoeira'
-2026-08-31 12:27:24.438 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=14 author=notsafe4wear thread='Pedro Sardoeira' current='Pedro Sardoeira'
-2026-08-31 12:27:24.534 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=20 author=notsafe4wear
-2026-08-31 12:27:25.469 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=19 author=notsafe4wear
-2026-08-31 12:27:26.393 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=18 author=notsafe4wear
-2026-08-31 12:27:27.290 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=17 author=notsafe4wear
-2026-08-31 12:27:28.209 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=16 author=notsafe4wear
-2026-08-31 12:27:29.108 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=15 author=notsafe4wear
-2026-08-31 12:27:30.013 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=14 author=notsafe4wear
-2026-08-31 12:27:30.931 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=13 author=notsafe4wear
-2026-08-31 12:27:31.837 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=12 author=notsafe4wear
-2026-08-31 12:27:32.736 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=11 author=notsafe4wear
-2026-08-31 12:27:33.680 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=10 author=notsafe4wear
-2026-08-31 12:27:34.598 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=9 author=notsafe4wear
-2026-08-31 12:27:35.513 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=8 author=notsafe4wear
-2026-08-31 12:27:36.415 11286-11286 IGReaderService         com.example.friendsreels             I  LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted scrollsLeft=7 author=notsafe4wear
-2026-08-31 12:27:37.251 11286-11286 IGReaderService         com.example.friendsreels             W  LOCATE: no IG root available (pkg=com.android.systemui), giving up.
-2026-08-31 12:27:37.251 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=notsafe4wear in 'Pedro Sardoeira', giving up reelId=14
-2026-08-31 12:27:37.649 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 5 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:27:37.649 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 5 result stepOk=false failedFast=true (succeeded=0 failed=5 cancelled=false)
-2026-08-31 12:27:39.158 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 6/12 reelId=15 author=laglesssoul thread='Pedro Sardoeira'
-2026-08-31 12:27:39.169 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=15 author=laglesssoul thread='Pedro Sardoeira' current='null'
-2026-08-31 12:27:39.212 11286-11286 IGReaderService         com.example.friendsreels             W  NAV: direct_tab not found, giving up.
-2026-08-31 12:27:39.212 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: nav to 'Pedro Sardoeira' failed, giving up reelId=15
-2026-08-31 12:27:39.663 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 6 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:27:39.664 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 6 result stepOk=false failedFast=true (succeeded=0 failed=6 cancelled=false)
-2026-08-31 12:27:41.193 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 7/12 reelId=16 author=ivantuscs thread='Pedro Sardoeira'
-2026-08-31 12:27:41.209 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=16 author=ivantuscs thread='Pedro Sardoeira' current='null'
-2026-08-31 12:27:41.367 11286-11286 IGReaderService         com.example.friendsreels             W  NAV: direct_tab not found, giving up.
-2026-08-31 12:27:41.367 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: nav to 'Pedro Sardoeira' failed, giving up reelId=16
-2026-08-31 12:27:41.704 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 7 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:27:41.704 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 7 result stepOk=false failedFast=true (succeeded=0 failed=7 cancelled=false)
-2026-08-31 12:27:43.231 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 8/12 reelId=17 author=elnixjo18 thread='Pedro Sardoeira'
-2026-08-31 12:27:43.245 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=17 author=elnixjo18 thread='Pedro Sardoeira' current='null'
-2026-08-31 12:27:43.467 11286-11286 IGReaderService         com.example.friendsreels             W  NAV: direct_tab not found, giving up.
-2026-08-31 12:27:43.468 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: nav to 'Pedro Sardoeira' failed, giving up reelId=17
-2026-08-31 12:27:43.740 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 8 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:27:43.741 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 8 result stepOk=false failedFast=true (succeeded=0 failed=8 cancelled=false)
-2026-08-31 12:27:45.266 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 9/12 reelId=18 author=cs2funnyclip21 thread='Pedro Sardoeira'
-2026-08-31 12:27:45.278 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=18 author=cs2funnyclip21 thread='Pedro Sardoeira' current='null'
-2026-08-31 12:27:45.312 11286-11286 IGReaderService         com.example.friendsreels             W  NAV: direct_tab not found, giving up.
-2026-08-31 12:27:45.312 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: nav to 'Pedro Sardoeira' failed, giving up reelId=18
-2026-08-31 12:27:45.774 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 9 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:27:45.775 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 9 result stepOk=false failedFast=true (succeeded=0 failed=9 cancelled=false)
-2026-08-31 12:27:47.300 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 10/12 reelId=19 author=playoverwatch thread='Pedro Sardoeira'
-2026-08-31 12:27:47.314 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=19 author=playoverwatch thread='Pedro Sardoeira' current='null'
-2026-08-31 12:27:47.351 11286-11286 IGReaderService         com.example.friendsreels             W  NAV: direct_tab not found, giving up.
-2026-08-31 12:27:47.352 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: nav to 'Pedro Sardoeira' failed, giving up reelId=19
-2026-08-31 12:27:47.811 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 10 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:27:47.811 11286-12180 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 10 result stepOk=false failedFast=true (succeeded=0 failed=10 cancelled=false)
-2026-08-31 12:27:49.322 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 11/12 reelId=20 author=dezzito thread='Pedro Sardoeira'
-2026-08-31 12:27:49.335 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=20 author=dezzito thread='Pedro Sardoeira' current='null'
-2026-08-31 12:27:49.382 11286-11286 IGReaderService         com.example.friendsreels             W  NAV: direct_tab not found, giving up.
-2026-08-31 12:27:49.382 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: nav to 'Pedro Sardoeira' failed, giving up reelId=20
-2026-08-31 12:27:49.827 11286-12182 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 11 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:27:49.827 11286-12182 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 11 result stepOk=false failedFast=true (succeeded=0 failed=11 cancelled=false)
-2026-08-31 12:27:51.386 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 12/12 reelId=21 author=irvgod thread='Pedro Sardoeira'
-2026-08-31 12:27:51.396 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=21 author=irvgod thread='Pedro Sardoeira' current='null'
-2026-08-31 12:27:51.534 11286-11286 IGReaderService         com.example.friendsreels             W  NAV: direct_tab not found, giving up.
-2026-08-31 12:27:51.534 11286-11286 IGReaderService         com.example.friendsreels             W  ENRICH_URL: nav to 'Pedro Sardoeira' failed, giving up reelId=21
-2026-08-31 12:27:51.891 11286-12182 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 12 short-circuited by fast-failure signal — skipping wait.
-2026-08-31 12:27:51.891 11286-12182 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 12 result stepOk=false failedFast=true (succeeded=0 failed=12 cancelled=false)
-2026-08-31 12:27:53.391 11286-11286 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: batch complete (succeeded=0 failed=12).
-2026-08-31 12:27:53.422 11286-11286 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
-2026-08-31 12:27:53.444 11286-11286 IGReaderService         com.example.friendsreels             I  Completion notification posted: '🔗 Lote de URLs terminado' — 0 preparado(s) · 12 falhou(aram).
-2026-08-31 12:27:53.463 11286-11286 IGReaderService         com.example.friendsreels             I  returnToAppIfEnabled: FeedActivity launched.
+---------------------------- PROCESS ENDED (16875) for package com.example.friendsreels ----------------------------
+---------------------------- PROCESS STARTED (26424) for package com.example.friendsreels ----------------------------
+2026-08-31 12:43:29.774 26424-26424 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
+2026-08-31 12:43:29.775 26424-26424 IGReaderService         com.example.friendsreels             I  Action receiver registered (build=s43 heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH, reply=com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK, copyUrl=com.example.friendsreels.ACTION_COPY_REEL_URL, discover=com.example.friendsreels.ACTION_DISCOVER_REELS, history=com.example.friendsreels.ACTION_DISCOVER_REELS_HISTORY, applyPending=com.example.friendsreels.ACTION_APPLY_PENDING, applyCancel=com.example.friendsreels.ACTION_APPLY_PENDING_CANCEL, enrichUrl=com.example.friendsreels.ACTION_ENRICH_REEL_URL, enrichAll=com.example.friendsreels.ACTION_ENRICH_ALL_MISSING_URLS, enrichCancel=com.example.friendsreels.ACTION_ENRICH_ALL_CANCEL)
+2026-08-31 12:43:29.786 26424-26424 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-08-31 12:43:29.790 26424-26424 IGReaderService         com.example.friendsreels             I  restorePersistedBatchEnrichResult: restored LastResult(succeeded=0, failed=12, cancelled=false) to bus.
+2026-08-31 12:43:37.075 26424-26647 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: starting batch for 12 reel(s) across 1 thread(s).
+2026-08-31 12:43:37.163 26424-26424 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-31 12:43:37.825 26424-26424 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-31 12:43:37.832 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1/12 reelId=10 author=legiaoesportsgg thread='Pedro Sardoeira'
+2026-08-31 12:43:37.874 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=10 author=legiaoesportsgg thread='Pedro Sardoeira' current='null'
+2026-08-31 12:43:38.013 26424-26424 IGReaderService         com.example.friendsreels             I  NAV: attempt 1 stage=open-direct-tab dispatched=true target='Pedro Sardoeira'
+2026-08-31 12:43:39.052 26424-26424 IGReaderService         com.example.friendsreels             W  NAV: direct_tab not found, giving up.
+2026-08-31 12:43:39.052 26424-26424 IGReaderService         com.example.friendsreels             W  ENRICH_URL: nav to 'Pedro Sardoeira' failed, giving up reelId=10
+2026-08-31 12:43:39.359 26424-26647 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1 short-circuited by fast-failure signal — skipping wait.
+2026-08-31 12:43:39.359 26424-26647 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 1 result stepOk=false failedFast=true (succeeded=0 failed=1 cancelled=false)
+2026-08-31 12:43:40.889 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 2/12 reelId=11 author=your.friend.andy thread='Pedro Sardoeira'
+2026-08-31 12:43:40.903 26424-26424 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.launcher', bringing Instagram to front.
+2026-08-31 12:43:41.368 26424-26424 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-31 12:43:41.385 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=11 author=your.friend.andy thread='Pedro Sardoeira' current='null'
+2026-08-31 12:43:41.839 26424-26424 IGReaderService         com.example.friendsreels             I  NAV: click inbox row 'Pedro Sardoeira' returned true
+2026-08-31 12:43:41.839 26424-26424 IGReaderService         com.example.friendsreels             I  NAV: attempt 1 stage=inbox-click dispatched=true target='Pedro Sardoeira'
+2026-08-31 12:43:42.092 26424-26424 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
+2026-08-31 12:43:42.858 26424-26424 IGReaderService         com.example.friendsreels             I  NAV: arrived at 'Pedro Sardoeira' (attemptsLeft=9).
+2026-08-31 12:43:44.484 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 1/100 (backward accepted, scrollsLeft=100 author=your.friend.andy)
+2026-08-31 12:43:47.469 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=94 author=your.friend.andy
+2026-08-31 12:43:49.025 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 10/100 (backward accepted, scrollsLeft=91 author=your.friend.andy)
+2026-08-31 12:43:51.891 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=85 author=your.friend.andy
+2026-08-31 12:43:54.034 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 20/100 (backward accepted, scrollsLeft=81 author=your.friend.andy)
+2026-08-31 12:43:56.640 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=76 author=your.friend.andy
+2026-08-31 12:43:57.196 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: matched reelId=11 author=your.friend.andy at index=0 bounds=[147,1457][593,2176] (scrollsLeft=75, visibleReceived=1)
+2026-08-31 12:43:57.216 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: located reelId=11, tapping to open viewer. pendingCopy=PendingCopy(threadTitle=Pedro Sardoeira, direction=RECEIVED, reelAuthor=your.friend.andy, kind=portrait, bubbleIndex=0, dmSender=null)
+2026-08-31 12:43:57.217 26424-26424 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-08-31 12:43:57.320 26424-26424 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-08-31 12:43:59.321 26424-26424 IGReaderService         com.example.friendsreels             W  COPY_LINK: sender_username_or_fullname not found in viewer.
+2026-08-31 12:43:59.404 26424-26424 IGReaderService         com.example.friendsreels             W  SHARE_IN_VIEWER: 'direct_share_button' not found. Viewer failed to open?
+2026-08-31 12:43:59.405 26424-26424 IGReaderService         com.example.friendsreels             I  ===== DUMP_ALL START reason=share-not-found windowCount=4 =====
+2026-08-31 12:43:59.408 26424-26424 IGReaderService         com.example.friendsreels             I  ----- WINDOW[0] id=1206 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[0,189][127,316] -----
+2026-08-31 12:43:59.409 26424-26424 IGReaderService         com.example.friendsreels             I    FrameLayout [C---] id=- b=[0,0][1080,2378]
+2026-08-31 12:43:59.409 26424-26424 IGReaderService         com.example.friendsreels             I      RecyclerView [-S--] id=- desc="Toque numa funcionalidade para começar a utilizá-la:" b=[0,189][129,316]
+2026-08-31 12:43:59.410 26424-26424 IGReaderService         com.example.friendsreels             I        ViewGroup [C---] id=- desc="Friends Reels — Instagram Reader" b=[0,189][129,316]
+2026-08-31 12:43:59.416 26424-26424 IGReaderService         com.example.friendsreels             I  ----- WINDOW[1] id=1209 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[181,2262][883,2378] -----
+2026-08-31 12:43:59.416 26424-26424 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=com.android.systemui:id/navigation_bar_frame b=[0,2262][1080,2378]
+2026-08-31 12:43:59.416 26424-26424 IGReaderService         com.example.friendsreels             I      FrameLayout [----] id=com.android.systemui:id/navigation_bar_view b=[0,2262][1080,2378]
+2026-08-31 12:43:59.417 26424-26424 IGReaderService         com.example.friendsreels             I        ImageView [C---] id=com.android.systemui:id/back desc="Anterior" b=[181,2262][391,2378]
+2026-08-31 12:43:59.417 26424-26424 IGReaderService         com.example.friendsreels             I        ImageView [C---] id=com.android.systemui:id/recent_apps desc="Visão geral" b=[673,2262][883,2378]
+2026-08-31 12:43:59.417 26424-26424 IGReaderService         com.example.friendsreels             I        ImageView [C-L-] id=com.android.systemui:id/home desc="Página inicial" b=[428,2262][638,2378]
+2026-08-31 12:43:59.420 26424-26424 IGReaderService         com.example.friendsreels             I  ----- WINDOW[2] id=1202 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[0,0][1080,120] -----
+2026-08-31 12:43:59.420 26424-26424 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=- b=[0,0][1080,120]
+2026-08-31 12:43:59.420 26424-26424 IGReaderService         com.example.friendsreels             I      FrameLayout [----] id=com.android.systemui:id/status_bar b=[0,0][1080,120]
+2026-08-31 12:43:59.420 26424-26424 IGReaderService         com.example.friendsreels             I        FrameLayout [----] id=com.android.systemui:id/status_bar_start_side_content b=[67,30][309,109]
+2026-08-31 12:43:59.421 26424-26424 IGReaderService         com.example.friendsreels             I          TextView [----] id=com.android.systemui:id/clock desc="12:43 da tarde" text="12:43" b=[67,30][183,109]
+2026-08-31 12:43:59.421 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Sistema Android: " b=[183,30][225,109]
+2026-08-31 12:43:59.421 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Bolt Food: " b=[225,30][267,109]
+2026-08-31 12:43:59.422 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Friends Reels: " b=[267,30][309,109]
+2026-08-31 12:43:59.422 26424-26424 IGReaderService         com.example.friendsreels             I        LinearLayout [----] id=com.android.systemui:id/system_icons b=[738,43][1010,96]
+2026-08-31 12:43:59.422 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Campainha em vibração." b=[745,43][792,96]
+2026-08-31 12:43:59.423 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [----] id=com.android.systemui:id/wifi_signal desc="Sinal de Wi-Fi completo." b=[792,48][850,90]
+2026-08-31 12:43:59.423 26424-26424 IGReaderService         com.example.friendsreels             I          FrameLayout [----] id=com.android.systemui:id/mobile_combo desc="vodafone P, 1 barra." b=[850,43][903,96]
+2026-08-31 12:43:59.423 26424-26424 IGReaderService         com.example.friendsreels             I          LinearLayout [----] id=com.android.systemui:id/battery desc="Bateria Elemento da barra de estado Bateria restante 52 porcento" b=[903,43][1010,96]
+2026-08-31 12:43:59.423 26424-26424 IGReaderService         com.example.friendsreels             I            TextView [----] id=com.android.systemui:id/battery_percentage_view text="52%" b=[939,43][1010,96]
+2026-08-31 12:43:59.427 26424-26424 IGReaderService         com.example.friendsreels             I  ----- WINDOW[3] id=1212 type=APPLICATION pkg=com.instagram.android active=true focused=true bounds=[0,0][1080,2378] -----
+2026-08-31 12:43:59.427 26424-26424 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=- b=[0,0][1080,2378]
+2026-08-31 12:43:59.427 26424-26424 IGReaderService         com.example.friendsreels             I      ViewGroup [----] id=com.instagram.android:id/layout_container_parent b=[0,0][1080,2378]
+2026-08-31 12:43:59.427 26424-26424 IGReaderService         com.example.friendsreels             I        FrameLayout [----] id=com.instagram.android:id/thread_fragment_container b=[0,120][1080,2262]
+2026-08-31 12:43:59.428 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [C---] id=com.instagram.android:id/header_left_button desc="Retroceder" b=[0,120][147,267]
+2026-08-31 12:43:59.428 26424-26424 IGReaderService         com.example.friendsreels             I          Button [C---] id=com.instagram.android:id/header_title_subtitle_container b=[304,148][776,238]
+2026-08-31 12:43:59.428 26424-26424 IGReaderService         com.example.friendsreels             I            Button [C---] id=com.instagram.android:id/header_title desc="Pedro Sardoeira" text="Pedro Sardoeira" b=[304,148][613,196]
+2026-08-31 12:43:59.428 26424-26424 IGReaderService         com.example.friendsreels             I            Button [C---] id=com.instagram.android:id/header_subtitle desc="pedro_sardoeira86" b=[304,196][776,238]
+2026-08-31 12:43:59.429 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [C---] id=- desc="Chamada de voz" b=[807,120][933,267]
+2026-08-31 12:43:59.429 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [C---] id=- desc="Videochamada" b=[933,120][1059,267]
+2026-08-31 12:43:59.429 26424-26424 IGReaderService         com.example.friendsreels             I          ComposeView [----] id=- b=[0,267][1080,267]
+2026-08-31 12:43:59.429 26424-26424 IGReaderService         com.example.friendsreels             I            View [----] id=- b=[0,267][0,267]
+2026-08-31 12:43:59.430 26424-26424 IGReaderService         com.example.friendsreels             I          ComposeView [----] id=- b=[0,267][1080,267]
+2026-08-31 12:43:59.430 26424-26424 IGReaderService         com.example.friendsreels             I            View [----] id=- b=[0,267][0,267]
+2026-08-31 12:43:59.430 26424-26424 IGReaderService         com.example.friendsreels             I          RecyclerView [-S--] id=com.instagram.android:id/message_list b=[0,267][1080,2176]
+2026-08-31 12:43:59.430 26424-26424 IGReaderService         com.example.friendsreels             I            FrameLayout [--L-] id=com.instagram.android:id/message_content b=[0,267][1080,428]
+2026-08-31 12:43:59.430 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/forwarding_shortcut_button desc="Reencaminhar mensagem" b=[614,267][698,69]
+2026-08-31 12:43:59.431 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/sender_avatar desc="Foto de perfil" b=[47,354][121,428]
+2026-08-31 12:43:59.431 26424-26424 IGReaderService         com.example.friendsreels             I              FrameLayout [----] id=com.instagram.android:id/message_content_portrait_xma_container b=[147,267][593,428]
+2026-08-31 12:43:59.431 26424-26424 IGReaderService         com.example.friendsreels             I                ImageView [----] id=com.instagram.android:id/profile_attribution_picture desc="Imagem de perfil" b=[179,267][242,-279]
+2026-08-31 12:43:59.431 26424-26424 IGReaderService         com.example.friendsreels             I                TextView [----] id=com.instagram.android:id/title_text text="vittozao" b=[263,267][449,-290]
+2026-08-31 12:43:59.432 26424-26424 IGReaderService         com.example.friendsreels             I            FrameLayout [--L-] id=com.instagram.android:id/message_content b=[0,460][1080,1262]
+2026-08-31 12:43:59.432 26424-26424 IGReaderService         com.example.friendsreels             I              FrameLayout [----] id=com.instagram.android:id/message_content_portrait_xma_container b=[147,460][593,1262]
+2026-08-31 12:43:59.432 26424-26424 IGReaderService         com.example.friendsreels             I                ImageView [----] id=com.instagram.android:id/profile_attribution_picture desc="Imagem de perfil" b=[179,492][242,555]
+2026-08-31 12:43:59.433 26424-26424 IGReaderService         com.example.friendsreels             I                TextView [----] id=com.instagram.android:id/title_text text="cs2girlz" b=[263,502][442,544]
+2026-08-31 12:43:59.433 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/forwarding_shortcut_button desc="Reencaminhar mensagem" b=[614,819][698,903]
+2026-08-31 12:43:59.433 26424-26424 IGReaderService         com.example.friendsreels             I            MetaComposeView [--L-] id=- b=[0,1266][1080,1363]
+2026-08-31 12:43:59.433 26424-26424 IGReaderService         com.example.friendsreels             I              View [----] id=- b=[0,1266][1080,1363]
+2026-08-31 12:43:59.434 26424-26424 IGReaderService         com.example.friendsreels             I                View [----] id=- b=[47,1289][121,1363]
+2026-08-31 12:43:59.434 26424-26424 IGReaderService         com.example.friendsreels             I                  View [C-L-] id=- b=[21,1266][147,1363]
+2026-08-31 12:43:59.435 26424-26424 IGReaderService         com.example.friendsreels             I                TextView [----] id=- text="Vamos passar a fazer esta merda" b=[179,1292][739,1337]
+2026-08-31 12:43:59.435 26424-26424 IGReaderService         com.example.friendsreels             I                View [----] id=- b=[729,1266][855,1363]
+2026-08-31 12:43:59.436 26424-26424 IGReaderService         com.example.friendsreels             I            TextView [--L-] id=- text="25/08, 2:50 DA TARDE" b=[0,1395][1080,1473]
+2026-08-31 12:43:59.437 26424-26424 IGReaderService         com.example.friendsreels             I            FrameLayout [--L-] id=com.instagram.android:id/message_content b=[0,1505][1080,2176]
+2026-08-31 12:43:59.437 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/forwarding_shortcut_button desc="Reencaminhar mensagem" b=[614,1864][698,1948]
+2026-08-31 12:43:59.437 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/sender_avatar desc="Foto de perfil" b=[47,2233][121,2176]
+2026-08-31 12:43:59.437 26424-26424 IGReaderService         com.example.friendsreels             I              FrameLayout [----] id=com.instagram.android:id/message_content_portrait_xma_container b=[147,1505][593,2176]
+2026-08-31 12:43:59.437 26424-26424 IGReaderService         com.example.friendsreels             I                ImageView [----] id=com.instagram.android:id/profile_attribution_picture desc="Imagem de perfil" b=[179,1537][242,1600]
+2026-08-31 12:43:59.438 26424-26424 IGReaderService         com.example.friendsreels             I                TextView [----] id=com.instagram.android:id/title_text text="your.friend.andy" b=[263,1549][537,1588]
+2026-08-31 12:43:59.438 26424-26424 IGReaderService         com.example.friendsreels             I          RecyclerView [----] id=com.instagram.android:id/commands_list b=[21,2089][1059,2089]
+2026-08-31 12:43:59.438 26424-26424 IGReaderService         com.example.friendsreels             I          FrameLayout [----] id=com.instagram.android:id/message_composer_bar b=[0,2089][1080,2262]
+2026-08-31 12:43:59.438 26424-26424 IGReaderService         com.example.friendsreels             I            LinearLayout [----] id=com.instagram.android:id/message_composer_reply_bar_container b=[0,2089][1080,2262]
+2026-08-31 12:43:59.438 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_camera desc="Câmara" b=[37,2125][137,2225]
+2026-08-31 12:43:59.438 26424-26424 IGReaderService         com.example.friendsreels             I              EditText [C-LE] id=com.instagram.android:id/row_thread_composer_edittext text="Enviar mensagem…" b=[158,2110][621,2241]
+2026-08-31 12:43:59.439 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_voice desc="Mensagem de voz, pressiona para gravar" b=[621,2146][726,2209]
+2026-08-31 12:43:59.439 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_gallery desc="Galeria" b=[726,2146][831,2209]
+2026-08-31 12:43:59.439 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_sticker desc="Stickers" b=[831,2146][936,2209]
+2026-08-31 12:43:59.439 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_overflow desc="Mais" b=[936,2146][1041,2209]
+2026-08-31 12:43:59.439 26424-26424 IGReaderService         com.example.friendsreels             I  ===== DUMP_ALL END reason=share-not-found =====
+2026-08-31 12:44:26.149 26424-26647 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 2 result stepOk=false failedFast=false (succeeded=0 failed=2 cancelled=false)
+2026-08-31 12:44:27.669 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 3/12 reelId=12 author=play.nighthub thread='Pedro Sardoeira'
+2026-08-31 12:44:27.693 26424-26424 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.android.systemui', bringing Instagram to front.
+2026-08-31 12:44:27.927 26424-26424 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-31 12:44:27.931 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=12 author=play.nighthub thread='Pedro Sardoeira' current='Pedro Sardoeira'
+2026-08-31 12:44:27.964 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 1/100 (backward accepted, scrollsLeft=100 author=play.nighthub)
+2026-08-31 12:44:32.053 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=91 author=play.nighthub
+2026-08-31 12:44:36.846 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=81 author=play.nighthub
+2026-08-31 12:44:41.120 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=72 author=play.nighthub
+2026-08-31 12:44:41.811 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 30/100 (backward accepted, scrollsLeft=71 author=play.nighthub)
+2026-08-31 12:44:47.404 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=63 author=play.nighthub
+2026-08-31 12:44:48.206 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 40/100 (backward accepted, scrollsLeft=61 author=play.nighthub)
+2026-08-31 12:44:51.436 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=56 author=play.nighthub
+2026-08-31 12:44:53.542 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 50/100 (backward accepted, scrollsLeft=51 author=play.nighthub)
+2026-08-31 12:44:57.630 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 60/100 (backward accepted, scrollsLeft=41 author=play.nighthub)
+2026-08-31 12:45:00.129 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=36 author=play.nighthub
+2026-08-31 12:45:02.449 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 70/100 (backward accepted, scrollsLeft=31 author=play.nighthub)
+2026-08-31 12:45:04.936 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=26 author=play.nighthub
+2026-08-31 12:45:07.277 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 80/100 (backward accepted, scrollsLeft=21 author=play.nighthub)
+2026-08-31 12:45:09.932 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=16 author=play.nighthub
+2026-08-31 12:45:12.240 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 90/100 (backward accepted, scrollsLeft=11 author=play.nighthub)
+2026-08-31 12:45:12.777 26424-26646 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 3 result stepOk=false failedFast=false (succeeded=0 failed=3 cancelled=false)
+2026-08-31 12:45:14.429 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=8 author=play.nighthub
+2026-08-31 12:45:14.514 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 4/12 reelId=13 author=the_clip_vault_7 thread='Pedro Sardoeira'
+2026-08-31 12:45:14.770 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=13 author=the_clip_vault_7 thread='Pedro Sardoeira' current='Pedro Sardoeira'
+2026-08-31 12:45:15.009 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 1/100 (backward accepted, scrollsLeft=100 author=the_clip_vault_7)
+2026-08-31 12:45:17.481 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE: swipe fallback cancelled by system.
+2026-08-31 12:45:17.481 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: switching to forward-scroll fallback.
+2026-08-31 12:45:17.600 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 1/5 (forward accepted, forwardScrollsLeft=5 author=play.nighthub)
+2026-08-31 12:45:18.526 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=95 author=the_clip_vault_7
+2026-08-31 12:45:19.439 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 5/5 (forward accepted, forwardScrollsLeft=1 author=play.nighthub)
+2026-08-31 12:45:19.845 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=12 author=play.nighthub after 5 forward scrolls.
+2026-08-31 12:45:19.845 26424-26424 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=play.nighthub in 'Pedro Sardoeira', giving up reelId=12
+2026-08-31 12:45:20.039 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 10/100 (backward accepted, scrollsLeft=91 author=the_clip_vault_7)
+2026-08-31 12:45:20.090 26424-26646 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 4 short-circuited by fast-failure signal — skipping wait.
+2026-08-31 12:45:20.090 26424-26646 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 4 result stepOk=false failedFast=true (succeeded=0 failed=4 cancelled=false)
+2026-08-31 12:45:21.622 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 5/12 reelId=14 author=notsafe4wear thread='Pedro Sardoeira'
+2026-08-31 12:45:21.679 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=14 author=notsafe4wear thread='Pedro Sardoeira' current='Pedro Sardoeira'
+2026-08-31 12:45:21.799 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 1/100 (backward accepted, scrollsLeft=100 author=notsafe4wear)
+2026-08-31 12:45:23.571 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE: swipe fallback cancelled by system.
+2026-08-31 12:45:23.571 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: switching to forward-scroll fallback.
+2026-08-31 12:45:23.620 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 1/5 (forward accepted, forwardScrollsLeft=5 author=notsafe4wear)
+2026-08-31 12:45:24.108 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=82 author=the_clip_vault_7
+2026-08-31 12:45:24.481 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 20/100 (backward accepted, scrollsLeft=81 author=the_clip_vault_7)
+2026-08-31 12:45:25.088 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 5/5 (forward accepted, forwardScrollsLeft=1 author=notsafe4wear)
+2026-08-31 12:45:25.443 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=14 author=notsafe4wear after 5 forward scrolls.
+2026-08-31 12:45:25.443 26424-26424 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=notsafe4wear in 'Pedro Sardoeira', giving up reelId=14
+2026-08-31 12:45:25.682 26424-26646 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 5 short-circuited by fast-failure signal — skipping wait.
+2026-08-31 12:45:25.682 26424-26646 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 5 result stepOk=false failedFast=true (succeeded=0 failed=5 cancelled=false)
+2026-08-31 12:45:27.215 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 6/12 reelId=15 author=laglesssoul thread='Pedro Sardoeira'
+2026-08-31 12:45:27.300 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=15 author=laglesssoul thread='Pedro Sardoeira' current='Pedro Sardoeira'
+2026-08-31 12:45:27.380 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 1/100 (backward accepted, scrollsLeft=100 author=laglesssoul)
+2026-08-31 12:45:28.295 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 30/100 (backward accepted, scrollsLeft=71 author=the_clip_vault_7)
+2026-08-31 12:45:28.733 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE: swipe fallback cancelled by system.
+2026-08-31 12:45:28.733 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: switching to forward-scroll fallback.
+2026-08-31 12:45:28.833 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 1/5 (forward accepted, forwardScrollsLeft=5 author=laglesssoul)
+2026-08-31 12:45:29.719 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=70 author=the_clip_vault_7
+2026-08-31 12:45:30.586 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 5/5 (forward accepted, forwardScrollsLeft=1 author=laglesssoul)
+2026-08-31 12:45:30.961 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=15 author=laglesssoul after 5 forward scrolls.
+2026-08-31 12:45:30.961 26424-26424 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=laglesssoul in 'Pedro Sardoeira', giving up reelId=15
+2026-08-31 12:45:31.255 26424-26645 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 6 short-circuited by fast-failure signal — skipping wait.
+2026-08-31 12:45:31.255 26424-26645 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 6 result stepOk=false failedFast=true (succeeded=0 failed=6 cancelled=false)
+2026-08-31 12:45:32.830 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 7/12 reelId=16 author=ivantuscs thread='Pedro Sardoeira'
+2026-08-31 12:45:32.899 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=16 author=ivantuscs thread='Pedro Sardoeira' current='Pedro Sardoeira'
+2026-08-31 12:45:32.971 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 1/100 (backward accepted, scrollsLeft=100 author=ivantuscs)
+2026-08-31 12:45:33.302 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 40/100 (backward accepted, scrollsLeft=61 author=the_clip_vault_7)
+2026-08-31 12:45:34.677 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE: swipe fallback cancelled by system.
+2026-08-31 12:45:34.677 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: switching to forward-scroll fallback.
+2026-08-31 12:45:34.818 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 1/5 (forward accepted, forwardScrollsLeft=5 author=the_clip_vault_7)
+2026-08-31 12:45:36.377 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=97 author=ivantuscs
+2026-08-31 12:45:37.617 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 5/5 (forward accepted, forwardScrollsLeft=1 author=the_clip_vault_7)
+2026-08-31 12:45:38.053 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=13 author=the_clip_vault_7 after 5 forward scrolls.
+2026-08-31 12:45:38.053 26424-26424 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=the_clip_vault_7 in 'Pedro Sardoeira', giving up reelId=13
+2026-08-31 12:45:38.421 26424-26645 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 7 short-circuited by fast-failure signal — skipping wait.
+2026-08-31 12:45:38.421 26424-26645 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 7 result stepOk=false failedFast=true (succeeded=0 failed=7 cancelled=false)
+2026-08-31 12:45:39.551 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 10/100 (backward accepted, scrollsLeft=91 author=ivantuscs)
+2026-08-31 12:45:39.987 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 8/12 reelId=17 author=elnixjo18 thread='Pedro Sardoeira'
+2026-08-31 12:45:40.069 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=17 author=elnixjo18 thread='Pedro Sardoeira' current='Pedro Sardoeira'
+2026-08-31 12:45:40.149 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 1/100 (backward accepted, scrollsLeft=100 author=elnixjo18)
+2026-08-31 12:45:40.768 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE: swipe fallback cancelled by system.
+2026-08-31 12:45:40.768 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: switching to forward-scroll fallback.
+2026-08-31 12:45:40.841 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 1/5 (forward accepted, forwardScrollsLeft=5 author=ivantuscs)
+2026-08-31 12:45:41.940 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=99 author=elnixjo18
+2026-08-31 12:45:43.048 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 5/5 (forward accepted, forwardScrollsLeft=1 author=ivantuscs)
+2026-08-31 12:45:43.423 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=16 author=ivantuscs after 5 forward scrolls.
+2026-08-31 12:45:43.423 26424-26424 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=ivantuscs in 'Pedro Sardoeira', giving up reelId=16
+2026-08-31 12:45:43.530 26424-26645 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 8 short-circuited by fast-failure signal — skipping wait.
+2026-08-31 12:45:43.530 26424-26645 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 8 result stepOk=false failedFast=true (succeeded=0 failed=8 cancelled=false)
+2026-08-31 12:45:45.059 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 10/100 (backward accepted, scrollsLeft=91 author=elnixjo18)
+2026-08-31 12:45:45.096 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 9/12 reelId=18 author=cs2funnyclip21 thread='Pedro Sardoeira'
+2026-08-31 12:45:45.157 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=18 author=cs2funnyclip21 thread='Pedro Sardoeira' current='Pedro Sardoeira'
+2026-08-31 12:45:45.214 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 1/100 (backward accepted, scrollsLeft=100 author=cs2funnyclip21)
+2026-08-31 12:45:46.803 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE: swipe fallback cancelled by system.
+2026-08-31 12:45:46.803 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: switching to forward-scroll fallback.
+2026-08-31 12:45:46.903 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 1/5 (forward accepted, forwardScrollsLeft=5 author=cs2funnyclip21)
+2026-08-31 12:45:47.815 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=87 author=elnixjo18
+2026-08-31 12:45:48.811 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 5/5 (forward accepted, forwardScrollsLeft=1 author=cs2funnyclip21)
+2026-08-31 12:45:49.163 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=18 author=cs2funnyclip21 after 5 forward scrolls.
+2026-08-31 12:45:49.163 26424-26424 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=cs2funnyclip21 in 'Pedro Sardoeira', giving up reelId=18
+2026-08-31 12:45:49.662 26424-26645 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 9 short-circuited by fast-failure signal — skipping wait.
+2026-08-31 12:45:49.662 26424-26645 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 9 result stepOk=false failedFast=true (succeeded=0 failed=9 cancelled=false)
+2026-08-31 12:45:50.227 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 20/100 (backward accepted, scrollsLeft=81 author=elnixjo18)
+2026-08-31 12:45:51.241 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 10/12 reelId=19 author=playoverwatch thread='Pedro Sardoeira'
+2026-08-31 12:45:51.284 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=19 author=playoverwatch thread='Pedro Sardoeira' current='Pedro Sardoeira'
+2026-08-31 12:45:51.411 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 1/100 (backward accepted, scrollsLeft=100 author=playoverwatch)
+2026-08-31 12:45:52.760 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE: swipe fallback cancelled by system.
+2026-08-31 12:45:52.760 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: switching to forward-scroll fallback.
+2026-08-31 12:45:52.821 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 1/5 (forward accepted, forwardScrollsLeft=5 author=elnixjo18)
+2026-08-31 12:45:53.959 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=97 author=playoverwatch
+2026-08-31 12:45:55.004 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE_FWD: scroll 5/5 (forward accepted, forwardScrollsLeft=1 author=elnixjo18)
+2026-08-31 12:45:55.406 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE_FWD: could not find reelId=17 author=elnixjo18 after 5 forward scrolls.
+2026-08-31 12:45:55.406 26424-26424 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=elnixjo18 in 'Pedro Sardoeira', giving up reelId=17
+2026-08-31 12:45:55.807 26424-26646 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 10 short-circuited by fast-failure signal — skipping wait.
+2026-08-31 12:45:55.808 26424-26646 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 10 result stepOk=false failedFast=true (succeeded=0 failed=10 cancelled=false)
+2026-08-31 12:45:56.596 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 10/100 (backward accepted, scrollsLeft=91 author=playoverwatch)
+2026-08-31 12:45:56.953 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: matched reelId=19 author=playoverwatch at index=0 bounds=[147,1303][593,2105] (scrollsLeft=90, visibleReceived=2)
+2026-08-31 12:45:56.975 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: located reelId=19, tapping to open viewer. pendingCopy=PendingCopy(threadTitle=Pedro Sardoeira, direction=RECEIVED, reelAuthor=playoverwatch, kind=portrait, bubbleIndex=0, dmSender=null)
+2026-08-31 12:45:56.980 26424-26424 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-08-31 12:45:57.068 26424-26424 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-08-31 12:45:57.337 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 11/12 reelId=20 author=dezzito thread='Pedro Sardoeira'
+2026-08-31 12:45:57.387 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=20 author=dezzito thread='Pedro Sardoeira' current='Pedro Sardoeira'
+2026-08-31 12:45:57.446 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 1/100 (backward accepted, scrollsLeft=100 author=dezzito)
+2026-08-31 12:45:59.108 26424-26424 IGReaderService         com.example.friendsreels             W  COPY_LINK: sender_username_or_fullname not found in viewer.
+2026-08-31 12:45:59.255 26424-26424 IGReaderService         com.example.friendsreels             W  SHARE_IN_VIEWER: 'direct_share_button' not found. Viewer failed to open?
+2026-08-31 12:45:59.255 26424-26424 IGReaderService         com.example.friendsreels             I  ===== DUMP_ALL START reason=share-not-found windowCount=4 =====
+2026-08-31 12:45:59.267 26424-26424 IGReaderService         com.example.friendsreels             I  ----- WINDOW[0] id=1206 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[0,189][127,316] -----
+2026-08-31 12:45:59.267 26424-26424 IGReaderService         com.example.friendsreels             I    FrameLayout [C---] id=- b=[0,0][1080,2378]
+2026-08-31 12:45:59.275 26424-26424 IGReaderService         com.example.friendsreels             I      RecyclerView [-S--] id=- desc="Toque numa funcionalidade para começar a utilizá-la:" b=[0,189][129,316]
+2026-08-31 12:45:59.275 26424-26424 IGReaderService         com.example.friendsreels             I        ViewGroup [C---] id=- desc="Friends Reels — Instagram Reader" b=[0,189][129,316]
+2026-08-31 12:45:59.279 26424-26424 IGReaderService         com.example.friendsreels             I  ----- WINDOW[1] id=1209 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[183,2262][885,2378] -----
+2026-08-31 12:45:59.279 26424-26424 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=com.android.systemui:id/navigation_bar_frame b=[0,2262][1080,2378]
+2026-08-31 12:45:59.279 26424-26424 IGReaderService         com.example.friendsreels             I      FrameLayout [----] id=com.android.systemui:id/navigation_bar_view b=[0,2262][1080,2378]
+2026-08-31 12:45:59.279 26424-26424 IGReaderService         com.example.friendsreels             I        ImageView [C---] id=com.android.systemui:id/back desc="Anterior" b=[183,2262][393,2378]
+2026-08-31 12:45:59.279 26424-26424 IGReaderService         com.example.friendsreels             I        ImageView [C---] id=com.android.systemui:id/recent_apps desc="Visão geral" b=[675,2262][885,2378]
+2026-08-31 12:45:59.279 26424-26424 IGReaderService         com.example.friendsreels             I        ImageView [C-L-] id=com.android.systemui:id/home desc="Página inicial" b=[430,2262][640,2378]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I  ----- WINDOW[2] id=1202 type=SYSTEM pkg=com.android.systemui active=false focused=false bounds=[0,0][1080,120] -----
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=- b=[0,0][1080,120]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I      FrameLayout [----] id=com.android.systemui:id/status_bar b=[0,0][1080,120]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I        FrameLayout [----] id=com.android.systemui:id/status_bar_start_side_content b=[69,30][310,109]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I          TextView [----] id=com.android.systemui:id/clock desc="12:45 da tarde" text="12:45" b=[69,30][184,109]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Sistema Android: " b=[184,30][226,109]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Bolt Food: " b=[226,30][268,109]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Notificação do Friends Reels: " b=[268,30][310,109]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I        LinearLayout [----] id=com.android.systemui:id/system_icons b=[750,43][1012,96]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [----] id=- desc="Campainha em vibração." b=[755,43][802,96]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [----] id=com.android.systemui:id/wifi_signal desc="Sinal de Wi-Fi completo." b=[802,48][860,90]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I          FrameLayout [----] id=com.android.systemui:id/mobile_combo desc="vodafone P, 2 barras." b=[860,43][913,96]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I          LinearLayout [----] id=com.android.systemui:id/battery desc="Bateria Elemento da barra de estado Bateria restante 51 porcento" b=[913,43][1012,96]
+2026-08-31 12:45:59.283 26424-26424 IGReaderService         com.example.friendsreels             I            TextView [----] id=com.android.systemui:id/battery_percentage_view text="51%" b=[949,43][1012,96]
+2026-08-31 12:45:59.287 26424-26424 IGReaderService         com.example.friendsreels             I  ----- WINDOW[3] id=1212 type=APPLICATION pkg=com.instagram.android active=true focused=true bounds=[0,0][1080,2378] -----
+2026-08-31 12:45:59.287 26424-26424 IGReaderService         com.example.friendsreels             I    FrameLayout [----] id=- b=[0,0][1080,2378]
+2026-08-31 12:45:59.288 26424-26424 IGReaderService         com.example.friendsreels             I      ViewGroup [----] id=com.instagram.android:id/layout_container_parent b=[0,0][1080,2378]
+2026-08-31 12:45:59.288 26424-26424 IGReaderService         com.example.friendsreels             I        FrameLayout [----] id=com.instagram.android:id/thread_fragment_container b=[0,120][1080,2262]
+2026-08-31 12:45:59.288 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [C---] id=com.instagram.android:id/header_left_button desc="Retroceder" b=[0,120][147,267]
+2026-08-31 12:45:59.288 26424-26424 IGReaderService         com.example.friendsreels             I          Button [C---] id=com.instagram.android:id/header_title_subtitle_container b=[304,148][776,238]
+2026-08-31 12:45:59.288 26424-26424 IGReaderService         com.example.friendsreels             I            Button [C---] id=com.instagram.android:id/header_title desc="Pedro Sardoeira" text="Pedro Sardoeira" b=[304,148][613,196]
+2026-08-31 12:45:59.288 26424-26424 IGReaderService         com.example.friendsreels             I            Button [C---] id=com.instagram.android:id/header_subtitle desc="pedro_sardoeira86" b=[304,196][776,238]
+2026-08-31 12:45:59.288 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [C---] id=- desc="Chamada de voz" b=[807,120][933,267]
+2026-08-31 12:45:59.288 26424-26424 IGReaderService         com.example.friendsreels             I          ImageView [C---] id=- desc="Videochamada" b=[933,120][1059,267]
+2026-08-31 12:45:59.288 26424-26424 IGReaderService         com.example.friendsreels             I          ComposeView [----] id=- b=[0,267][1080,267]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I            View [----] id=- b=[0,267][0,267]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I          ComposeView [----] id=- b=[0,267][1080,267]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I            View [----] id=- b=[0,267][0,267]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I          RecyclerView [-S--] id=com.instagram.android:id/message_list b=[0,267][1080,2176]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I            FrameLayout [--L-] id=- b=[0,283][1080,493]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [----] id=- desc="A carregar…" b=[475,323][605,453]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I            TextView [--L-] id=- text="3/04, 3:30 DA MANHÃ" b=[0,525][1080,603]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I            MetaComposeView [--L-] id=- b=[0,635][1080,777]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I              View [----] id=- b=[0,635][1080,777]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I                View [----] id=- b=[47,703][121,777]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I                  View [C-L-] id=- b=[21,677][147,777]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I                TextView [----] id=- text="É triste n teres ninguém para te dar uma mamada de facto" b=[179,661][882,751]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I                View [----] id=- b=[849,643][975,769]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I            TextView [--L-] id=- text="4/04, 1:56 DA MANHÃ" b=[0,809][1080,887]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I            FrameLayout [--L-] id=com.instagram.android:id/message_content b=[0,919][1080,1721]
+2026-08-31 12:45:59.289 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/forwarding_shortcut_button desc="Reencaminhar mensagem" b=[614,1278][698,1362]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/sender_avatar desc="Foto de perfil" b=[47,1647][121,1721]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              FrameLayout [----] id=com.instagram.android:id/message_content_portrait_xma_container b=[147,919][593,1721]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I                ImageView [----] id=com.instagram.android:id/profile_attribution_picture desc="Imagem de perfil" b=[179,951][242,1014]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I                TextView [----] id=com.instagram.android:id/title_text text="leandroandre.st" b=[263,963][526,1002]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I            TextView [--L-] id=- text="4/04, 6:15 DA TARDE" b=[0,1753][1080,1831]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I            ViewGroup [--L-] id=com.instagram.android:id/message_content b=[0,1863][1080,2176]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              Button [C---] id=com.instagram.android:id/direct_context_reply_context_info_text_view desc=" Respondeu à tua história de Amigos chegados" text=" Respondeu à tua história de Amigos chegados" b=[189,1863][1080,1899]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              FrameLayout [----] id=com.instagram.android:id/message_content_portrait_xma_container b=[189,1920][420,2176]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/sender_avatar desc="Foto de perfil" b=[47,2379][121,2176]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              TextView [----] id=com.instagram.android:id/direct_text_message_text_view desc="Ele só queria um colinho🤣" text="Ele só queria um colinho🤣" b=[147,2356][668,2176]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I          RecyclerView [----] id=com.instagram.android:id/commands_list b=[21,2089][1059,2089]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I          FrameLayout [----] id=com.instagram.android:id/message_composer_bar b=[0,2089][1080,2262]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I            LinearLayout [----] id=com.instagram.android:id/message_composer_reply_bar_container b=[0,2089][1080,2262]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_camera desc="Câmara" b=[37,2125][137,2225]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              EditText [C-LE] id=com.instagram.android:id/row_thread_composer_edittext text="Enviar mensagem…" b=[158,2110][621,2241]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_voice desc="Mensagem de voz, pressiona para gravar" b=[621,2146][726,2209]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_gallery desc="Galeria" b=[726,2146][831,2209]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_sticker desc="Stickers" b=[831,2146][936,2209]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I              ImageView [C---] id=com.instagram.android:id/row_thread_composer_button_overflow desc="Mais" b=[936,2146][1041,2209]
+2026-08-31 12:45:59.290 26424-26424 IGReaderService         com.example.friendsreels             I  ===== DUMP_ALL END reason=share-not-found =====
+2026-08-31 12:46:00.518 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=95 author=dezzito
+2026-08-31 12:46:02.638 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 10/100 (backward accepted, scrollsLeft=91 author=dezzito)
+2026-08-31 12:46:04.073 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=90 author=dezzito
+2026-08-31 12:46:08.414 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=81 author=dezzito
+2026-08-31 12:46:13.012 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: scroll 30/100 (backward accepted, scrollsLeft=71 author=dezzito)
+2026-08-31 12:46:15.594 26424-26424 IGReaderService         com.example.friendsreels             I  LOCATE: swipe fallback completed scrollsLeft=68 author=dezzito
+2026-08-31 12:46:17.030 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE: no IG root available (pkg=com.android.launcher), giving up.
+2026-08-31 12:46:17.030 26424-26424 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=dezzito in 'Pedro Sardoeira', giving up reelId=20
+2026-08-31 12:46:17.122 26424-26645 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 11 short-circuited by fast-failure signal — skipping wait.
+2026-08-31 12:46:17.122 26424-26645 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 11 result stepOk=false failedFast=true (succeeded=0 failed=11 cancelled=false)
+2026-08-31 12:46:18.638 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 12/12 reelId=21 author=irvgod thread='Pedro Sardoeira'
+2026-08-31 12:46:18.655 26424-26424 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.whatsapp', bringing Instagram to front.
+2026-08-31 12:46:19.549 26424-26424 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-31 12:46:19.561 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_URL: starting for reelId=21 author=irvgod thread='Pedro Sardoeira' current='Pedro Sardoeira'
+2026-08-31 12:46:19.651 26424-26424 IGReaderService         com.example.friendsreels             W  LOCATE: no message_list; giving up.
+2026-08-31 12:46:19.651 26424-26424 IGReaderService         com.example.friendsreels             W  ENRICH_URL: could not locate Reel author=irvgod in 'Pedro Sardoeira', giving up reelId=21
+2026-08-31 12:46:19.657 26424-26646 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 12 short-circuited by fast-failure signal — skipping wait.
+2026-08-31 12:46:19.657 26424-26646 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: step 12 result stepOk=false failedFast=true (succeeded=0 failed=12 cancelled=false)
+2026-08-31 12:46:21.160 26424-26424 IGReaderService         com.example.friendsreels             I  ENRICH_ALL: batch complete (succeeded=0 failed=12).
+2026-08-31 12:46:21.175 26424-26424 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-08-31 12:46:21.182 26424-26424 IGReaderService         com.example.friendsreels             I  Completion notification posted: '🔗 Lote de URLs terminado' — 0 preparado(s) · 12 falhou(aram).
+2026-08-31 12:46:21.195 26424-26424 IGReaderService         com.example.friendsreels             I  returnToAppIfEnabled: FeedActivity launched.
+2026-08-31 12:56:29.262 26424-26424 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='astrid☀️'
+2026-08-31 12:56:39.704 26424-26424 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-08-31 12:56:40.582 26424-26424 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-08-31 12:56:40.597 26424-26424 IGReaderService         com.example.friendsreels             I  HISTORY: starting thread='astrid☀️' ignoreSent=true
+2026-08-31 12:56:40.641 26424-26646 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=0 inserted=0 skipped=0 totalInsertedRun=0 consecutiveEmpty=1 totalInDb=21
+2026-08-31 12:56:40.716 26424-26424 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 1/100 via ACTION_SCROLL_BACKWARD accepted
+2026-08-31 12:56:41.166 26424-26646 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=1 inserted=0 skipped=0 totalInsertedRun=0 consecutiveEmpty=2 totalInDb=21
+2026-08-31 12:56:41.734 26424-26424 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 2/100 via gesture completed
+2026-08-31 12:56:42.185 26424-26646 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=2 inserted=0 skipped=0 totalInsertedRun=0 consecutiveEmpty=3 totalInDb=21
+2026-08-31 12:56:42.749 26424-26424 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 3/100 via gesture completed
+2026-08-31 12:56:43.190 26424-26646 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=3 inserted=0 skipped=0 totalInsertedRun=0 consecutiveEmpty=4 totalInDb=21
+2026-08-31 12:56:43.775 26424-26424 IGReaderService         com.example.friendsreels             I  HISTORY: scroll 4/100 via gesture completed
+2026-08-31 12:56:44.207 26424-26646 IGReaderService         com.example.friendsreels             I  HISTORY: scroll=4 inserted=0 skipped=0 totalInsertedRun=0 consecutiveEmpty=5 totalInDb=21
+2026-08-31 12:56:44.222 26424-26424 IGReaderService         com.example.friendsreels             I  HISTORY: stopping — 5 consecutive empty scrolls.
+2026-08-31 12:56:44.222 26424-26424 IGReaderService         com.example.friendsreels             I  HISTORY: finished — thread='astrid☀️' scrolls=4 totalInsertedRun=0 totalSkippedRun=0
+2026-08-31 12:56:44.236 26424-26424 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-08-31 12:56:44.248 26424-26424 IGReaderService         com.example.friendsreels             I  Completion notification posted: '📥 Histórico descoberto' — 0 Reel(s) novo(s) em 'astrid☀️' (4 scrolls).
+2026-08-31 12:56:44.267 26424-26424 IGReaderService         com.example.friendsreels             I  returnToAppIfEnabled: FeedActivity launched.
