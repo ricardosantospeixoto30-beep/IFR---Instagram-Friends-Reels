@@ -8,9 +8,9 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-08-31 (sessão 47 — instrumentação de scroll skipping + forward budget maior).
+**Última actualização:** 2026-08-31 (sessão 47b — corrige a instrumentação da s47 que estava a monitorizar o set errado).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s47`.
+**HEAD actual:** `build=s47b`.
 
 **Recap sessões 41-47 (as validadas ou próximas de validação):**
 
@@ -19,15 +19,16 @@
 - **s44** (validada em parte): remove stall detection, adiciona epoch guard (`enrichmentStepEpoch`) para callbacks stale, e traz botão de Dump em Diagnóstico. Bug do dump: capturava sempre a UI das Definições porque tocar rouba foco ao IG.
 - **s45** (validada): dump adiado com Toast countdown ("🌳 Muda para o IG! Dump em 5s"). Dump em `docs/screen-dumps/dump.txt` capturou o header start-of-conversation da DM `astrid_gutierrez` com 4 selectors estáveis (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username`).
 - **s46** (validada em parte — `TopStop-History` OK, `TopStop-Batch` inconclusivo por falta de Reel apropriado): `isThreadTopVisible(root)` usa esses 4 selectors para substituir a stall detection removida na s44. Integrada em `locateReelWithScroll` e `doHistoryScroll`.
-- **s47** (aguarda validação): **instrumentação** de `seenAuthors` durante backward+forward sweep para expor no log quando o autor procurado foi visto mas nunca deu match (bug reportado pelo utilizador na s46: "se ele já tiver passado por ele não volta para baixo para o reencontrar"). Bump de `BATCH_MAX_FORWARD_SCROLLS` 5 → 15 para dar retracement suficiente quando o backward passou por cima do Reel.
+- **s47** (superseded pela s47b): tentei instrumentar mas usei `candidates` (pós-filtro) como source do `seenAuthors`. Utilizador apanhou (esta ronda): dado que o match é `.firstOrNull { reelAuthor == wantedAuthor }`, se o autor está em `candidates` o match acontece sempre — logo o warning nunca disparava. Bug de design.
+- **s47b** (aguarda validação): `seenAuthors` agora acumula-se a partir de `allReels.filter { direction == RECEIVED }.mapNotNull { reelAuthor }` — ANTES do filtro `bounds.width() > 0 && bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX`. Isto captura autores de bubbles mid-layout que a s47 perdia. `BATCH_MAX_FORWARD_SCROLLS` continua 15 (era 5 em ≤s46).
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s47 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s47b ...)`.
 2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `instagram/IgSelectors.kt` — objecto `Thread` tem `HEADER_VIEW_PROFILE_BUTTON` + 3 fallbacks (s46).
-    - `service/InstagramReaderService.kt` — `isThreadTopVisible(root)` (s46) usada em `locateReelWithScroll` + `doHistoryScroll`. **s47:** ambas as `locateReelWith(Forward)Scroll` recebem um `seenAuthors: MutableSet<String>` que acumula todos os autores RECEIVED enumerados a cada scroll. Nos pontos de falha (top reached, backward exhausted, forward exhausted) o log passa a incluir `seenDuringSweep=…` e — quando `wantedAuthor in seenAuthors` — uma warning explícita "Reel likely skipped due to layout timing". `BATCH_MAX_FORWARD_SCROLLS = 15` (era 5).
+    - `service/InstagramReaderService.kt` — `isThreadTopVisible(root)` (s46) usada em `locateReelWithScroll` + `doHistoryScroll`. **s47b:** ambas as `locateReelWith(Forward)Scroll` recebem `seenAuthors: MutableSet<String>` que acumula autores de bubbles RECEIVED enumerados **antes do filtro de altura/largura**. Nos pontos de falha o log inclui `seenDuringSweep=…` e — quando `wantedAuthor in seenAuthors` — dispara warning "Reel likely skipped due to layout timing". `BATCH_MAX_FORWARD_SCROLLS = 15`.
     - `ui/settings/SettingsActivity.kt` — botão de Dump com delay (s45), sem alterações.
     - Dumps: `docs/screen-dumps/dump.txt` (s45 — topo de conversa, base dos selectors da s46).
 4. **Constraints:**
@@ -42,7 +43,7 @@
     - **Notificação de conclusão:** heads-up.
 6. **Limitações conhecidas:**
     - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem.
-    - **Reel skipped mid-backward-sweep (reportado na s46, instrumentado na s47):** durante o backward-scroll dentro de `locateReelWithScroll`, o Reel-alvo pode aparecer brevemente em vista mas o snapshot de `enumerateReels` no momento seguinte não o apanha (mid-layout/recycler transitions). O código actual só descobre isso quando esgota o backward budget ou detecta topo e passa ao forward. Se o `BATCH_MAX_FORWARD_SCROLLS` for pequeno, não retrata o suficiente para o reencontrar. **s47** mitiga com bump de 5 → 15 forward e log explícito `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched` a informar quando isto acontece. **Não é uma correcção total** — a fix estrutural implicaria (a) enumerar 2x por scroll com pequena separação de tempo para captar bubbles transientes, ou (b) implementar retracement dinâmico que scrolla forward até reencontrar o autor observado. Registado como próximo passo em §6.
+    - **Reel skipped mid-backward-sweep (reportado na s46, instrumentado s47/s47b):** durante o backward-scroll dentro de `locateReelWithScroll`, o Reel-alvo pode aparecer brevemente em vista mas com `bounds.height() < MIN_REEL_BUBBLE_HEIGHT_PX` (200px) — o bubble está mid-layout durante uma transição do RecyclerView. O filtro de altura remove-o de `candidates` (correcto, para não tentar tap num bubble que ainda não está pronto). Mas o autor ficaria perdido. **s47b** captura estes autores num set `seenAuthors` que é enumerado ANTES do filtro; se o batch acabar sem match e `wantedAuthor in seenAuthors`, dispara warning `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing.` **s47** subiu `BATCH_MAX_FORWARD_SCROLLS` 5 → 15 para dar retracement suficiente. **Não é uma correcção total** — a fix estrutural implicaria (a) enumerar 2× por scroll com pequena separação de tempo para captar bubbles transientes, ou (b) retracement dinâmico ilimitado. Fica pendente até Q1 mostrar frequência real.
     - Locate com 100 backward × 300ms + 15 forward × 300ms = ~35s worst case por Reel; `isThreadTopVisible` corta em conversas curtas.
     - Enrichment success ~5-8s; fail depende do tamanho da conversa.
     - Batch enrichment partilha `pendingCopy` com o fluxo on-demand.
@@ -235,29 +236,27 @@ Já entregue no primeiro commit:
 - ✅ **s44 — remove stall detection + epoch guard + botão dump em Diagnóstico.** Epoch guard aceite; botão de dump implementado mas em device capturou a árvore das Definições (não do IG) porque tocar no botão rouba o foco.
 - ✅ **s45 — dump com atraso de 5s + Toast countdown.** Validada em device (`docs/screen-dumps/dump.txt`).
 - 🟡 **s46 — detecção real de topo de conversa (`isThreadTopVisible`).** `TopStop-History` (Teste 2) validado em device. `TopStop-Batch` (Teste 1) inconclusivo por falta de Reel apropriado — utilizador aceitou como implicitamente validado dado que o mesmo código sustenta ambos.
-- 🟡 **s47 — instrumentação de scroll skipping + `BATCH_MAX_FORWARD_SCROLLS` 5 → 15.** Pronta em código; aguarda validação em device (Q1).
+- 🟡 **s47b — instrumentação corrigida do "Reel skipped mid-sweep" (enumeração pré-filtro).** `BATCH_MAX_FORWARD_SCROLLS` 5 → 15. Utilizador apanhou o design flaw da s47 (`seenAuthors` pós-filtro nunca dispararia com match-por-autor). s47b move o accumulator para ANTES do filtro de altura/largura para capturar bubbles transientes. Pronta em código; aguarda validação em device (Q1).
 
 ### 6.1 Próxima sessão — arranque
 
-**Estado no fim da s47:** resposta directa ao bug reportado pelo utilizador após validar a s46 — *"ao procurar o reel se ele já tiver passado por ele não volta para baixo para o reencontrar"*.
-1. **`seenAuthors: MutableSet<String>`** propagado por toda a recursão de `locateReelWithScroll` e `locateReelWithForwardScroll`. Cada iteração acumula `candidates.mapNotNull { it.reelAuthor }` — assim sabemos exactamente que autores estiveram em vista durante o sweep.
-2. **Log warning quando `wantedAuthor in seenAuthors` mas nunca deu match** — dispara em 3 pontos: (a) topo detectado, (b) backward exhausted, (c) `LOCATE_FWD` exhausted. Mensagem: `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing.` Isto expõe a frequência real do bug no logcat.
-3. **`BATCH_MAX_FORWARD_SCROLLS` bumpado 5 → 15**. Total worst-case mantém-se ~35s: com `isThreadTopVisible` (s46) a cortar backward cedo, o forward tem "orçamento" para retracement quando o Reel foi passado por cima.
-4. **Nada mais mudou** — não há alteração ao critério de match, à detecção de topo, ao epoch guard, ao dump com delay, à navegação PoC-9, ao filtro selecção, ao apply pending, ao schema Room.
+**Estado no fim da s47b:** duas iterações sobre o bug reportado pelo utilizador na s46 (*"se ele já tiver passado por ele não volta para baixo para o reencontrar"*).
 
-**Não é a fix estrutural do bug.** A fix estrutural implicaria enumerar duas vezes por scroll com pequena separação temporal ou implementar retracement dinâmico (scrollar forward até reencontrar o autor observado, sem contar contra o budget fixo). A s47 é (a) instrumentação para saber com que frequência isto acontece, e (b) mitigação parcial com forward budget maior. Se depois do Q1 o `seenDuringSweep` mostrar que o bug é comum, avanço para a fix estrutural na s48.
+- **s47:** propaguei `seenAuthors` por toda a recursão. Bug de design apanhado pelo utilizador: eu enchia o set a partir de `candidates` (pós-filtro `bounds.height() >= 200px` + `direction == RECEIVED`), mas o match usa `.firstOrNull { reelAuthor == wantedAuthor }`. Se o autor está em candidates, dá SEMPRE match — logo "wanted in seenAuthors" numa falha era matematicamente impossível.
+- **s47b:** enumero `allReels` primeiro, filtro por direction RECEIVED (mantido — o batch nunca processa SENT), e só depois aplico o filtro de altura/largura para `candidates`. `seenAuthors` acumula-se a partir de `allReels.filter { direction == RECEIVED }.mapNotNull { reelAuthor }`. Isto CAPTURA autores de bubbles mid-layout (bounds pequenas) que são filtradas de `candidates`, que é exactamente o cenário do bug real.
+- `BATCH_MAX_FORWARD_SCROLLS` 5 → 15 continua da s47.
+- **Nada mais mudou.**
 
-**Bateria proposta — Sessão 47 (formato §8.1):**
+**Bateria proposta — Sessão 47b (formato §8.1):**
 
-#### Teste 1 — "Log expõe quando o autor procurado foi visto mas não deu match" (`SeenSkipped`)
+#### Teste único — "Warning `Reel likely skipped` dispara quando bubble mid-layout é filtrada" (`SeenSkipped`)
 
-**O que se está a validar:** o novo warning "wanted author '$X' was observed mid-backward-sweep but no bubble matched" aparece no logcat quando o batch enrichment falha em encontrar um Reel cujo autor apareceu em algum snapshot durante o sweep.
+**O que se está a validar:** o warning `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing.` dispara quando o batch enrichment falha em encontrar um Reel cujo bubble apareceu no viewport durante o sweep mas foi filtrado por altura/largura (mid-layout).
 
 **Preparação:**
-1. `git pull` no telemóvel; recompilar e reinstalar o APK em `build=s47`.
-2. Confirmar no logcat: `Action receiver registered (build=s47 ...)`.
-3. Escolher **a mesma conversa da s46 (`astrid_gutierrez` ideal)** com **1 Reel na DB sem URL** cujo autor **exista noutro Reel visível** — assim garantimos que `enumerateReels` vai enumerar autores durante o sweep sem match no target row.
-   - Alternativa: seleccionar 1 Reel real da DB e forçar-lhe `reelUrl = null` via `adb shell` + `sqlite3` na Room DB para provocar o path de enrichment.
+1. `git pull` no telemóvel; recompilar e reinstalar o APK em `build=s47b`.
+2. Confirmar no logcat: `Action receiver registered (build=s47b ...)`.
+3. Escolher **uma conversa 1-a-1 CURTA com pelo menos 1 Reel na DB sem URL** (`reelUrl IS NULL`). O `astrid_gutierrez` da s45 é ideal se ainda tiveres Reels dela sem URL. Alternativa: usa qualquer conversa onde já fizeste 📥 histórico + enrichment parcial.
 4. Abrir `logcat -s IGReaderService`.
 
 **Passos:**
@@ -265,24 +264,38 @@ Já entregue no primeiro commit:
 2. Observar o logcat até o batch terminar.
 
 **O que confirmar no logcat:**
+
+Cenário A — Reel encontrado sem drama (o comum):
 - `ENRICH_ALL: step K/N reelId=X author=<autor>`.
-- Uma das duas: match (`LOCATE: matched ...` ou `LOCATE_FWD: matched ...`) ou falha.
-- Se falha: `LOCATE: could not find reelId=X author=<autor> ... seenDuringSweep=[<lista_de_autores>]`.
-- Se `<autor>` estiver nessa `seenDuringSweep`: **acima da linha de falha** aparece `LOCATE: wanted author '<autor>' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing.`
+- `LOCATE: matched reelId=X ...` OU `LOCATE_FWD: matched reelId=X ...`.
+- Nenhum warning novo (autor não foi visto E não veio a dar match noutro sítio).
 
-**Alternativa (garantir que o warning dispara):**
-1. Escolher um Reel cujo autor apareça 2× na conversa (Reel real N.º 1 duplicado num N.º 2 mais antigo). O `locateReelWithScroll` vai fazer match no N.º 1 (topo-most). Não vai disparar o warning — o match acontece.
-2. Alternativa mais fiável: dbg via adb — `sqlite3` para setar `reelUrl=null` no Reel 2 (o mais antigo) e apagar o Reel 1 do IG. Batch enrichment do Reel 2 vai varrer para trás. Se topo detectado antes de o encontrar (fica atrás do topo?), warning dispara.
+Cenário B — Reel skipped (o interessante):
+- `ENRICH_ALL: step K/N reelId=X author=<autor>`.
+- Sequência de `LOCATE: scroll M/100 ...` sem match.
+- Em algum ponto: `LOCATE: thread top reached at scroll K/100` (s46) OU `LOCATE: backward exhausted after 100 scrolls` (s43).
+- **Novo (s47/47b):** `LOCATE: wanted author '<autor>' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing. Forward retracement will scan up to 15 scrolls to recover.`
+- Segue com `LOCATE_FWD: scroll 1/15`, etc.
+- Se o forward também não achar: `LOCATE_FWD: could not find reelId=X author=<autor> after 15 forward scrolls. — author WAS seen at some point (skipped bubble); consider bumping BATCH_MAX_FORWARD_SCROLLS seenDuringSweep=[...]`.
 
-**Passa se:** o log mostra a nova linha "wanted author '...' was observed mid-backward-sweep but no bubble matched" sempre que aplicável, OU o batch encontra o Reel com sucesso.
+Cenário C — Reel genuinamente ausente (autor não visto nunca):
+- Sequência de scrolls, sem match.
+- `LOCATE: thread top reached ...`
+- SEM o warning "was observed mid-backward-sweep".
+- `LOCATE_FWD: could not find ... seenDuringSweep=[<lista_sem_o_autor>]`.
+
+**Passa se:** para cada step do batch, o log corresponde a um dos 3 cenários acima. Especialmente, **o warning novo deve aparecer sempre que o autor procurado apareceu em algum snapshot mas o Reel não foi matched** — este é o sinal real do bug do utilizador.
 **Falha se:**
-- **F1:** o batch falha e NÃO mostra a linha `seenDuringSweep=...` em nenhum log de falha → o `seenAuthors` não está a acumular. Verificar código.
-- **F2:** o batch encontra o Reel sem falhar → cenário certo mas match aconteceu antes; testar com Reel cujo autor não exista de todo (garante falha) para confirmar que a linha `seenDuringSweep` aparece mesmo com set vazio.
+- **F1:** o warning nunca aparece mesmo em batches com muitos fails → improvável que TODOS os fails sejam do cenário C. Verificar se `enumerateReels` está a devolver os bubbles mid-layout ou se um filtro anterior os apaga.
+- **F2:** o warning aparece SEMPRE em fails, mesmo quando o autor obviamente não estava na conversa → falso positivo. Provavelmente há partilhas antigas da autor em conversas antigas que o `enumerateReels` retorna. Verificar direction filter.
+
+**Após o teste:**
+Reportar o log completo (`docs/screen-dumps/dump.txt` ou similar). Vamos ver a frequência real do warning — se for comum, avanço para a fix estrutural na s48 (enumerar 2×/scroll ou retracement dinâmico ilimitado). Se for raro (o bump para 15 forward resolve o suficiente), fica só instrumentado.
 
 ---
 
 **Priorização depois de Q validado:**
-1. **Fix estrutural do "Reel skipped mid-sweep"** — dependendo do que Q1 mostrar sobre frequência: (a) enumerar 2× por scroll com pequena separação (~150ms), OU (b) retracement dinâmico que scroll forward até reencontrar autor visto.
+1. **Fix estrutural do "Reel skipped mid-sweep"** dependendo da frequência revelada por Q1.
 2. **Sync de reacção actual (spec §7)** — coluna nova em Room + migração.
 3. **Match estrito por Reel URL no locate** — para colisões de mesmo autor.
 4. **Cosmético:** thumbnails / preview no feed; indicador visual de direcção de swipe.
@@ -545,6 +558,36 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 1199 erros totais, todos classpath (K2 sem Android SDK). Zero erros novos mencionando `seenAuthors` ou `BATCH_MAX_FORWARD_SCROLLS`. O aumento vs baseline s46 (1181 → 1199) é ruído de duplicação de erros nas mesmas linhas — nenhum erro real.
 - **Validação em device (esperada na próxima sessão):** bateria Q (1 teste: `SeenSkipped`) descrita em §6.1.
 - **Nada mudou** na detecção de topo (s46), no dump com delay (s45), no epoch guard (s44), no schema Room, na UI, nos primitivos react/reply/copy URL, na navegação PoC-9, no filtro de selecção, no batching de apply pending, nas prefs. A s47 é 100% cirúrgica sobre o control-flow do locate — sem alterações estruturais.
+
+---
+
+### 2026-08-31 — Sessão 47b (Ricardo + Copilot CLI) — corrige design flaw da s47
+
+- **Utilizador (mesma janela de chat da s47):** *"a única coisa para testar é se não encontrar o reel que devia mas chegar ao topo da conversa vendo outro do mesmo autor dar erro na mesma?"*
+- **Insight do utilizador (correcto):** com o match a ser `.firstOrNull { it.reelAuthor == wantedAuthor }`, se o autor está em `candidates` (pós-filtro) o match acontece **sempre** — logo `wantedAuthor in seenAuthors` numa falha era matematicamente impossível no design da s47. A instrumentação não podia disparar. O teste que descrevi na s47 nunca ia mostrar o warning.
+- **Root cause do design flaw:** eu enchia `seenAuthors` a partir de `candidates` (pós filtros de altura, largura e direction). Mas o bug real reportado na s46 é **exactamente sobre bubbles que são filtradas** por bounds `< 200px` (mid-layout). Se a bubble é filtrada, o autor NÃO entra em `candidates` → NÃO entra em `seenAuthors` → warning nunca dispara.
+- **Correcção:**
+  1. **Enumeração pré-filtro** em ambas as `locate…` functions:
+     ```kotlin
+     val allReels = enumerateReels(messageList)
+     val candidates = allReels
+         .filter { it.bounds.width() > 0 && it.bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX }
+         .filter { it.direction == Direction.RECEIVED }
+     // NEW s47b — seenAuthors accumulates from allReels, only filtered by direction
+     allReels
+         .filter { it.direction == Direction.RECEIVED }
+         .mapNotNull { it.reelAuthor }
+         .forEach { seenAuthors.add(it) }
+     ```
+  2. Ficou assim: `candidates` continua a ser usada para o match (o filtro faz sentido — não queremos "matchar" numa bubble mid-layout que iria falhar o `performAction(CLICK)`). Mas `seenAuthors` agora captura bubbles com bounds pequenas.
+- **Impacto no test:** o warning `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing.` passa a ter significado real — dispara quando o bubble do target apareceu em algum snapshot (mesmo mid-layout) mas nenhum snapshot o teve pronto para match.
+- **`BUILD_TAG` bumped para `build=s47b`.** (Sem alteração ao `BATCH_MAX_FORWARD_SCROLLS=15` da s47; sem alteração ao control-flow.)
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — 2 blocos idênticos em `locateReelWithScroll` e `locateReelWithForwardScroll` para separar `allReels`/`candidates` e enumerar `seenAuthors` antes do filtro. Comentário no ponto de acumulação a explicar porquê. `BUILD_TAG=s47b`.
+  - `PROJECT_PROGRESS.md` — Estado, quick start, §6/6.1 (bateria Q corrigida com 3 cenários), este log.
+- **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — zero erros com o novo símbolo `allReels`. Baseline classpath inalterado.
+- **Nada mudou** salvo o accumulator de `seenAuthors`. A s47b é uma micro-correcção à s47.
+- **Reconhecimento:** design flaw meu, utilizador apanhou por raciocínio puro (não teve de testar em device). Boa colaboração — poupou uma iteração inteira desperdiçada em Q1 a mostrar sempre "warning nunca aparece".
 
 ---
 

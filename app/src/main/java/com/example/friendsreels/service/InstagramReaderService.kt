@@ -1709,18 +1709,26 @@ class InstagramReaderService : AccessibilityService() {
         }
 
         val candidates = enumerateReels(messageList)
+        val allReels = enumerateReels(messageList)
+        val candidates = allReels
             .filter { it.bounds.width() > 0 && it.bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX }
             .filter { it.direction == Direction.RECEIVED }
-        // s47: track every RECEIVED reel author we've observed while
-        // sweeping backward. If we finish the sweep without a match but
-        // the target's author appears in this set, the Reel WAS on
-        // screen at some point but we skipped past it (transient
-        // layout, mid-scroll enumeration timing, etc.). This is
-        // reported by the user after s46 device validation — the batch
-        // doesn't retrace when it overshoots. The set is used both to
-        // log the observation (§limitation §6) and to bias the
-        // forward-scroll retracement below.
-        candidates.mapNotNull { it.reelAuthor }.forEach { seenAuthors.add(it) }
+        // s47/s47b: track every RECEIVED reel author we observe while
+        // sweeping, INCLUDING bubbles that were filtered out by the
+        // mid-layout height/width thresholds. This is the actual
+        // signal for the "Reel skipped mid-sweep" bug reported after
+        // s46: the target bubble was on screen but had
+        // `bounds.height() < MIN_REEL_BUBBLE_HEIGHT_PX` because it was
+        // still animating in/out of the viewport. Enumerating BEFORE
+        // the filter lets us log when the target's author flashed by
+        // as a mid-layout bubble even though `candidates` never saw
+        // it. Original `seenAuthors` (post-filter) would never trip
+        // this warning because the match logic always matches when
+        // the author is in `candidates`.
+        allReels
+            .filter { it.direction == Direction.RECEIVED }
+            .mapNotNull { it.reelAuthor }
+            .forEach { seenAuthors.add(it) }
         val wantedAuthor = target.reelAuthor
         val match = if (wantedAuthor != null) {
             candidates.firstOrNull { it.reelAuthor == wantedAuthor }
@@ -1936,10 +1944,16 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
 
-        val candidates = enumerateReels(messageList)
+        val allReels = enumerateReels(messageList)
+        val candidates = allReels
             .filter { it.bounds.width() > 0 && it.bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX }
             .filter { it.direction == Direction.RECEIVED }
-        candidates.mapNotNull { it.reelAuthor }.forEach { seenAuthors.add(it) }
+        // s47b: enumerate BEFORE the mid-layout filter, see locate
+        // backward for rationale.
+        allReels
+            .filter { it.direction == Direction.RECEIVED }
+            .mapNotNull { it.reelAuthor }
+            .forEach { seenAuthors.add(it) }
         val wantedAuthor = target.reelAuthor
         val match = if (wantedAuthor != null) {
             candidates.firstOrNull { it.reelAuthor == wantedAuthor }
@@ -2864,7 +2878,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s47"
+        private const val BUILD_TAG = "build=s47b"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
