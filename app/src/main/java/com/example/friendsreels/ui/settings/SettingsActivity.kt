@@ -24,6 +24,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -45,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
 import com.example.friendsreels.R
 import com.example.friendsreels.service.InstagramReaderService
 
@@ -170,6 +172,10 @@ private fun SettingsScreen(
                     }
                 }
             }
+
+            HorizontalDivider()
+
+            BatchEnrichmentSection(vm = vm)
 
             HorizontalDivider()
 
@@ -308,6 +314,95 @@ private fun ThreadSelectionRow(
 private fun DiagnosticActionButton(labelRes: Int, onClick: () -> Unit) {
     OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(labelRes))
+    }
+}
+
+/**
+ * Section that shows how many Reels still miss a URL and offers a
+ * single-tap "prepare all" button. While a batch is in flight the
+ * button flips to a `LinearProgressIndicator` + Cancel button. The
+ * last outcome (X preparados, Y falharam) is shown after completion.
+ */
+@Composable
+private fun BatchEnrichmentSection(vm: SettingsViewModel) {
+    val context = LocalContext.current
+    val missingCount by vm.missingUrlCount.collectAsState()
+    val batchState by vm.batchEnrichmentState.collectAsState()
+
+    Text(
+        text = stringResource(R.string.settings_batch_enrich_title),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+    )
+    Text(
+        text = stringResource(R.string.settings_batch_enrich_subtitle),
+        style = MaterialTheme.typography.bodySmall,
+    )
+
+    if (batchState.running) {
+        val currentIndex = batchState.currentIndex.coerceAtLeast(1)
+        val total = batchState.total.coerceAtLeast(currentIndex)
+        Text(
+            text = stringResource(
+                R.string.settings_batch_enrich_running, currentIndex, total,
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        LinearProgressIndicator(
+            progress = { currentIndex.toFloat() / total.toFloat().coerceAtLeast(1f) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedButton(
+            onClick = {
+                vm.cancelBatchEnrichment()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.settings_batch_enrich_cancel_toast),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.settings_batch_enrich_cancel))
+        }
+    } else {
+        if (missingCount == 0) {
+            Text(
+                text = stringResource(R.string.settings_batch_enrich_none),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.settings_batch_enrich_pending, missingCount),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        Button(
+            onClick = {
+                vm.startBatchEnrichment()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.settings_batch_enrich_start_toast),
+                    Toast.LENGTH_LONG,
+                ).show()
+            },
+            enabled = missingCount > 0,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.settings_batch_enrich_start))
+        }
+        batchState.lastResult?.let { r ->
+            val labelRes = if (r.cancelled)
+                R.string.settings_batch_enrich_last_result_cancelled
+            else
+                R.string.settings_batch_enrich_last_result
+            Text(
+                text = stringResource(labelRes, r.succeeded, r.failed),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            )
+        }
     }
 }
 

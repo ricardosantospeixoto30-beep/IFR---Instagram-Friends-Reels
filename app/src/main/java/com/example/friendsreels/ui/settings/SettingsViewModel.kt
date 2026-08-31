@@ -1,13 +1,16 @@
 package com.example.friendsreels.ui.settings
 
 import android.app.Application
+import android.content.Intent
 import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.friendsreels.data.AppDatabase
+import com.example.friendsreels.data.ReelDao
 import com.example.friendsreels.data.ThreadCount
 import com.example.friendsreels.data.TrackedThreadDao
 import com.example.friendsreels.data.TrackedThreadEntity
+import com.example.friendsreels.service.BatchEnrichmentBus
 import com.example.friendsreels.service.InstagramReaderService
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,11 +22,13 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel behind [SettingsActivity]. Exposes the selection mode
  * preference (spec §8) plus the discovered thread list with per-thread
- * checkboxes.
+ * checkboxes, and — since s38 — the state of the batch URL enrichment
+ * feature.
  */
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val trackedDao: TrackedThreadDao = AppDatabase.get(app).trackedThreadDao()
+    private val reelDao: ReelDao = AppDatabase.get(app).reelDao()
     private val prefs: SharedPreferences = app.getSharedPreferences(
         InstagramReaderService.PREFS_NAME,
         android.content.Context.MODE_PRIVATE,
@@ -77,6 +82,20 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Live count of Reels that don't yet have a URL. Used by the
+     * "Preparar URLs em lote" section to display "N Reels sem URL"
+     * and to disable the button when the count is zero.
+     */
+    val missingUrlCount: StateFlow<Int> = reelDao.observeMissingUrlCount().stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        0,
+    )
+
+    /** State of the batch URL enrichment run in the service. */
+    val batchEnrichmentState: StateFlow<BatchEnrichmentBus.State> = BatchEnrichmentBus.state
+
     fun setSelectionMode(mode: String) {
         prefs.edit().putString(InstagramReaderService.PREF_SELECTION_MODE, mode).apply()
     }
@@ -91,5 +110,31 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                 trackedDao.remove(title)
             }
         }
+    }
+
+    /**
+     * Fire-and-forget kick-off for the batch URL enrichment. The
+     * service will bring IG to the front and process each pending
+     * Reel sequentially, streaming progress into
+     * [BatchEnrichmentBus].
+     */
+    fun startBatchEnrichment() {
+        val context = getApplication<Application>()
+        context.sendBroadcast(
+            Intent(InstagramReaderService.ACTION_ENRICH_ALL_MISSING_URLS)
+                .setPackage(context.packageName)
+        )
+    }
+
+    /**
+     * Ask the running batch to stop after the current Reel finishes.
+     * See [InstagramReaderService.cancelBatchEnrichment].
+     */
+    fun cancelBatchEnrichment() {
+        val context = getApplication<Application>()
+        context.sendBroadcast(
+            Intent(InstagramReaderService.ACTION_ENRICH_ALL_CANCEL)
+                .setPackage(context.packageName)
+        )
     }
 }

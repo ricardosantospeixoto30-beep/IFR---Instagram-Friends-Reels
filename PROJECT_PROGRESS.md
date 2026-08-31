@@ -7,24 +7,26 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC → MVP). **Sessão 37 validada em device (G1/G2/G3 ok).** Sistema tem agora todos os pilares da spec: feed vertical full-screen com auto-play (§3), reagir (§4), responder com texto real (§5), estados por Reel (§7), seleção de conversas (§8), menu 3-pontinhos (§12), definições (§11), descoberta manual + histórico de Reels (§9 da spec), enrichment automático de URL.
-**Última atualização:** 2025-08-30 (sessão 37 — sessão de fecho).
+**Fase atual:** Fase 1 (PoC → MVP). **Sessão 37 validada em device (G1/G2/G3 ok).** Sessão 38 adiciona enrichment em batch (spec §3 "sem obrigar o utilizador a reencaminhar") — aguarda validação em device. Sistema tem agora todos os pilares da spec: feed vertical full-screen com auto-play (§3), reagir (§4), responder com texto real (§5), estados por Reel (§7), seleção de conversas (§8), menu 3-pontinhos (§12), definições (§11), descoberta manual + histórico de Reels (§9 da spec), enrichment automático de URL on-demand e em lote.
+**Última atualização:** 2026-08-31 (sessão 38 — enrichment em lote).
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`. Investigação s36 (§9 deste doc) confirmou que é a via mais segura para a conta.
-**HEAD actual:** `build=s37`.
+**HEAD actual:** `build=s38`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s37 ...)`.
-2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F/G).
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s38 ...)`.
+2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F/G/H).
 3. **Ficheiros-chave:**
-    - `service/InstagramReaderService.kt` — motor a11y, batching, navegação, `enrichReelUrl(reelId)` novo. Prefs: `PREF_IGNORE_SENT`, `PREF_INVERT_SWIPE` (escondida), `PREF_SELECTION_MODE` (novo).
+    - `service/InstagramReaderService.kt` — motor a11y, batching, navegação, `enrichReelUrl(reelId)` (on-demand), `enrichAllMissingUrls()` (batch, s38). Prefs: `PREF_IGNORE_SENT`, `PREF_INVERT_SWIPE` (escondida), `PREF_SELECTION_MODE`.
+    - `service/BatchEnrichmentBus.kt` — singleton in-process com `StateFlow<State>` para o progresso do lote (s38).
     - `ui/feed/FeedScreen.kt` — VerticalPager com WebView inline. Placeholder com botão "🔗 Preparar Reel" quando o Reel não tem URL.
     - `ui/feed/FeedViewModel.kt` — filtro por selection mode (INCLUDE_ONLY / EXCLUDE_SELECTED / NONE) + `requestUrlEnrichment(reelId)`.
-    - `ui/settings/SettingsActivity.kt` + `SettingsViewModel.kt` — UI real de selecção de conversas com radio (modo) + lista de threads com checkboxes.
+    - `ui/settings/SettingsActivity.kt` + `SettingsViewModel.kt` — UI real de selecção de conversas com radio (modo) + lista de threads com checkboxes + secção "Preparar URLs em lote" (s38).
     - `ui/player/EmbedPlayer.kt` — helpers partilhados WebView.
     - `data/TrackedThreadEntity.kt`, `TrackedThreadDao.kt` — nova entidade Room v4 para spec §8.
+    - `data/ReelDao.kt` — inclui `allMissingUrls()` e `observeMissingUrlCount()` (s38).
     - `instagram/IgSelectors.kt` — IDs/labels do IG.
-    - Dumps: `docs/screen-dumps/feed.txt` (última corrida s36 — F1-F5 todos ok).
+    - Dumps: `docs/screen-dumps/feed.txt` (última corrida s37).
 4. **Constraints:**
     - Testes só no OnePlus Nord 5 / Android 16.
     - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
@@ -32,12 +34,13 @@
 5. **UX actual em device:**
     - **Home:** protagonismo ao `▶ Abrir o meu feed`. Descoberta (🔍 conversa aberta, 📥 histórico). Configuração (a11y toggle, abrir IG, ⚙ Definições).
     - **Feed:** full-screen VerticalPager. **Auto-play inline** por page. Chip único de reacção. Menu ⋮ com 3 opções. Reels sem URL mostram placeholder com **"🔗 Preparar Reel"** que dispara enrichment automático (nav+scroll+viewer+share+copy+backfill).
-    - **Definições:** toggle "Ignorar Reels enviados" + **secção "Filtrar conversas no feed"** (3 radios: Ver tudo / Apenas selecionadas / Excluir selecionadas + lista de threads descobertas com checkboxes e contagem de Reels) + Ferramentas de diagnóstico.
+    - **Definições:** toggle "Ignorar Reels enviados" + secção "Filtrar conversas no feed" + **secção "Preparar URLs em lote"** (contagem live de Reels sem URL, botão "🔗 Preparar todos", `LinearProgressIndicator` durante o lote, botão "Cancelar", resumo da última execução — s38) + Ferramentas de diagnóstico.
     - **Notificação:** 3 botões (🔍 🔗 ▶).
 6. **Limitações conhecidas:**
     - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem (top-most vence).
     - Cap de 20 scrolls no `locateReelWithScroll`.
-    - Enrichment on-demand faz uma round-trip completa no IG (nav → scroll → viewer → share → copy). Pode demorar 5-8s por Reel — utilizador deve deixar acontecer sem tocar.
+    - Enrichment on-demand faz uma round-trip completa no IG (nav → scroll → viewer → share → copy). Pode demorar 5-8s por Reel — utilizador deve deixar acontecer sem tocar. Em lote isto multiplica-se por N (ex.: 20 Reels ≈ 2–3 min).
+    - Batch enrichment (s38) partilha o mesmo `pendingCopy` slot do fluxo on-demand — não corre em paralelo com `ACTION_COPY_REEL_URL` ou outro `ACTION_ENRICH_REEL_URL`. Um único guard (`batchEnrichmentInProgress`) evita duplo arranque.
     - Consulta de respostas anteriores dentro da app (spec §5) — não temos sync.
     - Reacção "actual" só reflecte as que corremos via app.
     - `threadTitle` como chave — se o utilizador renomear um grupo, a selecção perde-se para essa thread (aparece como thread nova na lista descoberta).
@@ -217,19 +220,30 @@ Já entregue no primeiro commit:
 - ✅ s35 — feed alinhado com a visão (VerticalPager, reply real, estados por Reel, 3-pontinhos, Settings). Validada em device com nuances registadas.
 - ✅ s36 — auto-play inline (WebView por page) + fix E7 (isInboxVisible estrito) + chip único de reacção + limpeza do menu e Settings. Validada em device: F1-F5 todos passaram, F6 sanity ok.
 - ✅ **s37 — enriquecimento de URL on-demand + seleção de conversas (spec §8). Validada em device: G1/G2/G3 ok.**
+- 🟡 **s38 — enrichment em batch (Definições → "Preparar URLs em lote"). Pronta em código; aguarda validação em device (H1/H2/H3).**
 
 ### 6.1 Próxima sessão — arranque
 
-**Estado no fim da s37:** o MVP tem todos os pilares da spec cobertos e validados em device. Não há bugs conhecidos a bloquear a próxima iteração. O trabalho a seguir é **polish, sync bidireccional com o IG e features "nice-to-have"**.
+**Estado no fim da s38:** para além dos pilares já validados na s37, o utilizador ganhou um botão único que enfileira o enrichment de URL de TODOS os Reels sem link, com progresso live e Cancelar. Isto remove a fricção do fluxo antigo (tocar Reel a Reel no botão "🔗 Preparar Reel"). Falta validar em device.
 
-**Priorização sugerida** (do mais impactante para o menos):
+**Bateria proposta (H) para arranque da próxima sessão** (depois de pull + reinstalar):
+
+- **H1 — smoke com poucos Reels.** Ir a Definições. Confirmar que a nova secção "Preparar URLs em lote" aparece com contador `N Reel(s) sem URL`. Tocar **🔗 Preparar todos**. Esperado:
+  - Toast a informar que o lote arrancou.
+  - Botão desaparece e é substituído por texto `A preparar 1 de N…` + `LinearProgressIndicator` + botão Cancelar.
+  - IG abre automaticamente na 1.ª conversa relevante, faz nav → scroll → viewer → share → copy → volta à conversa.
+  - Contador incrementa e o feed reflecte o URL capturado quando se voltar a ele.
+  - No fim: "Última execução: X preparado(s), Y falharam".
+- **H2 — cross-thread.** Ter Reels sem URL em pelo menos 2 conversas diferentes. Executar. Esperado: `ENRICH_ALL: starting batch for N reel(s) across M thread(s)`. Ordem intra-thread respeita `discoveredAt ASC`; entre threads, começa pela que tem o Reel mais antigo.
+- **H3 — cancelamento.** Arrancar o lote e tocar em Cancelar a meio. Esperado: log `cancel requested — batch will stop after the current Reel`. Reel actual termina normalmente (URL capturado ou timeout), a seguir o batch para. Última execução mostra `(cancelada)`.
+
+**Priorização sugerida a seguir a H validado** (do mais impactante para o menos):
 
 1. **Sync de reacção actual (spec §7 "Reagido = reacção existe agora").** Actualmente o chip de reacção só reflecte o que a app enfileirou e aplicou; se o utilizador reagiu directamente no IG antes, não sabemos. Passo de refresh que percorre a conversa e lê o `message_reactions_pill_container`, cruzando com `pending_actions.DONE` para saber o estado real. Também detecta remoções.
-2. **Enrichment em batch.** Botão nas Definições ou na notif que enfileira `ACTION_ENRICH_REEL_URL` para TODOS os Reels sem URL, com progress feedback. Actualmente o utilizador tem de tocar "🔗 Preparar Reel" um-por-um.
-3. **Match estrito por URL no `locateReelWithScroll`.** Só necessário se aparecerem colisões reais (dois Reels do mesmo criador na mesma thread). Actualmente não temos evidência disso em prática.
-4. **Cosmético:** thumbnails / preview no feed (usar poster do embed em vez de fundo preto enquanto o WebView carrega); ordem dos chips por `createdAt`; indicador visual de direcção de swipe (pré-req para re-expor `PREF_INVERT_SWIPE`).
-5. **Tuning de latência.** Reduzir `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS`, `NAV_STEP_SETTLE_MS`, `LOCATE_SCROLL_SETTLE_MS`, `NAV_POST_ARRIVAL_SETTLE_MS`, `REEL_VIEWER_SETTLE_MS`, `CLIPBOARD_READ_DELAY_MS` progressivamente. O batching mascara latência mas há margem.
-6. **Deep-link `instagram://direct/t/<thread_id>`** — só se aparecerem falhas em produção da navegação por título.
+2. **Match estrito por URL no `locateReelWithScroll`.** Só necessário se aparecerem colisões reais (dois Reels do mesmo criador na mesma thread). Actualmente não temos evidência disso em prática.
+3. **Cosmético:** thumbnails / preview no feed (usar poster do embed em vez de fundo preto enquanto o WebView carrega); ordem dos chips por `createdAt`; indicador visual de direcção de swipe (pré-req para re-expor `PREF_INVERT_SWIPE`).
+4. **Tuning de latência.** Reduzir `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS`, `NAV_STEP_SETTLE_MS`, `LOCATE_SCROLL_SETTLE_MS`, `NAV_POST_ARRIVAL_SETTLE_MS`, `REEL_VIEWER_SETTLE_MS`, `CLIPBOARD_READ_DELAY_MS`, `BATCH_ENRICH_SPACING_MS` progressivamente. O batching mascara latência mas há margem.
+5. **Deep-link `instagram://direct/t/<thread_id>`** — só se aparecerem falhas em produção da navegação por título.
 
 ### 6.2 Alternativas arquitecturais
 
@@ -431,6 +445,60 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
     - §8 substituída pelo modelo de teste consolidado (baterias G/F ficaram nos logs de §7).
     - `README.md` actualizado com estado de MVP fechado.
 - **Próximo arranque:** ver §6.1 acima.
+
+---
+
+### 2026-08-31 — Sessão 38 (Ricardo + Copilot CLI) — enrichment em batch
+
+- **Contexto:** utilizador pediu para continuar do ponto onde parámos na s37. Segundo §6.1 pós-s37 o próximo passo priorizado era o **enrichment em batch** (o #2, autocontido) — remove a fricção do fluxo actual (tocar Reel a Reel no botão "🔗 Preparar Reel" do feed). Feature única desta sessão.
+- **Design escolhido:**
+  - Reutilizar toda a chain PoC-7 já validada. Não escrever nada novo do lado do IG.
+  - Cada Reel usa o mesmo `startEnrichmentForReel(reel)` que a s37 usa para o on-demand.
+  - O executor corre no main handler, mas o loop de espera "URL apareceu na DB?" corre no `serviceScope` (IO) com polling a cada 500ms até um deadline por passo (`BATCH_ENRICH_STEP_TIMEOUT_MS = 45s`).
+  - Ordem dos Reels: agrupar por `threadTitle`, ordenar grupos pelo `discoveredAt` mais antigo (mesma heurística do `applyPendingActions`), intra-grupo `ASC` — minimiza `navigateToThreadAsync`.
+  - Progresso: singleton `BatchEnrichmentBus` com `MutableStateFlow<State>` — sem broadcast/IPC porque a11y service e Activity estão no mesmo processo.
+  - Cancelamento: flag boolean `batchEnrichmentCancelled` verificada entre passos. O Reel actual termina para não deixar IG na share sheet com clipboard pendente.
+- **Motor no `InstagramReaderService.kt`:**
+  - Novas actions `ACTION_ENRICH_ALL_MISSING_URLS` e `ACTION_ENRICH_ALL_CANCEL` (sem extras — a lista vem toda do DAO).
+  - `enrichAllMissingUrls()` carrega `reelDao.allMissingUrls()`, publica no bus, `mainHandler.post { runInInstagram { processBatchEnrichmentStep(0, 0, 0) } }`.
+  - `processBatchEnrichmentStep(reels, index, succeeded, failed)`:
+    - Guard: se cancelado ou index==size → publica `LastResult(succeeded, failed, cancelled)` no bus, limpa flag, sai.
+    - Publica progresso 1-based no bus.
+    - IO scope: re-lê a row (caso outro caminho a tenha enriquecido entretanto — evita repetir trabalho), `startEnrichmentForReel(fresh)`, poll de 500ms com deadline 45s. Se URL aparecer → succeeded++; senão failed++, limpa `pendingCopy` residual.
+    - Delay `BATCH_ENRICH_SPACING_MS = 1500ms` antes de agendar próximo passo — dá margem à BACK×2 do PoC-7 assentar.
+  - `cancelBatchEnrichment()` só liga a flag (no-op se não estiver a correr).
+  - Novas constantes: `BATCH_ENRICH_STEP_TIMEOUT_MS`, `BATCH_ENRICH_POLL_INTERVAL_MS`, `BATCH_ENRICH_SPACING_MS`.
+  - Estado: `batchEnrichmentInProgress`, `batchEnrichmentCancelled`.
+- **Bus (`service/BatchEnrichmentBus.kt`, novo):**
+  - `data class State(running, currentIndex, total, lastResult)`.
+  - `data class LastResult(succeeded, failed, cancelled)`.
+  - Singleton object com `MutableStateFlow` (private) exposto via `StateFlow`.
+- **DAO (`data/ReelDao.kt`):**
+  - `suspend fun allMissingUrls(): List<ReelEntity>` — ordenado por (threadTitle, discoveredAt).
+  - `fun observeMissingUrlCount(): Flow<Int>` — contador live consumido pela UI para desactivar o botão quando N=0.
+- **`SettingsViewModel.kt`:**
+  - Expõe `missingUrlCount: StateFlow<Int>` (do DAO) e `batchEnrichmentState: StateFlow<BatchEnrichmentBus.State>`.
+  - Métodos `startBatchEnrichment()` e `cancelBatchEnrichment()` fazem broadcast das actions.
+- **`SettingsActivity.kt`:**
+  - Nova secção `BatchEnrichmentSection(vm)` entre "Filtrar conversas no feed" e "Ferramentas de diagnóstico".
+  - Idle + N=0: mensagem "Todos os Reels descobertos já têm URL".
+  - Idle + N>0: `N Reel(s) sem URL` + botão `🔗 Preparar todos` (com Toast informativo).
+  - Running: `A preparar K de N…` + `LinearProgressIndicator(K/N)` + botão `Cancelar` (com Toast).
+  - Após execução (idle + `lastResult != null`): "Última execução: X preparado(s), Y falharam" (ou variante `(cancelada)`).
+- **Strings novas** (`res/values/strings.xml`): `settings_batch_enrich_title/subtitle/pending/none/start/running/cancel/last_result/last_result_cancelled/start_toast/cancel_toast` (11 strings).
+- **`BUILD_TAG` bumped para `build=s38`.** Sem alteração de schema Room.
+- **Ficheiros novos:**
+  - `service/BatchEnrichmentBus.kt`
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — 2 novas actions, `enrichAllMissingUrls`, `processBatchEnrichmentStep`, `cancelBatchEnrichment`, 2 novos campos de estado, 3 constantes, `BUILD_TAG=s38`, log do receiver.
+  - `data/ReelDao.kt` — `allMissingUrls`, `observeMissingUrlCount`.
+  - `ui/settings/SettingsViewModel.kt` — `missingUrlCount`, `batchEnrichmentState`, `startBatchEnrichment`, `cancelBatchEnrichment`.
+  - `ui/settings/SettingsActivity.kt` — novo composable `BatchEnrichmentSection` + imports (LinearProgressIndicator, Toast).
+  - `res/values/strings.xml` — 11 strings novas.
+  - `PROJECT_PROGRESS.md` — Estado atual, quick start, §6/6.1 actualizadas, este log.
+- **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 sobre os 5 ficheiros alterados/novos — nenhum erro real (só erros semânticos esperados: `overrides nothing`, `unresolved reference`, `File.root: internal` por ausência de classpath Android). Sintaxe OK.
+- **Validação em device (esperada na próxima sessão):** bateria H1/H2/H3 descrita na §6.1. Se falhar num Reel específico, o log mostra `ENRICH_ALL: step K result stepOk=false` — o loop continua para os restantes, e o resultado final agrega os falhados.
+- **Nada mudou** nas primitivas isoladas PoC-3/5/6/7, no discover, no player, na notificação, na navegação PoC-9, no batching de reactions/replies, ou no filtro por selection mode. O batch enrichment é uma feature aditiva no cimo da chain do PoC-7 + PoC-9.
 
 ---
 

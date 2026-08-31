@@ -36,6 +36,23 @@ interface ReelDao {
     @Query("SELECT * FROM reels ORDER BY discoveredAt DESC")
     fun observeAll(): Flow<List<ReelEntity>>
 
+    /**
+     * Rows that have never been through the copy-link chain. Used by the
+     * batch URL enrichment (Settings → "Preparar URLs em lote"). Ordered
+     * by (threadTitle, discoveredAt) so the executor visits each thread
+     * contiguously, minimising the number of `navigateToThreadAsync`
+     * round-trips.
+     */
+    @Query(
+        "SELECT * FROM reels WHERE reelUrl IS NULL " +
+            "ORDER BY threadTitle ASC, discoveredAt ASC"
+    )
+    suspend fun allMissingUrls(): List<ReelEntity>
+
+    /** Live count of Reels that still need URL enrichment. */
+    @Query("SELECT COUNT(*) FROM reels WHERE reelUrl IS NULL")
+    fun observeMissingUrlCount(): Flow<Int>
+
     @Query("SELECT COUNT(*) FROM reels")
     suspend fun count(): Int
 

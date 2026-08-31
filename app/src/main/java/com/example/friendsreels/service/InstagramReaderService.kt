@@ -166,6 +166,8 @@ class InstagramReaderService : AccessibilityService() {
                         if (reelId > 0) runInInstagram { enrichReelUrl(reelId) }
                         else Log.w(TAG, "ENRICH_URL: missing/invalid $EXTRA_REEL_ID extra")
                     }
+                    ACTION_ENRICH_ALL_MISSING_URLS -> enrichAllMissingUrls()
+                    ACTION_ENRICH_ALL_CANCEL -> cancelBatchEnrichment()
                 }
             }
         }
@@ -179,6 +181,8 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_DISCOVER_REELS_HISTORY)
             addAction(ACTION_APPLY_PENDING)
             addAction(ACTION_ENRICH_REEL_URL)
+            addAction(ACTION_ENRICH_ALL_MISSING_URLS)
+            addAction(ACTION_ENRICH_ALL_CANCEL)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -193,7 +197,8 @@ class InstagramReaderService : AccessibilityService() {
                 "laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
                 "copyUrl=$ACTION_COPY_REEL_URL, discover=$ACTION_DISCOVER_REELS, " +
                 "history=$ACTION_DISCOVER_REELS_HISTORY, applyPending=$ACTION_APPLY_PENDING, " +
-                "enrichUrl=$ACTION_ENRICH_REEL_URL)"
+                "enrichUrl=$ACTION_ENRICH_REEL_URL, enrichAll=$ACTION_ENRICH_ALL_MISSING_URLS, " +
+                "enrichCancel=$ACTION_ENRICH_ALL_CANCEL)"
         )
     }
 
@@ -1791,6 +1796,205 @@ class InstagramReaderService : AccessibilityService() {
         }
     }
 
+    // -------------------------------------------------------------------
+    // Batch URL enrichment (session 38) — ACTION_ENRICH_ALL_MISSING_URLS
+    // -------------------------------------------------------------------
+
+    /**
+     * True while a batch enrichment run is in flight. Prevents double
+     * broadcasts from spawning overlapping executors, since two runs
+     * would fight over `pendingCopy` and produce duplicate rows.
+     */
+    private var batchEnrichmentInProgress = false
+
+    /**
+     * Set by `ACTION_ENRICH_ALL_CANCEL`. Checked between each Reel; the
+     * current step is allowed to finish (so IG doesn't get left mid-
+     * share-sheet) but no further steps are dispatched.
+     */
+    private var batchEnrichmentCancelled = false
+
+    /**
+     * Kick off a batch that enriches every `reels` row where
+     * `reelUrl IS NULL`. Broadcasts progress via [BatchEnrichmentBus].
+     * The whole thing is a no-op (with a fresh `LastResult(0,0,false)`
+     * so the UI can update) if there are no rows to enrich.
+     */
+    private fun enrichAllMissingUrls() {
+        if (batchEnrichmentInProgress) {
+            Log.i(TAG, "ENRICH_ALL: batch already in progress, ignoring.")
+            return
+        }
+        batchEnrichmentInProgress = true
+        batchEnrichmentCancelled = false
+        BatchEnrichmentBus.update(
+            BatchEnrichmentBus.State(running = true, currentIndex = 0, total = 0, lastResult = null)
+        )
+        serviceScope.launch {
+            val dao = AppDatabase.get(this@InstagramReaderService).reelDao()
+            val missing = dao.allMissingUrls()
+            if (missing.isEmpty()) {
+                Log.i(TAG, "ENRICH_ALL: nothing to enrich, exiting.")
+                BatchEnrichmentBus.update(
+                    BatchEnrichmentBus.State(
+                        running = false,
+                        currentIndex = 0,
+                        total = 0,
+                        lastResult = BatchEnrichmentBus.LastResult(0, 0, cancelled = false),
+                    )
+                )
+                mainHandler.post { batchEnrichmentInProgress = false }
+                return@launch
+            }
+            // Group by thread so we visit each conversation only once,
+            // then flatten preserving intra-group `discoveredAt ASC`.
+            val ordered = missing
+                .groupBy { it.threadTitle }
+                .toList()
+                .sortedBy { (_, list) -> list.minOfOrNull { it.discoveredAt } ?: 0L }
+                .flatMap { (_, list) -> list.sortedBy { it.discoveredAt } }
+            val threadCount = ordered.map { it.threadTitle }.distinct().size
+            Log.i(
+                TAG,
+                "ENRICH_ALL: starting batch for ${ordered.size} reel(s) across $threadCount thread(s)."
+            )
+            BatchEnrichmentBus.update(
+                BatchEnrichmentBus.State(
+                    running = true,
+                    currentIndex = 0,
+                    total = ordered.size,
+                    lastResult = null,
+                )
+            )
+            mainHandler.post {
+                runInInstagram {
+                    processBatchEnrichmentStep(
+                        reels = ordered,
+                        index = 0,
+                        succeeded = 0,
+                        failed = 0,
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Process the [index]-th Reel of [reels], then chain to the next.
+     * Runs on the main thread; only the polling loop hops to the IO
+     * scope. On completion (or cancellation) updates
+     * [BatchEnrichmentBus] with the final [BatchEnrichmentBus.LastResult]
+     * and clears [batchEnrichmentInProgress].
+     */
+    private fun processBatchEnrichmentStep(
+        reels: List<ReelEntity>,
+        index: Int,
+        succeeded: Int,
+        failed: Int,
+    ) {
+        if (batchEnrichmentCancelled || index >= reels.size) {
+            val done = index >= reels.size
+            Log.i(
+                TAG,
+                "ENRICH_ALL: batch " +
+                    (if (done) "complete" else "cancelled at ${index + 1}/${reels.size}") +
+                    " (succeeded=$succeeded failed=$failed).",
+            )
+            BatchEnrichmentBus.update(
+                BatchEnrichmentBus.State(
+                    running = false,
+                    currentIndex = index,
+                    total = reels.size,
+                    lastResult = BatchEnrichmentBus.LastResult(
+                        succeeded = succeeded,
+                        failed = failed,
+                        cancelled = !done,
+                    ),
+                )
+            )
+            batchEnrichmentInProgress = false
+            return
+        }
+
+        val target = reels[index]
+        // 1-based currentIndex for the UI ("A preparar 3 de 12").
+        BatchEnrichmentBus.update(
+            BatchEnrichmentBus.State(
+                running = true,
+                currentIndex = index + 1,
+                total = reels.size,
+                lastResult = null,
+            )
+        )
+        Log.i(
+            TAG,
+            "ENRICH_ALL: step ${index + 1}/${reels.size} reelId=${target.id} " +
+                "author=${target.reelAuthor} thread='${target.threadTitle}'"
+        )
+
+        serviceScope.launch {
+            val dao = AppDatabase.get(this@InstagramReaderService).reelDao()
+            val fresh = dao.byId(target.id)
+            if (fresh == null) {
+                Log.w(TAG, "ENRICH_ALL: reelId=${target.id} vanished mid-batch, skipping.")
+                mainHandler.postDelayed({
+                    processBatchEnrichmentStep(reels, index + 1, succeeded, failed + 1)
+                }, BATCH_ENRICH_SPACING_MS)
+                return@launch
+            }
+            if (!fresh.reelUrl.isNullOrBlank()) {
+                Log.i(TAG, "ENRICH_ALL: reelId=${target.id} already enriched by a parallel path, skipping.")
+                mainHandler.postDelayed({
+                    processBatchEnrichmentStep(reels, index + 1, succeeded + 1, failed)
+                }, BATCH_ENRICH_SPACING_MS)
+                return@launch
+            }
+            mainHandler.post { startEnrichmentForReel(fresh) }
+            // Poll the DB until the URL lands, we time out, or the
+            // user cancels.
+            val deadlineMs = System.currentTimeMillis() + BATCH_ENRICH_STEP_TIMEOUT_MS
+            var stepOk = false
+            while (System.currentTimeMillis() < deadlineMs) {
+                kotlinx.coroutines.delay(BATCH_ENRICH_POLL_INTERVAL_MS)
+                if (batchEnrichmentCancelled) break
+                val r = dao.byId(target.id) ?: break
+                if (!r.reelUrl.isNullOrBlank()) {
+                    stepOk = true
+                    break
+                }
+            }
+            val nextSucceeded = succeeded + if (stepOk) 1 else 0
+            val nextFailed = failed + if (stepOk) 0 else 1
+            Log.i(
+                TAG,
+                "ENRICH_ALL: step ${index + 1} result stepOk=$stepOk " +
+                    "(succeeded=$nextSucceeded failed=$nextFailed cancelled=$batchEnrichmentCancelled)"
+            )
+            // pendingCopy might still be set if the previous step
+            // timed out mid-flight — clear it so the next step starts
+            // clean.
+            mainHandler.post {
+                if (!stepOk) pendingCopy = null
+                mainHandler.postDelayed({
+                    processBatchEnrichmentStep(reels, index + 1, nextSucceeded, nextFailed)
+                }, BATCH_ENRICH_SPACING_MS)
+            }
+        }
+    }
+
+    /**
+     * Ask the running batch enrichment to stop after the current
+     * Reel. If no batch is running this is a no-op.
+     */
+    private fun cancelBatchEnrichment() {
+        if (!batchEnrichmentInProgress) {
+            Log.i(TAG, "ENRICH_ALL: cancel requested but no batch running.")
+            return
+        }
+        Log.i(TAG, "ENRICH_ALL: cancel requested — batch will stop after the current Reel.")
+        batchEnrichmentCancelled = true
+    }
+
     /**
      * Entry point for `ACTION_APPLY_PENDING`. Reads the pending queue on
      * the IO scope, then hops back to the main handler to execute each
@@ -2125,7 +2329,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s37"
+        private const val BUILD_TAG = "build=s38"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -2212,6 +2416,28 @@ class InstagramReaderService : AccessibilityService() {
         private const val LOCATE_SWIPE_DURATION_MS = 500L
 
         // -----------------------------------------------------------------
+        // s38 — batch URL enrichment timing
+        // -----------------------------------------------------------------
+        /**
+         * Hard cap on how long a single Reel is allowed to spend inside
+         * the batch enrichment pipeline. Covers: navigate to thread
+         * (~5-10s worst case with scrolls) + open viewer settle (~2s) +
+         * share sheet load (~2s) + clipboard read (~1s) + safety. If
+         * the DB row still has no URL after this budget we mark the
+         * step as FAILED and continue with the next Reel.
+         */
+        private const val BATCH_ENRICH_STEP_TIMEOUT_MS = 45_000L
+        /** Poll the DB every this often waiting for the URL to land. */
+        private const val BATCH_ENRICH_POLL_INTERVAL_MS = 500L
+        /**
+         * Space between finishing one Reel (URL captured or timed out)
+         * and starting the next. Gives the clipboard bridge / BACK
+         * gestures time to settle so we don't overlap with the
+         * `handleClipboardCaptured` path from the previous step.
+         */
+        private const val BATCH_ENRICH_SPACING_MS = 1_500L
+
+        // -----------------------------------------------------------------
         // PoC-8 iteration 3 part B — history discovery (auto scroll)
         // -----------------------------------------------------------------
         /** Duration of the fallback swipe-down gesture when a11y scroll is refused. */
@@ -2287,6 +2513,35 @@ class InstagramReaderService : AccessibilityService() {
          */
         const val ACTION_ENRICH_REEL_URL = "com.example.friendsreels.ACTION_ENRICH_REEL_URL"
         const val EXTRA_REEL_ID = "reel_id"
+
+        /**
+         * Batch counterpart of [ACTION_ENRICH_REEL_URL]: walks every
+         * `reels` row where `reelUrl IS NULL`, ordered by `threadTitle`
+         * to minimise thread navigation, and runs the same enrichment
+         * primitive on each (nav → locate → viewer → share → copy).
+         * Progress is published through [BatchEnrichmentBus] so the
+         * Settings screen can render a live counter and a Cancel
+         * button. See [enrichAllMissingUrls] for the state machine.
+         *
+         * Fires with:
+         *   Intent(ACTION_ENRICH_ALL_MISSING_URLS)
+         *
+         * Idempotent: if a batch is already running the second
+         * broadcast is ignored (see the guard on [batchEnrichmentInProgress]).
+         */
+        const val ACTION_ENRICH_ALL_MISSING_URLS =
+            "com.example.friendsreels.ACTION_ENRICH_ALL_MISSING_URLS"
+
+        /**
+         * Ask the running batch enrichment to stop. Sets
+         * [batchEnrichmentCancelled] and lets the current Reel finish
+         * before terminating — we don't try to abort an in-flight
+         * PoC-7 chain because doing so could leave IG on the share
+         * sheet with a pending clipboard write and the row half-
+         * updated.
+         */
+        const val ACTION_ENRICH_ALL_CANCEL =
+            "com.example.friendsreels.ACTION_ENRICH_ALL_CANCEL"
 
         /** SharedPreferences file shared between the UI and the service. */
         const val PREFS_NAME = "friends_reels_prefs"

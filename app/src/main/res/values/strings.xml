@@ -53,6 +53,19 @@
     <string name="settings_diagnostics_title">Ferramentas de diagnóstico</string>
     <string name="settings_diagnostics_body">Botões que disparam broadcasts directos ao serviço. Úteis para debug — o fluxo normal usa o feed e a notificação persistente.</string>
 
+    <!-- Batch URL enrichment (s38) -->
+    <string name="settings_batch_enrich_title">Preparar URLs em lote</string>
+    <string name="settings_batch_enrich_subtitle">Vai buscar automaticamente ao Instagram o URL de todos os Reels descobertos que ainda estão sem link (o botão \"🔗 Preparar Reel\" mas para todos de uma vez). Cada Reel demora ~5-8s: mantém-te por perto e não uses o telemóvel enquanto o lote está a correr.</string>
+    <string name="settings_batch_enrich_pending">%1$d Reel(s) sem URL</string>
+    <string name="settings_batch_enrich_none">Todos os Reels descobertos já têm URL. Corre \"🔍 Descobrir\" ou \"📥 Descobrir histórico\" para encontrar novos.</string>
+    <string name="settings_batch_enrich_start">🔗 Preparar todos</string>
+    <string name="settings_batch_enrich_running">A preparar %1$d de %2$d…</string>
+    <string name="settings_batch_enrich_cancel">Cancelar</string>
+    <string name="settings_batch_enrich_last_result">Última execução: %1$d preparado(s), %2$d falharam</string>
+    <string name="settings_batch_enrich_last_result_cancelled">Última execução (cancelada): %1$d preparado(s), %2$d falharam</string>
+    <string name="settings_batch_enrich_start_toast">Lote de enriquecimento iniciado. Mantém o telemóvel livre — o Instagram vai abrir automaticamente.</string>
+    <string name="settings_batch_enrich_cancel_toast">Cancelamento pedido. O lote pára depois do Reel actual.</string>
+
     <!-- Feed screen -->
     <string name="feed_title">Friends Reels</string>
     <string name="feed_empty_title">Feed vazio</string>
