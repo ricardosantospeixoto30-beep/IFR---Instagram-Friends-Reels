@@ -2017,7 +2017,6 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
 
-        val candidates = enumerateReels(messageList)
         val allReels = enumerateReels(messageList)
         val candidates = allReels
             .filter { it.bounds.width() > 0 && it.bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX }
@@ -3187,7 +3186,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s49"
+        private const val BUILD_TAG = "build=s49b"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L

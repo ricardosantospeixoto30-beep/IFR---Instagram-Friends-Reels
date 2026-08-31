@@ -8,9 +8,9 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-08-31 (sessão 49 — sync da reacção actual, spec §7).
+**Última actualização:** 2026-08-31 (sessão 49b — fix compile: leftover `val candidates` da s47b em `locateReelWithScroll`).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s49`.
+**HEAD actual:** `build=s49b`.
 
 **Recap sessões 41-47 (as validadas ou próximas de validação):**
 
@@ -26,7 +26,7 @@
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s49 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s49b ...)`.
 2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `instagram/IgSelectors.kt` — objecto `Thread` tem `HEADER_VIEW_PROFILE_BUTTON` + 3 fallbacks (s46), e as constantes `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` foram reutilizadas na s49.
@@ -300,8 +300,8 @@ Já entregue no primeiro commit:
 **O que se está a validar:** o feed mostra a reacção que existe na DM (não só as que enviámos via app). Após `🔍 Descobrir` ou `📥 Descobrir histórico` numa conversa onde reagiste manualmente a um Reel no IG, o chip da reacção aparece iluminado no feed correspondente.
 
 **Preparação:**
-1. `git pull`; recompilar e reinstalar o APK em `build=s49`. **Importante:** a DB v4 → v5 dispara `fallbackToDestructiveMigration` — os Reels actuais serão apagados. Aceitar (é PoC).
-2. Confirmar no logcat: `Action receiver registered (build=s49 ...)`.
+1. `git pull`; recompilar e reinstalar o APK em `build=s49b`. **Importante:** a DB v4 → v5 dispara `fallbackToDestructiveMigration` — os Reels actuais serão apagados. Aceitar (é PoC).
+2. Confirmar no logcat: `Action receiver registered (build=s49b ...)`.
 3. Escolher **uma conversa com ao menos 2 Reels recebidos, um dos quais tem uma reacção ❤ ou 😂 aplicada por ti directamente no IG** (não pela app). Se não tiveres, aplica manualmente uma agora.
 4. Abrir `logcat -s IGReaderService`.
 
@@ -658,6 +658,21 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — os erros novos são todos classpath (K2 sem stdlib/androidx marca `currentReaction` como unresolved dentro do `reelList.associate { reel -> ... }` porque não consegue inferir `reel: ReelEntity`; mesma dinâmica dos `updateCurrentReactionByKey` marcados como suspend fora de coroutine — o call site está DENTRO de `serviceScope.launch { ... }` mas K2 não consegue resolver `serviceScope`).
 - **Validação em device (esperada na próxima sessão):** bateria S (Teste 2: `ReactionSync`) descrita em §6.1.
 - **Nada mudou** na s48 (batch history), s47b (seenAuthors), s46 (topo real), s45 (dump delay), s44 (epoch guard), no fluxo de PoC-9, no batch enrichment de URLs, nas prefs, no dump.
+
+---
+
+### 2026-08-31 — Sessão 49b (Ricardo + Copilot CLI) — fix compile: leftover `val candidates` da s47b
+
+- **Utilizador reportou:** *"Não consigo testar porque deu erro ao fazer RUN Conflicting declarations: local val candidates: List<DmReelEntry> no ficheiro InstagramReaderService.kt"*.
+- **Root cause:** na s47b, o meu edit em `locateReelWithScroll` juntou o novo bloco `val allReels = ...; val candidates = allReels.filter...` sem remover o `val candidates = enumerateReels(messageList)` original. O kotlinc do agente não detectou (é ignorado no ruído de erros classpath baseline) mas o compilador real com toda a stdlib disparou "Conflicting declarations" como esperado.
+- **Fix:** remove a linha órfã em `locateReelWithScroll` (linha 2020 pré-fix). `locateReelWithForwardScroll` já estava correcta desde o s47b. Após o fix ambas as funções têm 1 declaração de `allReels` e 1 de `candidates`.
+- **`BUILD_TAG` bumped para `build=s49b`** — só para dar sinal ao teste que este build é distinto do broken s49.
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — remove `val candidates = enumerateReels(messageList)` órfão em `locateReelWithScroll`; `BUILD_TAG=s49b`.
+  - `PROJECT_PROGRESS.md` — Estado, quick start, este log.
+- **Validação em ambiente do agente:** kotlinc grep para "Conflicting declarations|redeclaration|already defined" — zero matches (antes fix davam 1 match a menos que o utilizador viu no build real, porque a análise K2 sem-Android-SDK cortava a árvore antes de detectar). Confirmado que o único bug era este.
+- **Reconhecimento:** falha do meu processo de validação — kotlinc + JDK 21 sem Android SDK dá alguns "false negatives" para bugs como este porque o compilador aborta muito cedo por erros classpath. Deixado como lição: sempre que fizer um edit que substitui um bloco, deveria fazer um `grep` de sanidade a seguir para confirmar que os símbolos únicos (nomes de variáveis) não aparecem duas vezes.
+- **Nada mais mudou.** Todas as features da s49 (sync de reacção, mapeamento emoji → chip, updateCurrentReactionByKey em skips) mantêm-se intactas.
 
 ---
 
