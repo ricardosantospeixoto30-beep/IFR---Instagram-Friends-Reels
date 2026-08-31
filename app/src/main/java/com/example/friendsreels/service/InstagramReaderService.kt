@@ -1662,6 +1662,7 @@ class InstagramReaderService : AccessibilityService() {
         target: ReelEntity,
         scrollsLeft: Int,
         forwardScrollsLeft: Int = BATCH_MAX_FORWARD_SCROLLS,
+        stallHistory: ArrayDeque<Set<String>> = ArrayDeque(),
         onDone: (DmReelEntry?) -> Unit,
     ) {
         val igWindow = findIgApplicationWindow()
@@ -1700,6 +1701,31 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
 
+        // s43: stall detection. If the enumerated set of visible authors
+        // hasn't changed across the last LOCATE_STOP_AFTER_N_STALLS scrolls
+        // we've likely hit a hard boundary (top of conversation or the
+        // RecyclerView is refusing to move). Bail out early instead of
+        // burning the full backward budget.
+        val visibleAuthors = candidates.map { it.reelAuthor ?: "?" }.toSet()
+        stallHistory.addLast(visibleAuthors)
+        while (stallHistory.size > LOCATE_STOP_AFTER_N_STALLS) stallHistory.removeFirst()
+        val stalled = stallHistory.size >= LOCATE_STOP_AFTER_N_STALLS &&
+            stallHistory.all { it == visibleAuthors }
+        if (stalled) {
+            Log.w(
+                TAG,
+                "LOCATE: stall detected — visible authors unchanged for $LOCATE_STOP_AFTER_N_STALLS " +
+                    "scrolls (author=$wantedAuthor visibleAuthors=$visibleAuthors). " +
+                    "Skipping remaining backward budget and switching to forward-scroll fallback."
+            )
+            if (forwardScrollsLeft > 0) {
+                locateReelWithForwardScroll(target, forwardScrollsLeft, onDone = onDone)
+            } else {
+                onDone(null)
+            }
+            return
+        }
+
         if (scrollsLeft <= 0) {
             // Backward budget exhausted. If we haven't tried scrolling
             // forward yet, do so — the Reel might live BELOW the
@@ -1710,13 +1736,12 @@ class InstagramReaderService : AccessibilityService() {
             if (forwardScrollsLeft > 0) {
                 Log.i(
                     TAG,
-                    "LOCATE: backward exhausted, switching to forward scroll fallback " +
-                        "(forwardScrollsLeft=$forwardScrollsLeft author=$wantedAuthor)"
+                    "LOCATE: backward exhausted after $BATCH_MAX_SCROLLS scrolls, switching to forward " +
+                        "scroll fallback (forwardScrollsLeft=$forwardScrollsLeft author=$wantedAuthor)"
                 )
-                locateReelWithForwardScroll(target, forwardScrollsLeft, onDone)
+                locateReelWithForwardScroll(target, forwardScrollsLeft, onDone = onDone)
                 return
             }
-            val visibleAuthors = candidates.map { it.reelAuthor ?: "?" }
             Log.w(
                 TAG,
                 "LOCATE: could not find reelId=${target.id} author=$wantedAuthor after " +
@@ -1729,13 +1754,18 @@ class InstagramReaderService : AccessibilityService() {
 
         val scrolled = messageList.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
         if (scrolled) {
-            Log.i(
-                TAG,
-                "LOCATE: target not visible, ACTION_SCROLL_BACKWARD accepted " +
-                    "scrollsLeft=$scrollsLeft author=$wantedAuthor"
-            )
+            // s43: rate-limit per-scroll logs (100 scrolls per Reel is
+            // too verbose; log only every N-th scroll + boundaries).
+            val stepIndex = BATCH_MAX_SCROLLS - scrollsLeft + 1
+            if (stepIndex == 1 || stepIndex % LOCATE_LOG_EVERY_N_SCROLLS == 0) {
+                Log.i(
+                    TAG,
+                    "LOCATE: scroll $stepIndex/$BATCH_MAX_SCROLLS (backward accepted, " +
+                        "scrollsLeft=$scrollsLeft author=$wantedAuthor)"
+                )
+            }
             mainHandler.postDelayed({
-                locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, onDone)
+                locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, stallHistory, onDone)
             }, LOCATE_SCROLL_SETTLE_MS)
             return
         }
@@ -1767,14 +1797,14 @@ class InstagramReaderService : AccessibilityService() {
                     "LOCATE: swipe fallback completed scrollsLeft=$scrollsLeft author=$wantedAuthor"
                 )
                 mainHandler.postDelayed({
-                    locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, onDone)
+                    locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, stallHistory, onDone)
                 }, LOCATE_SCROLL_SETTLE_MS)
             }
             override fun onCancelled(g: GestureDescription?) {
                 Log.w(TAG, "LOCATE: swipe fallback cancelled by system.")
                 if (forwardScrollsLeft > 0) {
                     Log.i(TAG, "LOCATE: switching to forward-scroll fallback.")
-                    locateReelWithForwardScroll(target, forwardScrollsLeft, onDone)
+                    locateReelWithForwardScroll(target, forwardScrollsLeft, onDone = onDone)
                 } else {
                     onDone(null)
                 }
@@ -1784,7 +1814,7 @@ class InstagramReaderService : AccessibilityService() {
             Log.w(TAG, "LOCATE: swipe fallback rejected by dispatchGesture.")
             if (forwardScrollsLeft > 0) {
                 Log.i(TAG, "LOCATE: switching to forward-scroll fallback.")
-                locateReelWithForwardScroll(target, forwardScrollsLeft, onDone)
+                locateReelWithForwardScroll(target, forwardScrollsLeft, onDone = onDone)
             } else {
                 onDone(null)
             }
@@ -1797,7 +1827,7 @@ class InstagramReaderService : AccessibilityService() {
      * the RecyclerView refused a backward scroll. Uses
      * `ACTION_SCROLL_FORWARD` (a11y-clean) with a swipe-UP gesture
      * fallback. Same matching logic — top-most bubble with the wanted
-     * `reelAuthor` wins.
+     * `reelAuthor` wins. Also uses stall detection (s43).
      *
      * Session 42 change: added because s41 log surfaced a Reel that
      * was likely below the current view; the batch spent 20 backward
@@ -1806,6 +1836,7 @@ class InstagramReaderService : AccessibilityService() {
     private fun locateReelWithForwardScroll(
         target: ReelEntity,
         forwardScrollsLeft: Int,
+        stallHistory: ArrayDeque<Set<String>> = ArrayDeque(),
         onDone: (DmReelEntry?) -> Unit,
     ) {
         val igWindow = findIgApplicationWindow()
@@ -1844,6 +1875,23 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
 
+        // Stall detection mirroring the backward path.
+        val visibleAuthors = candidates.map { it.reelAuthor ?: "?" }.toSet()
+        stallHistory.addLast(visibleAuthors)
+        while (stallHistory.size > LOCATE_STOP_AFTER_N_STALLS) stallHistory.removeFirst()
+        val stalled = stallHistory.size >= LOCATE_STOP_AFTER_N_STALLS &&
+            stallHistory.all { it == visibleAuthors }
+        if (stalled) {
+            Log.w(
+                TAG,
+                "LOCATE_FWD: stall detected — visible authors unchanged for " +
+                    "$LOCATE_STOP_AFTER_N_STALLS scrolls (author=$wantedAuthor " +
+                    "visibleAuthors=$visibleAuthors). Giving up."
+            )
+            onDone(null)
+            return
+        }
+
         if (forwardScrollsLeft <= 0) {
             Log.w(
                 TAG,
@@ -1856,13 +1904,18 @@ class InstagramReaderService : AccessibilityService() {
 
         val scrolled = messageList.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
         if (scrolled) {
-            Log.i(
-                TAG,
-                "LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted " +
-                    "forwardScrollsLeft=$forwardScrollsLeft author=$wantedAuthor"
-            )
+            val stepIndex = BATCH_MAX_FORWARD_SCROLLS - forwardScrollsLeft + 1
+            if (stepIndex == 1 || stepIndex % LOCATE_LOG_EVERY_N_SCROLLS == 0 ||
+                stepIndex == BATCH_MAX_FORWARD_SCROLLS
+            ) {
+                Log.i(
+                    TAG,
+                    "LOCATE_FWD: scroll $stepIndex/$BATCH_MAX_FORWARD_SCROLLS (forward accepted, " +
+                        "forwardScrollsLeft=$forwardScrollsLeft author=$wantedAuthor)"
+                )
+            }
             mainHandler.postDelayed({
-                locateReelWithForwardScroll(target, forwardScrollsLeft - 1, onDone)
+                locateReelWithForwardScroll(target, forwardScrollsLeft - 1, stallHistory, onDone)
             }, LOCATE_SCROLL_SETTLE_MS)
             return
         }
@@ -1891,7 +1944,7 @@ class InstagramReaderService : AccessibilityService() {
                     "LOCATE_FWD: swipe UP fallback completed forwardScrollsLeft=$forwardScrollsLeft author=$wantedAuthor"
                 )
                 mainHandler.postDelayed({
-                    locateReelWithForwardScroll(target, forwardScrollsLeft - 1, onDone)
+                    locateReelWithForwardScroll(target, forwardScrollsLeft - 1, stallHistory, onDone)
                 }, LOCATE_SCROLL_SETTLE_MS)
             }
             override fun onCancelled(g: GestureDescription?) {
@@ -2194,7 +2247,14 @@ class InstagramReaderService : AccessibilityService() {
             }
             mainHandler.post {
                 enrichmentStepFailedFast = false
-                startEnrichmentForReel(fresh)
+                // s43: wrap each step in runInInstagram so IG comes back
+                // to the front if the user (or the system, e.g. a
+                // completion notification tap) navigated away. Without
+                // this, subsequent steps fail with `NAV: direct_tab not
+                // found` because we're no longer looking at IG's UI.
+                // isInstagramReady() short-circuits when IG is already
+                // foreground, so this adds ~0ms in the happy path.
+                runInInstagram { startEnrichmentForReel(fresh) }
             }
             // Poll the DB until the URL lands, we time out, we detect a
             // fast-failure signal from the enrichment pipeline
@@ -2379,34 +2439,41 @@ class InstagramReaderService : AccessibilityService() {
         }
         val step = steps[index]
         val target = step.reel.threadTitle
-        val currentHeader = currentHeaderTitle()
+        // s43: ensure IG is foreground before reading its state. Between
+        // steps the user (or the shade) can steal focus; without this
+        // guard, `currentHeaderTitle()` returns null and every
+        // remaining step fails with `NAV: direct_tab not found`.
+        // `isInstagramReady()` fast-paths when IG is already up.
+        runInInstagram {
+            val currentHeader = currentHeaderTitle()
 
-        if (currentHeader == target) {
-            executeBatchStep(steps, index)
-            return
-        }
+            if (currentHeader == target) {
+                executeBatchStep(steps, index)
+                return@runInInstagram
+            }
 
-        // Wrong thread (or unknown state e.g. inbox / home) — drive IG to
-        // the target conversation before proceeding.
-        Log.i(
-            TAG,
-            "APPLY_PENDING: step ${index + 1}/${steps.size} needs navigation — " +
-                "current='$currentHeader' target='$target'"
-        )
-        navigateToThreadAsync(target, attemptsLeft = NAV_MAX_ATTEMPTS) { success ->
-            if (success) {
-                // Extra settle so the RecyclerView renders the message
-                // bubbles before we long-press the first one.
-                mainHandler.postDelayed({
-                    executeBatchStep(steps, index)
-                }, NAV_POST_ARRIVAL_SETTLE_MS)
-            } else {
-                val err = "Não consegui navegar para '$target'"
-                finishStepAsync(step.action.id, PendingActionEntity.STATUS_FAILED, err)
-                Log.w(TAG, "APPLY_PENDING: step ${index + 1}/${steps.size} skipped — $err")
-                mainHandler.postDelayed({
-                    runBatchStep(steps, index + 1)
-                }, BATCH_STEP_FAST_SKIP_MS)
+            // Wrong thread (or unknown state e.g. inbox / home) — drive IG to
+            // the target conversation before proceeding.
+            Log.i(
+                TAG,
+                "APPLY_PENDING: step ${index + 1}/${steps.size} needs navigation — " +
+                    "current='$currentHeader' target='$target'"
+            )
+            navigateToThreadAsync(target, attemptsLeft = NAV_MAX_ATTEMPTS) { success ->
+                if (success) {
+                    // Extra settle so the RecyclerView renders the message
+                    // bubbles before we long-press the first one.
+                    mainHandler.postDelayed({
+                        executeBatchStep(steps, index)
+                    }, NAV_POST_ARRIVAL_SETTLE_MS)
+                } else {
+                    val err = "Não consegui navegar para '$target'"
+                    finishStepAsync(step.action.id, PendingActionEntity.STATUS_FAILED, err)
+                    Log.w(TAG, "APPLY_PENDING: step ${index + 1}/${steps.size} skipped — $err")
+                    mainHandler.postDelayed({
+                        runBatchStep(steps, index + 1)
+                    }, BATCH_STEP_FAST_SKIP_MS)
+                }
             }
         }
     }
@@ -2636,7 +2703,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s42"
+        private const val BUILD_TAG = "build=s43"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -2716,20 +2783,53 @@ class InstagramReaderService : AccessibilityService() {
          * above the target, they should re-open the conversation closer
          * to the target first.
          */
-        private const val BATCH_MAX_SCROLLS = 20
+        // -----------------------------------------------------------------
+        // PoC-8 iter 4 (session 34) — locate specific Reel via scroll
+        // s43: budgets bumped for "hundreds of Reels" reality (backward
+        // 20 → 100 covers deep DM histories) and settle reduced (800ms
+        // → 300ms — RecyclerView actually settles in ~100-200ms after
+        // a11y accepts the scroll; the extra 500ms was over-conservative
+        // slack from the initial PoC).
+        // -----------------------------------------------------------------
         /**
-         * Budget for the forward-scroll fallback (s42). Kicks in when
-         * the backward budget is exhausted — covers the case where the
-         * Reel is BELOW the current position in the conversation (rare
-         * because IG opens conversations at the bottom, but real when
-         * the user was navigating older messages or IG restored a
-         * mid-thread scroll position).
+         * Max backwards scrolls per batch step to bring the target Reel
+         * into view. Bumped from 20 to 100 in s43 after user reported
+         * "centenas de reels" — 20 scrolls only covered ~40-100 messages
+         * which was easily overwhelmed by an active conversation.
+         * With s43's 300ms settle, 100 scrolls = ~30s worst case per
+         * failure. Combined with fail-fast (s42) this is bounded work.
          */
-        private const val BATCH_MAX_FORWARD_SCROLLS = 10
-        /** Delay after a `ACTION_SCROLL_BACKWARD` before re-enumerating. */
-        private const val LOCATE_SCROLL_SETTLE_MS = 800L
+        private const val BATCH_MAX_SCROLLS = 100
+        /** Delay after a `ACTION_SCROLL_BACKWARD` before re-enumerating.
+         *  Reduced from 800ms in s43 to keep total per-Reel budget sane
+         *  once we're doing 100 scrolls. */
+        private const val LOCATE_SCROLL_SETTLE_MS = 300L
         /** Duration of the fallback swipe DOWN when a11y scroll is refused. */
         private const val LOCATE_SWIPE_DURATION_MS = 500L
+        /**
+         * Budget for the forward-scroll fallback (s42, tuned in s43).
+         * The common case is the Reel being ABOVE the current view;
+         * forward is only useful when IG restored a mid-thread scroll
+         * position. Reduced from 10 to 5 in s43 — 10 was wasting time
+         * on the common case per user feedback.
+         */
+        private const val BATCH_MAX_FORWARD_SCROLLS = 5
+        /**
+         * Stall detection (s43): if the enumerated received-Reel authors
+         * don't change across this many consecutive scrolls we assume
+         * we've reached a hard boundary (top of conversation or a
+         * layout stall) and give up early rather than burning through
+         * the whole budget. Same heuristic as [HISTORY_STOP_AFTER_N_EMPTY].
+         */
+        private const val LOCATE_STOP_AFTER_N_STALLS = 5
+        /**
+         * Log rate-limit (s43): with 100 backward scrolls per Reel a
+         * verbose per-scroll log makes the a11y logcat unreadable.
+         * We log only every N-th scroll (first scroll always logs,
+         * plus every multiple of this). Failure/match logs remain
+         * unconditional.
+         */
+        private const val LOCATE_LOG_EVERY_N_SCROLLS = 10
 
         // -----------------------------------------------------------------
         // s38 — batch URL enrichment timing
@@ -2763,15 +2863,18 @@ class InstagramReaderService : AccessibilityService() {
 
         // -----------------------------------------------------------------
         // PoC-8 iteration 3 part B — history discovery (auto scroll)
+        // s43: budgets bumped to match the "centenas de reels" reality
+        // (30 → 100) with faster settle (800 → 400ms) and looser stall
+        // threshold (3 → 5 empty scrolls).
         // -----------------------------------------------------------------
         /** Duration of the fallback swipe-down gesture when a11y scroll is refused. */
         private const val HISTORY_SCROLL_DURATION_MS = 500L
         /** Delay between the scroll landing and enumeration (RecyclerView needs a beat to settle). */
-        private const val HISTORY_SCROLL_SETTLE_MS = 800L
+        private const val HISTORY_SCROLL_SETTLE_MS = 400L
         /** After this many consecutive scrolls with zero new inserts we assume we're at the top. */
-        private const val HISTORY_STOP_AFTER_N_EMPTY = 3
+        private const val HISTORY_STOP_AFTER_N_EMPTY = 5
         /** Hard cap on scrolls per run so we never loop forever. */
-        private const val HISTORY_MAX_SCROLLS = 30
+        private const val HISTORY_MAX_SCROLLS = 100
 
         /** Placeholder text used by the PoC-6 mock reply broadcast. */
         const val MOCK_REPLY_TEXT = "👀"

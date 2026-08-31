@@ -7,46 +7,37 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC → MVP). **Sessões 37-40 validadas em device.** Sessão 41 aguardava validação de K quando a s42 corrigiu 3 problemas identificados no log da s41 em produção: fail-fast do batch enrichment (evita 45s por Reel falhado), forward-scroll fallback no `locateReelWithScroll` (Reels abaixo da view actual), heads-up notifications no canal `friends_reels_status_v2` (o utilizador vê a completion sem ter de abrir o shade). Aguarda validação em device.
-**Última atualização:** 2026-08-31 (sessão 42 — fail-fast + forward-scroll + heads-up).
+**Fase atual:** Fase 1 (PoC → MVP). **Sessões 37-40 validadas em device.** Sessão 41 valida em s42 (K1/K2 confirmados via log). Sessão 42 valida com L1 (fail-fast confirmado no log) + L3 (heads-up OK); L2 (forward-scroll) inadequado por budget baixo. Sessão 43 endereça o feedback do L2 com budgets 5x maiores + settle 2-3x mais rápido + stall detection + wrap de `runInInstagram` entre steps (o utilizador reportou que se saísse do IG, batch nunca voltava a trazê-lo à frente).
+**Última atualização:** 2026-08-31 (sessão 43 — mais rápido + mais scrolls + IG-focus recovery).
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s42`.
+**HEAD actual:** `build=s43`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s42 ...)`.
-2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F-L).
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s43 ...)`.
+2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F-M).
 3. **Ficheiros-chave:**
-    - `service/InstagramReaderService.kt` — motor a11y, batching, navegação, enrichment on-demand + em lote (com fail-fast — s42), completion notifications heads-up (s42), return-to-app, auto-enrich após descoberta (s41), Cancelar em ambos os batches (s40/s41). Locate com backward + forward fallback (s42). Prefs: `PREF_IGNORE_SENT`, `PREF_INVERT_SWIPE` (escondida), `PREF_SELECTION_MODE`, `PREF_RETURN_TO_APP_ON_FINISH`, `PREF_AUTO_ENRICH_ON_DISCOVER`, `PREF_LAST_ENRICH_*` (privadas).
+    - `service/InstagramReaderService.kt` — motor a11y, batching, navegação, enrichment on-demand + em lote (fail-fast s42 + wrap runInInstagram entre steps s43), completion notifications heads-up (s42), return-to-app, auto-enrich após descoberta (s41), Cancelar em ambos os batches. Locate com backward (100) + forward (5) + stall detection (s43). History discover com budget 100/400ms (s43). Prefs: `PREF_IGNORE_SENT`, `PREF_INVERT_SWIPE` (escondida), `PREF_SELECTION_MODE`, `PREF_RETURN_TO_APP_ON_FINISH`, `PREF_AUTO_ENRICH_ON_DISCOVER`, `PREF_LAST_ENRICH_*` (privadas).
     - `service/BatchEnrichmentBus.kt` — singleton `StateFlow<State>`; restore em `onServiceConnected`.
-    - `MainActivity.kt` — Home. Botão "🔗 Preparar URLs em lote (N)" só quando N>0.
-    - `ui/feed/FeedScreen.kt` — VerticalPager com WebView inline. Placeholder com "🔗 Preparar Reel".
-    - `ui/feed/FeedViewModel.kt` — filtro por selection mode + `requestUrlEnrichment(reelId)`.
-    - `ui/settings/SettingsActivity.kt` + `SettingsViewModel.kt` — 3 toggles + secções + diagnóstico.
-    - `data/TrackedThreadEntity.kt`, `TrackedThreadDao.kt` — entidade Room v4 (spec §8).
-    - `data/ReelDao.kt` — inclui `allMissingUrls()` e `observeMissingUrlCount()` (s38).
-    - `instagram/IgSelectors.kt` — IDs/labels do IG.
-    - Dumps: `docs/screen-dumps/feed.txt` (última corrida s41 — 12:02, com 7 falhas que motivaram a s42).
+    - `MainActivity.kt` — Home com botão "🔗 Preparar URLs em lote (N)" condicional.
+    - `ui/feed/FeedScreen.kt` — VerticalPager com WebView inline.
+    - `ui/feed/FeedViewModel.kt`, `ui/settings/*` — filtros + toggles + preparar URLs em lote.
+    - `data/*` — Room v4.
+    - Dumps: `docs/screen-dumps/feed.txt` (última corrida s42 — L1 ok, L2 inadequado, L3 ok).
 4. **Constraints:**
     - Testes só no OnePlus Nord 5 / Android 16.
     - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
     - Cada refactor visível deve bumpar `BUILD_TAG`.
-5. **UX actual em device:**
-    - **Home:** protagonismo ao `▶ Abrir o meu feed`. Descoberta (🔍, 📥, 🔗 Preparar URLs (N) condicional). Configuração (a11y toggle, abrir IG, ⚙ Definições).
-    - **Feed:** full-screen VerticalPager. Auto-play inline. Chip único de reacção. Menu ⋮. Reels sem URL têm botão "🔗 Preparar Reel".
-    - **Definições:** 3 toggles (Ignorar sent, Voltar à app, Preparar URLs auto após descobrir) + Filtrar conversas + Preparar URLs em lote (histórico persistido) + Diagnóstico.
-    - **Notificação persistente:** 3 botões (🔍 🔗 ▶). Durante lotes mostra progresso + botão ✕ Cancelar (batch enrichment E apply pending).
-    - **Notificação de conclusão (heads-up após s42):** peek breve no topo quando qualquer acção longa termina, num canal HIGH.
+5. **UX actual em device:** igual à s42 mais o refinamento interno de scrolling.
 6. **Limitações conhecidas:**
-    - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem (top-most vence).
-    - Locate com backward + forward = 20 + 10 scrolls = ~30 tentativas. Após s42, o failure é rápido (fail-fast quebra o polling do batch em vez dos 45s antigos).
-    - Enrichment: 5-8s por Reel bem-sucedido; ~2s por Reel que falha (era ~1min antes da s42).
-    - Batch enrichment partilha `pendingCopy` com o fluxo on-demand — guard evita duplo arranque.
+    - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem.
+    - Locate com 100 backward × 300ms + 5 forward = ~35s worst case por Reel (era ~27s na s42 com apenas 20 backward, mas agora com 5x o alcance). Stall detection (5 scrolls sem mudança) corta cedo casos onde já não há mais nada para carregar.
+    - Enrichment success ~5-8s; fail ~30s (100 scrolls + fail-fast).
+    - Batch enrichment partilha `pendingCopy` com o fluxo on-demand.
     - Consulta de respostas anteriores dentro da app (spec §5) — não temos sync.
     - Reacção "actual" só reflecte as que corremos via app.
     - `threadTitle` como chave — se o utilizador renomear um grupo, a selecção perde-se.
-    - `returnToAppIfEnabled` traz o feed para a frente com `FLAG_ACTIVITY_REORDER_TO_FRONT`.
-    - Heads-up completion depende do canal `friends_reels_status_v2` estar em IMPORTANCE_HIGH. Se o utilizador baixar em Definições Android, deixa de peekar.
+    - Heads-up completion depende do canal `friends_reels_status_v2` em IMPORTANCE_HIGH.
 
 ---
 
@@ -226,24 +217,29 @@ Já entregue no primeiro commit:
 - ✅ **s38 — enrichment em batch. Validada em device: H1/H2/H3 ok.**
 - ✅ **s39 — feedback de conclusão + return-to-app. Validada em device (I ok).**
 - ✅ **s40 — atalhos (Home button, Cancel na notif, LastResult persistido). Validada em device (J ok).**
-- 🟡 **s41 — Cancelar apply pending + auto-enrich após descoberta. Pronta em código; aguarda validação em device (K1/K2/K3).**
-- 🟡 **s42 — fail-fast no batch + forward-scroll fallback + heads-up completion notifications. Pronta em código; aguarda validação em device (L1/L2/L3).**
+- ✅ **s41 — Cancelar apply pending + auto-enrich após descoberta. K1/K2 confirmados em log da s42.**
+- ✅ **s42 — fail-fast + forward-scroll + heads-up. L1 confirmado (fast-failure short-circuits polling), L3 confirmado (heads-up peekava). L2 forward-scroll: budget baixo demais para o uso real.**
+- 🟡 **s43 — 5x mais scrolls (100 backward), 2-3x mais rápido (300ms settle), stall detection early-exit, log rate-limit, wrap `runInInstagram` entre steps (recovery quando IG perde foco). Pronta em código; aguarda validação em device (M1/M2/M3/M4).**
 
 ### 6.1 Próxima sessão — arranque
 
-**Estado no fim da s42:** três correcções que vieram directamente do log da s41 (7 Reels falharam ao fim de 5+ minutos, o utilizador teve de cancelar). O batch enrichment agora falha rapidamente quando não consegue localizar, procura em duas direcções (backward + forward), e as completion notifications peekam brevemente no topo do ecrã sem obrigar o utilizador a abrir o shade.
+**Estado no fim da s43:** três correcções que endereçam directamente o feedback da s42 em device:
+1. **"Não estou a gostar do número de scrolls"** — bumpados 5x (20 → 100 backward, 30 → 100 history).
+2. **"Tem que ser mais rápido"** — settle reduzido de 800ms para 300ms (backward) / 400ms (history).
+3. **"Se saísse do IG, o batch não voltava a abri-lo"** — wrap `runInInstagram` entre steps (fast-path se já está em primeiro plano; caso contrário, IG vem à frente).
 
-**Bateria proposta (L):**
+Também: forward-scroll reduzido de 10 para 5 (o comum é Reel estar em cima). Stall detection (5 scrolls consecutivos com autores visíveis iguais → break early). Log rate-limit (log só cada 10º scroll).
 
-- **L1 — Fail-fast.** Repetir cenário s41: batch enrichment onde alguns Reels não podem ser localizados (Reels antigos, IG saiu de foco, etc.). Antes da s42, cada falha custava ~45s (polling timeout). Esperado: cada falha custa agora ~2-3s (fail-fast quebra o polling). O log deve mostrar `ENRICH_ALL: step K short-circuited by fast-failure signal` logo depois do `giving up`.
-- **L2 — Forward-scroll.** Numa conversa longa, abrir a partir de um ponto no meio (rolar para cima manualmente antes de deixar). Tocar 🔗 Preparar Reel num Reel que está BAIXO do que ficou visível. Esperado: log `LOCATE: backward exhausted, switching to forward scroll fallback` → `LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted` → `LOCATE_FWD: matched reelId=…`. URL é capturado.
-- **L3 — Heads-up notification.** Correr qualquer acção longa (batch enrichment, apply pending, history discover). Esperado: quando termina, a notificação `🔗 Lote de URLs terminado` peek durante 1-2s no topo do ecrã sem ter de descer o shade. Se não fizer, o utilizador vai a Definições Android → Notificações → Friends Reels → "Conclusão de ações" e confirma que Importance está `Urgent`/`High`.
+**Bateria proposta (M):**
 
-**Nota sobre canal:** os utilizadores existentes tinham o canal `friends_reels_status` com IMPORTANCE_DEFAULT. O s42 cria um canal NOVO `friends_reels_status_v2` com HIGH e apaga o antigo automaticamente. Se restar setting antigo, uninstall + reinstall garante limpeza. Utilizadores novos entram directamente em HIGH.
+- **M1 — Recovery quando IG perde foco.** Arrancar batch enrichment. A meio, tocar Home do Android para ir para o launcher. Esperado: o próximo step traz IG à frente automaticamente (via `runInInstagram`), locate continua normalmente. Antes da s43, todos os steps subsequentes falhariam com `NAV: direct_tab not found`.
+- **M2 — Scroll longo.** Escolher um Reel que está DE FACTO longe (50+ scrolls acima). Esperado: log mostra `LOCATE: scroll 1/100`, `LOCATE: scroll 10/100`, `LOCATE: scroll 20/100`… até ~100 (ou match). Cada scroll ~300ms → 100 scrolls = ~30s por Reel no pior caso.
+- **M3 — Stall detection.** Correr batch onde a conversa está inteiramente "seca" (não há mais nada para carregar). Esperado: `LOCATE: stall detected — visible authors unchanged for 5 scrolls` no meio do budget, break early.
+- **M4 — Log rate-limit.** Confirmar que 100 scrolls só geram 10-11 linhas de log (não 100).
 
-**Priorização depois de L validado:**
+**Priorização depois de M validado:**
 
-1. **Sync de reacção actual (spec §7).** Refresh que percorre a conversa e lê o `message_reactions_pill_container`.
+1. **Sync de reacção actual (spec §7).**
 2. **Match estrito por URL no `locateReelWithScroll`.**
 3. **Cosmético:** thumbnails / preview no feed; ordem dos chips por `createdAt`; indicador visual de direcção de swipe.
 4. **Tuning de latência.**
@@ -639,6 +635,37 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 22 erros no total, todos classpath (K2 falha type inference nos `.filter { it.direction == Direction.RECEIVED }` e `.filter { it.reelAuthor == ... }` das novas `locateReelWith*` porque `Direction` e `ReelEntity.reelAuthor` são unresolved sem stdlib). Zero erros novos de sintaxe.
 - **Validação em device (esperada na próxima sessão):** bateria L1/L2/L3 descrita em §6.1.
 - **Nada mudou** nos primitivos react/reply/copy URL, na navegação PoC-9, no filtro de selecção, no batching de apply pending (para além da mesma paridade de Cancelar), nas prefs. As três correcções são cirúrgicas sobre os pontos concretos identificados no log.
+
+---
+
+### 2026-08-31 — Sessão 43 (Ricardo + Copilot CLI) — mais scrolls, mais rápido, IG focus recovery
+
+- **Feedback do utilizador após L1/L2/L3 em device** (log `docs/screen-dumps/feed.txt` 12:22→12:27, 12 Reels tentados, 12 falharam):
+  1. **L1 confirmado** — linha 351: `step 9 short-circuited by fast-failure signal — skipping wait`. Fail-fast funciona (0.5s vs 45s por passo falhado).
+  2. **L2 falhou por budget insuficiente** — o log mostrou 20 scrolls backward + 10 forward = 30 tentativas totais, terminadas em ~27s, e o Reel `legiaoesportsgg` continuava sem match. O utilizador tem "centenas de reels" — 20 scrolls só cobre ~40-100 mensagens. Também disse "tem que ser mais rápido" — cada scroll estava a demorar ~900ms.
+  3. **L3 confirmado** — o utilizador viu peek no topo.
+  4. **Bug novo reportado in-band:** quando IG perde foco entre steps (utilizador foi para outra app), o batch continuava a falhar com `NAV: direct_tab not found` sem tentar trazer IG de volta.
+- **Correcções:**
+  1. **Budgets 5x maiores:** `BATCH_MAX_SCROLLS` 20 → 100, `HISTORY_MAX_SCROLLS` 30 → 100, `HISTORY_STOP_AFTER_N_EMPTY` 3 → 5.
+  2. **Scrolls mais rápidos:** `LOCATE_SCROLL_SETTLE_MS` 800 → 300ms; `HISTORY_SCROLL_SETTLE_MS` 800 → 400ms. RecyclerView assenta em ~100-200ms na prática; os 800ms iniciais eram slack conservador da fase PoC.
+  3. **Forward-scroll reduzido** 10 → 5 (`BATCH_MAX_FORWARD_SCROLLS`) — o utilizador tem razão de que o comum é o Reel estar acima, não abaixo. 5 é suficiente para o caso raro (IG restaurou posição mid-thread).
+  4. **Stall detection** (`LOCATE_STOP_AFTER_N_STALLS = 5`): novo parâmetro `stallHistory: ArrayDeque<Set<String>>` que acompanha os últimos 5 conjuntos de autores visíveis; se todos iguais, dá por atingido topo/fim (RecyclerView bloqueado ou já não há mais mensagens) e sai antes do budget esgotar. Corta cenários onde os 100 scrolls não iam mesmo a lado nenhum.
+  5. **Log rate-limit** (`LOCATE_LOG_EVERY_N_SCROLLS = 10`): log só cada 10º scroll (com o primeiro sempre a logar). Com 100 scrolls por Reel, o feed.txt torna-se ilegível se cada scroll gerar uma linha. Failure/match logs permanecem incondicionais.
+  6. **`runInInstagram` entre steps:**
+     - `processBatchEnrichmentStep` — `mainHandler.post { runInInstagram { startEnrichmentForReel(fresh) } }` (era `startEnrichmentForReel(fresh)` directamente).
+     - `runBatchStep` (apply pending) — todo o corpo pós-terminal envolvido em `runInInstagram { … }`. `isInstagramReady()` faz shortcut se IG já está em primeiro plano (0ms overhead no happy path). Caso contrário, IG vem à frente e o step continua.
+     - Efeito prático: utilizador pode ir para outra app a meio de um batch; o próximo step traz IG à frente e continua. Sem esta protecção, cada step subsequente falhava com `NAV: direct_tab not found`.
+- **Impacto na performance:**
+  - Fail rápido (stall detected em ~5×300ms = 1.5s ou budget esgotado em 100×300ms + 5×300ms = 31.5s worst case).
+  - Sucesso rápido no happy path (Reel a 5 scrolls de distância = 5×300ms + match = ~1.5s).
+  - Comparação com s42: 20 scrolls × 800ms = 16s por Reel, agora 100 scrolls × 300ms = 30s worst case, mas com stall detection a maioria dos casos falha em 5s.
+- **`BUILD_TAG` bumped para `build=s43`.**
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — 5 constantes bumpadas/reduzidas, novo parâmetro `stallHistory` em ambas locate functions, rate-limit nos logs, wrap `runInInstagram` no processBatchEnrichmentStep e runBatchStep, `BUILD_TAG=s43`. Sem alterações em UI ou schema.
+  - `PROJECT_PROGRESS.md` — Estado, quick start, §6/6.1 (bateria M), este log.
+- **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 26 erros totais, todos classpath (K2 falha nos filter/mapping chains e nos `Direction`/`reelAuthor` unresolved). Zero erros novos de sintaxe no código s43.
+- **Validação em device (esperada na próxima sessão):** bateria M1-M4 descrita em §6.1.
+- **Nada mudou** nos primitivos react/reply/copy URL, na navegação PoC-9 (helpers), nos completion notifs, no return-to-app, no auto-enrich, na chain PoC-7, nas prefs, no schema Room, na UI. A s43 é 100% ajustes internos de scroll/timing + defensive `runInInstagram`.
 
 ---
 
