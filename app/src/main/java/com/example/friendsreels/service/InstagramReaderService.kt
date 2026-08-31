@@ -686,12 +686,14 @@ class InstagramReaderService : AccessibilityService() {
         val url = intent.getStringExtra(EXTRA_CLIPBOARD_TEXT)
         val pending = pendingCopy
         pendingCopy = null
+        var success = false
         if (url.isNullOrBlank()) {
             Log.w(TAG, "COPY_LINK: ClipboardCaptureActivity returned empty text.")
         } else {
             Log.i(TAG, "COPY_LINK: Reel URL = '$url'")
             if (pending != null) {
                 persistCopiedReel(pending, url)
+                success = true
             } else {
                 Log.w(TAG, "COPY_LINK: no pendingCopy context — URL not persisted to DB.")
             }
@@ -701,6 +703,21 @@ class InstagramReaderService : AccessibilityService() {
         // second closes the viewer.
         mainHandler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, BACK_AFTER_COPY_DELAY_MS)
         mainHandler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, BACK_AFTER_COPY_DELAY_MS * 2)
+
+        // s39 — completion feedback for single copy URL / single Reel
+        // enrichment. We only post when the row is safely persisted AND
+        // we're not part of a batch (the batch handles its own aggregate
+        // completion notification once all Reels are done).
+        if (success && !batchEnrichmentInProgress && pending != null) {
+            val body = if (!pending.reelAuthor.isNullOrBlank())
+                getString(R.string.notif_completion_copy_url_body, pending.reelAuthor, pending.threadTitle)
+            else
+                getString(R.string.notif_completion_copy_url_body_no_author, pending.threadTitle)
+            postCompletionNotification(
+                title = getString(R.string.notif_completion_copy_url_title),
+                body = body,
+            )
+        }
     }
 
     /**
@@ -1064,6 +1081,16 @@ class InstagramReaderService : AccessibilityService() {
                 "DISCOVER: thread='$threadTitle' visibleReceived=$visibleReceived visibleSent=$visibleSent " +
                     "ignoreSent=$ignoreSent kept=${snapshot.size} inserted=$inserted skipped=$skipped totalInDb=$total"
             )
+            mainHandler.post {
+                val body = if (inserted > 0)
+                    getString(R.string.notif_completion_discover_body, inserted, threadTitle)
+                else
+                    getString(R.string.notif_completion_discover_body_empty, threadTitle)
+                postCompletionNotification(
+                    title = getString(R.string.notif_completion_discover_title),
+                    body = body,
+                )
+            }
         }
     }
 
@@ -1278,6 +1305,16 @@ class InstagramReaderService : AccessibilityService() {
         )
         historyInProgress = false
         postControlNotification()
+        postCompletionNotification(
+            title = getString(R.string.notif_completion_history_title),
+            body = getString(
+                R.string.notif_completion_history_body,
+                state.totalInserted,
+                state.threadTitle,
+                state.totalScrolls,
+            ),
+        )
+        returnToAppIfEnabled()
     }
 
     /**
@@ -1580,6 +1617,9 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     private var batchInProgress = false
+    /** Counters used to render the s39 completion notification after apply pending. */
+    private var applyPendingSucceeded = 0
+    private var applyPendingFailed = 0
 
     // -------------------------------------------------------------------
     // PoC-8 iter 4 (session 34) — locate a specific Reel via history scroll
@@ -1843,7 +1883,13 @@ class InstagramReaderService : AccessibilityService() {
                         lastResult = BatchEnrichmentBus.LastResult(0, 0, cancelled = false),
                     )
                 )
-                mainHandler.post { batchEnrichmentInProgress = false }
+                mainHandler.post {
+                    batchEnrichmentInProgress = false
+                    postCompletionNotification(
+                        title = getString(R.string.notif_completion_batch_enrich_title),
+                        body = getString(R.string.notif_completion_batch_enrich_body, 0, 0),
+                    )
+                }
                 return@launch
             }
             // Group by thread so we visit each conversation only once,
@@ -1867,6 +1913,7 @@ class InstagramReaderService : AccessibilityService() {
                 )
             )
             mainHandler.post {
+                updateBatchEnrichProgressNotification(0, ordered.size)
                 runInInstagram {
                     processBatchEnrichmentStep(
                         reels = ordered,
@@ -1913,6 +1960,20 @@ class InstagramReaderService : AccessibilityService() {
                 )
             )
             batchEnrichmentInProgress = false
+            // Restore the persistent control notification and post the
+            // transient completion notification on the higher-importance
+            // status channel so the user knows the batch is done even
+            // if they're still in Instagram.
+            postControlNotification()
+            val bodyRes = if (!done)
+                R.string.notif_completion_batch_enrich_body_cancelled
+            else
+                R.string.notif_completion_batch_enrich_body
+            postCompletionNotification(
+                title = getString(R.string.notif_completion_batch_enrich_title),
+                body = getString(bodyRes, succeeded, failed),
+            )
+            returnToAppIfEnabled()
             return
         }
 
@@ -1926,6 +1987,7 @@ class InstagramReaderService : AccessibilityService() {
                 lastResult = null,
             )
         )
+        updateBatchEnrichProgressNotification(index + 1, reels.size)
         Log.i(
             TAG,
             "ENRICH_ALL: step ${index + 1}/${reels.size} reelId=${target.id} " +
@@ -2009,13 +2071,21 @@ class InstagramReaderService : AccessibilityService() {
         val currentThread = currentHeaderTitle()
         Log.i(TAG, "APPLY_PENDING: starting drain (currentThread='$currentThread').")
         batchInProgress = true
+        applyPendingSucceeded = 0
+        applyPendingFailed = 0
 
         serviceScope.launch {
             val db = AppDatabase.get(this@InstagramReaderService)
             val actions = db.pendingActionDao().pending()
             if (actions.isEmpty()) {
                 Log.i(TAG, "APPLY_PENDING: queue empty, nothing to do.")
-                mainHandler.post { batchInProgress = false }
+                mainHandler.post {
+                    batchInProgress = false
+                    postCompletionNotification(
+                        title = getString(R.string.notif_completion_apply_pending_title),
+                        body = getString(R.string.notif_completion_apply_pending_body, 0, 0),
+                    )
+                }
                 return@launch
             }
             // Pre-resolve every referenced Reel so we can filter on the
@@ -2072,9 +2142,22 @@ class InstagramReaderService : AccessibilityService() {
      */
     private fun runBatchStep(steps: List<BatchStep>, index: Int) {
         if (index >= steps.size) {
-            Log.i(TAG, "APPLY_PENDING: drain finished (${steps.size} step(s) processed).")
+            Log.i(
+                TAG,
+                "APPLY_PENDING: drain finished (${steps.size} step(s) processed, " +
+                    "succeeded=$applyPendingSucceeded failed=$applyPendingFailed)."
+            )
             batchInProgress = false
             postControlNotification()
+            postCompletionNotification(
+                title = getString(R.string.notif_completion_apply_pending_title),
+                body = getString(
+                    R.string.notif_completion_apply_pending_body,
+                    applyPendingSucceeded,
+                    applyPendingFailed,
+                ),
+            )
+            returnToAppIfEnabled()
             return
         }
         val step = steps[index]
@@ -2195,6 +2278,8 @@ class InstagramReaderService : AccessibilityService() {
 
     private fun finishStepAsync(actionId: Long, status: String, error: String?) {
         val now = System.currentTimeMillis()
+        if (status == PendingActionEntity.STATUS_DONE) applyPendingSucceeded++
+        else if (status == PendingActionEntity.STATUS_FAILED) applyPendingFailed++
         serviceScope.launch {
             AppDatabase.get(this@InstagramReaderService).pendingActionDao()
                 .finish(actionId, status, now, error)
@@ -2329,7 +2414,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s38"
+        private const val BUILD_TAG = "build=s39"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -2582,8 +2667,26 @@ class InstagramReaderService : AccessibilityService() {
         const val SELECTION_MODE_EXCLUDE_SELECTED = "EXCLUDE_SELECTED"
         const val PREF_SELECTION_MODE_DEFAULT = SELECTION_MODE_NONE
 
+        /**
+         * When true (default), long-running actions bring the Friends
+         * Reels feed to the front once they finish so the user doesn't
+         * get stranded in Instagram (or in the share sheet). Applied by
+         * [returnToAppIfEnabled] at the tail of `enrichAllMissingUrls`,
+         * `applyPendingActions`, and `discoverReelsHistory`.
+         */
+        const val PREF_RETURN_TO_APP_ON_FINISH = "return_to_app_on_finish"
+        const val PREF_RETURN_TO_APP_ON_FINISH_DEFAULT = true
+
         private const val NOTIF_CHANNEL_ID = "friends_reels_controls"
         private const val NOTIF_ID = 1001
+
+        /**
+         * Separate channel for completion notifications (s39). Uses
+         * IMPORTANCE_DEFAULT so the user actually notices when a batch
+         * finishes; the persistent control notification stays on LOW.
+         */
+        private const val NOTIF_CHANNEL_STATUS_ID = "friends_reels_status"
+        private const val NOTIF_ID_COMPLETION = 1003
     }
 
     // ---------------------------------------------------------------------
@@ -2659,7 +2762,8 @@ class InstagramReaderService : AccessibilityService() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
+        val system = getSystemService(NotificationManager::class.java) ?: return
+        val control = NotificationChannel(
             NOTIF_CHANNEL_ID,
             getString(R.string.notif_channel_name),
             NotificationManager.IMPORTANCE_LOW
@@ -2668,8 +2772,113 @@ class InstagramReaderService : AccessibilityService() {
             setShowBadge(false)
             enableVibration(false)
         }
-        val system = getSystemService(NotificationManager::class.java)
-        system?.createNotificationChannel(channel)
+        system.createNotificationChannel(control)
+        val status = NotificationChannel(
+            NOTIF_CHANNEL_STATUS_ID,
+            getString(R.string.notif_channel_status_name),
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = getString(R.string.notif_channel_status_description)
+            setShowBadge(true)
+            enableVibration(false)
+        }
+        system.createNotificationChannel(status)
+    }
+
+    // ---------------------------------------------------------------------
+    // Completion feedback (session 39)
+    //
+    // Long-running actions (batch enrichment, apply pending, discover
+    // history) can leave the user stranded inside Instagram with no
+    // visible sign that the work is done. These helpers close that gap:
+    //  - `postCompletionNotification` shows a transient, tap-to-open-feed
+    //    notification on the higher-importance status channel.
+    //  - `returnToAppIfEnabled` brings FeedActivity to the front when the
+    //    user opted in via `PREF_RETURN_TO_APP_ON_FINISH` (default true).
+    // ---------------------------------------------------------------------
+
+    private fun postCompletionNotification(title: String, body: String) {
+        createNotificationChannel()
+        val builder = NotificationCompat.Builder(this, NOTIF_CHANNEL_STATUS_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(
+                "$body\n\n" + getString(R.string.notif_completion_tap_hint)
+            ))
+            .setAutoCancel(true)
+            .setOngoing(false)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setContentIntent(pendingActivity(
+                com.example.friendsreels.ui.feed.FeedActivity::class.java,
+                requestCode = 2001,
+            ))
+        val nm = NotificationManagerCompat.from(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !nm.areNotificationsEnabled()) {
+            Log.w(TAG, "Completion notification skipped — notifications disabled by user.")
+            return
+        }
+        try {
+            nm.notify(NOTIF_ID_COMPLETION, builder.build())
+            Log.i(TAG, "Completion notification posted: '$title' — $body")
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Completion notification skipped — missing POST_NOTIFICATIONS.", e)
+        }
+    }
+
+    private fun returnToAppIfEnabled() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val enabled = prefs.getBoolean(
+            PREF_RETURN_TO_APP_ON_FINISH,
+            PREF_RETURN_TO_APP_ON_FINISH_DEFAULT,
+        )
+        if (!enabled) {
+            Log.i(TAG, "returnToAppIfEnabled: pref disabled — staying on IG.")
+            return
+        }
+        val intent = Intent(this, com.example.friendsreels.ui.feed.FeedActivity::class.java)
+            .addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+            )
+        try {
+            startActivity(intent)
+            Log.i(TAG, "returnToAppIfEnabled: FeedActivity launched.")
+        } catch (e: Exception) {
+            Log.w(TAG, "returnToAppIfEnabled: failed to launch FeedActivity", e)
+        }
+    }
+
+    /**
+     * Overwrite the persistent control notification with a "A preparar
+     * URLs %1/%2…" status while [enrichAllMissingUrls] is running.
+     * Reverts to the normal button row via [postControlNotification]
+     * when the batch finishes. Mirrors [updateProgressNotification] /
+     * [updateHistoryProgressNotification].
+     */
+    private fun updateBatchEnrichProgressNotification(currentStep: Int, total: Int) {
+        val builder = NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.notif_title))
+            .setContentText(getString(R.string.notif_enrich_all_progress, currentStep, total))
+            .setOngoing(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setShowWhen(false)
+            .setContentIntent(pendingActivity(
+                com.example.friendsreels.ui.feed.FeedActivity::class.java,
+                requestCode = 0,
+            ))
+            .setProgress(total.coerceAtLeast(1), currentStep, false)
+        try {
+            NotificationManagerCompat.from(this).notify(NOTIF_ID, builder.build())
+        } catch (e: SecurityException) {
+            Log.w(TAG, "updateBatchEnrichProgressNotification: missing POST_NOTIFICATIONS", e)
+        }
     }
 
     private fun pendingBroadcast(action: String, requestCode: Int): PendingIntent {

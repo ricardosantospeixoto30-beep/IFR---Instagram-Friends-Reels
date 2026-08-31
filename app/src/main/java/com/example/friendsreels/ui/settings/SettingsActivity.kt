@@ -83,6 +83,13 @@ class SettingsActivity : ComponentActivity() {
                         onIgnoreSentChange = { v ->
                             prefs.edit().putBoolean(InstagramReaderService.PREF_IGNORE_SENT, v).apply()
                         },
+                        initialReturnToApp = prefs.getBoolean(
+                            InstagramReaderService.PREF_RETURN_TO_APP_ON_FINISH,
+                            InstagramReaderService.PREF_RETURN_TO_APP_ON_FINISH_DEFAULT,
+                        ),
+                        onReturnToAppChange = { v ->
+                            prefs.edit().putBoolean(InstagramReaderService.PREF_RETURN_TO_APP_ON_FINISH, v).apply()
+                        },
                         onFinish = { finish() },
                     )
                 }
@@ -97,9 +104,12 @@ private fun SettingsScreen(
     vm: SettingsViewModel,
     initialIgnoreSent: Boolean,
     onIgnoreSentChange: (Boolean) -> Unit,
+    initialReturnToApp: Boolean,
+    onReturnToAppChange: (Boolean) -> Unit,
     onFinish: () -> Unit,
 ) {
     var ignoreSent by remember { mutableStateOf(initialIgnoreSent) }
+    var returnToApp by remember { mutableStateOf(initialReturnToApp) }
     val context = LocalContext.current
 
     val selectionMode by vm.selectionMode.collectAsState()
@@ -125,6 +135,16 @@ private fun SettingsScreen(
                 onChange = {
                     ignoreSent = it
                     onIgnoreSentChange(it)
+                },
+            )
+
+            SettingToggle(
+                title = stringResource(R.string.settings_return_to_app_title),
+                subtitle = stringResource(R.string.settings_return_to_app_subtitle),
+                value = returnToApp,
+                onChange = {
+                    returnToApp = it
+                    onReturnToAppChange(it)
                 },
             )
 
