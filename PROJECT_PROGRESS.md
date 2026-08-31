@@ -257,8 +257,8 @@ Já entregue no primeiro commit:
 **O que se está a validar:** o novo botão em Definições dispara o batch, itera cada conversa em `tracked_threads`, insere Reels novos em Room, e termina com uma notif única.
 
 **Preparação:**
-1. `git pull` no telemóvel; recompilar e reinstalar o APK em `build=s48`.
-2. Confirmar no logcat: `Action receiver registered (build=s48 ...)` e vê que `historyAll=com.example.friendsreels.ACTION_DISCOVER_HISTORY_ALL_TRACKED` está registado.
+1. `git pull` no telemóvel; recompilar e reinstalar o APK em `build=s50`.
+2. Confirmar no logcat: `Action receiver registered (build=s50 ...)` e vê que `historyAll=com.example.friendsreels.ACTION_DISCOVER_HISTORY_ALL_TRACKED` está registado.
 3. Em Definições, **"Filtrar conversas"** — seleccionar 2-3 conversas curtas conhecidas (o `astrid_gutierrez` da s45 é bom; adiciona mais 1-2 se tiveres). Confirmar que aparecem em `tracked_threads`.
 4. **Contar** os Reels que já tens na DB para essas conversas: em Definições → "Preparar URLs em lote" a contagem de `Reels sem URL` pode ajudar (mostra o total antes/depois).
 5. Abrir `logcat -s IGReaderService`.
@@ -266,12 +266,12 @@ Já entregue no primeiro commit:
 **Passos:**
 1. Abrir Friends Reels → **⚙ Definições** → rolar até **"Descobrir histórico em todas as conversas"**.
 2. Tocar **"📥 Descobrir tudo"**. Toast confirma que arrancou.
-3. **Deixar o telemóvel em paz** — vai abrir o IG, navegar entre conversas, e scrollar cada uma até ao topo (ou até bater no cap de 100 scrolls). Cada thread demora 30s-2min consoante o comprimento.
+3. **Deixar o telemóvel em paz** — vai abrir o IG, navegar entre conversas, e scrollar cada uma até ao topo (ou até bater no cap de 2000 scrolls, s50). Cada thread pode demorar 30s-15min consoante o comprimento (safety cap alto para chats de anos).
 4. Esperar pela notif final "📥 Histórico descoberto (todas as conversas)".
 
 **O que confirmar no logcat:**
 - `HISTORY_ALL: starting batch for N thread(s).`
-- Para cada thread: `HISTORY_ALL: step K/N thread='<titulo>'`, seguido de `NAV: ...` (navigate) e depois `HISTORY: starting thread='<titulo>' ...`, `HISTORY: scroll M/100 ...`, `HISTORY: thread top reached ...` (ou `HISTORY: stopping — safety cap 100 scrolls hit.` se conversa gigante).
+- Para cada thread: `HISTORY_ALL: step K/N thread='<titulo>'`, seguido de `NAV: ...` (navigate) e depois `HISTORY: starting thread='<titulo>' ...`, `HISTORY: scroll M/2000 ...`, `HISTORY: thread top reached ...` (ou `HISTORY: stopping — safety cap 2000 scrolls hit.` só em conversas muito longas).
 - No fim de cada thread: `HISTORY_ALL: thread '<titulo>' done inserted=X scrolls=Y — batch running total=Z`.
 - Fim do batch: `HISTORY_ALL: finished — totalInserted=Z across N thread(s).`
 - Notif heads-up única: **"📥 Histórico descoberto (todas as conversas) — Z Reel(s) novo(s) em N conversa(s)."**
@@ -343,6 +343,28 @@ Já entregue no primeiro commit:
 **Falha se:**
 - **F1:** alguma activity ainda mostra o teal/roxo default do Material 3 dark → verificar se `FriendsReelsTheme { ... }` foi aplicado nessa activity.
 - **F2:** cores estão certas mas letras estão "grandes" ou com espaçamento estranho → typography não activou. Ver import de `Typography`.
+
+---
+
+#### Teste 3 — "Reacção actual (da DM) aparece no chip do feed" (`ReactionSync`) [carry-over da s49]
+
+**O que se está a validar:** o chip do feed mostra a reacção que existe na DM (não só as que enviámos via app). Ainda por validar desde a s49 — inclui-se aqui na bateria T porque a s50 mantém a feature intacta.
+
+**Preparação:**
+1. Recompilar em `build=s50`. **Importante:** Room v4 → v5 dispara `fallbackToDestructiveMigration` — os Reels actuais são apagados no primeiro arranque. Aceitar (é PoC; re-descobrir com `📥 Descobrir tudo`).
+2. Escolher **uma conversa com ≥2 Reels recebidos, um dos quais tem ❤ ou 😂 aplicado por ti directamente no IG** (não pela app). Se não tiveres, aplica manualmente uma agora.
+3. `logcat -s IGReaderService`.
+
+**Passos:**
+1. Abrir Friends Reels → `🔍 Descobrir` (via notif ou home) nessa conversa. Ou usar `📥 Descobrir tudo` se essa conversa está seleccionada.
+2. Log deve mostrar `DISCOVER: ... reactionsRefreshed=N ...` ou os inserts com `currentReaction` populado.
+3. Abrir o feed. Navegar até ao Reel com reacção manual.
+
+**Passa se:** chip ❤ ou 😂 aparece iluminado no Reel onde reagiste manualmente; sem quebrar Reels a que reagimos via app (fallback funciona).
+**Falha se:**
+- **F1:** chip nunca aparece → `matchReactionPill` não achou a pill. Fazer dump da conversa (via botão em Definições) e confirmar `resource-id` `message_reactions_pill_container`.
+- **F2:** chip aparece no Reel errado → proximity mismatch. Ajustar `REACTION_PILL_MAX_GAP_PX` (60px) ou `REACTION_PILL_OVERLAP_TOLERANCE_PX` (20px).
+- **F3:** reacções que enviámos via app deixaram de aparecer → fallback `?: latestReaction?.kind` em `FeedViewModel` partiu.
 
 ---
 
