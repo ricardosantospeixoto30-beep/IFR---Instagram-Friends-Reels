@@ -8,9 +8,9 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-08-31 (sessão 47b — corrige a instrumentação da s47 que estava a monitorizar o set errado).
+**Última actualização:** 2026-08-31 (sessão 48 — descobrir histórico em batch em todas as conversas seleccionadas).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s47b`.
+**HEAD actual:** `build=s48`.
 
 **Recap sessões 41-47 (as validadas ou próximas de validação):**
 
@@ -20,17 +20,20 @@
 - **s45** (validada): dump adiado com Toast countdown ("🌳 Muda para o IG! Dump em 5s"). Dump em `docs/screen-dumps/dump.txt` capturou o header start-of-conversation da DM `astrid_gutierrez` com 4 selectors estáveis (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username`).
 - **s46** (validada em parte — `TopStop-History` OK, `TopStop-Batch` inconclusivo por falta de Reel apropriado): `isThreadTopVisible(root)` usa esses 4 selectors para substituir a stall detection removida na s44. Integrada em `locateReelWithScroll` e `doHistoryScroll`.
 - **s47** (superseded pela s47b): tentei instrumentar mas usei `candidates` (pós-filtro) como source do `seenAuthors`. Utilizador apanhou (esta ronda): dado que o match é `.firstOrNull { reelAuthor == wantedAuthor }`, se o autor está em `candidates` o match acontece sempre — logo o warning nunca disparava. Bug de design.
-- **s47b** (aguarda validação): `seenAuthors` agora acumula-se a partir de `allReels.filter { direction == RECEIVED }.mapNotNull { reelAuthor }` — ANTES do filtro `bounds.width() > 0 && bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX`. Isto captura autores de bubbles mid-layout que a s47 perdia. `BATCH_MAX_FORWARD_SCROLLS` continua 15 (era 5 em ≤s46).
+- **s47b** (aguarda validação — não bloqueia): `seenAuthors` agora acumula-se a partir de `allReels.filter { direction == RECEIVED }.mapNotNull { reelAuthor }` — ANTES do filtro `bounds.width() > 0 && bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX`. Isto captura autores de bubbles mid-layout que a s47 perdia. `BATCH_MAX_FORWARD_SCROLLS` continua 15 (era 5 em ≤s46).
+- **s48** (aguarda validação): **`📥 Descobrir tudo` — batch de history-scroll em todas as conversas seleccionadas em Definições**. Utilizador tem 20 amigos seleccionados em "Filtrar conversas", carrega no novo botão em Definições e a app itera cada conversa, navega para lá, faz scroll até ao topo, guarda os Reels novos, e passa à próxima. Notificação única de conclusão no final ("N Reels novos em M conversas"). Reutiliza a chain PoC-9 (`navigateToThreadAsync`) + `discoverReelsHistory` (com `overrideThreadTitle` + callback `onFinish` novo para não spamar notifs por thread).
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s47b ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s48 ...)`.
 2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `instagram/IgSelectors.kt` — objecto `Thread` tem `HEADER_VIEW_PROFILE_BUTTON` + 3 fallbacks (s46).
-    - `service/InstagramReaderService.kt` — `isThreadTopVisible(root)` (s46) usada em `locateReelWithScroll` + `doHistoryScroll`. **s47b:** ambas as `locateReelWith(Forward)Scroll` recebem `seenAuthors: MutableSet<String>` que acumula autores de bubbles RECEIVED enumerados **antes do filtro de altura/largura**. Nos pontos de falha o log inclui `seenDuringSweep=…` e — quando `wantedAuthor in seenAuthors` — dispara warning "Reel likely skipped due to layout timing". `BATCH_MAX_FORWARD_SCROLLS = 15`.
-    - `ui/settings/SettingsActivity.kt` — botão de Dump com delay (s45), sem alterações.
-    - Dumps: `docs/screen-dumps/dump.txt` (s45 — topo de conversa, base dos selectors da s46).
+    - `service/InstagramReaderService.kt` — `isThreadTopVisible(root)` (s46), `seenAuthors` pré-filtro (s47b), e **s48**: novos `ACTION_DISCOVER_HISTORY_ALL_TRACKED` + `ACTION_DISCOVER_HISTORY_ALL_CANCEL`; nova função `discoverHistoryAllTracked()` que faz snapshot da tabela `tracked_threads`, orquestra `processHistoryBatchStep(titles, index, totalInserted, threadsCovered)` para navegar → correr history-scroll → chain; `HistoryState` ganhou `onFinish: ((HistoryState) -> Unit)?` (o batch passa callback, single-thread continua com `null` = comportamento original com notif individual + auto-enrich).
+    - `data/TrackedThreadDao.kt` — nova `snapshotTitles(): List<String>` (suspend, one-shot vs Flow observável).
+    - `ui/settings/SettingsActivity.kt` — nova `BatchHistorySection` com título/subtítulo/botão "📥 Descobrir tudo" logo abaixo da secção "Preparar URLs em lote".
+    - `res/values/strings.xml` — novos `settings_history_all_*` + `notif_completion_history_all_*`.
+    - Dumps: `docs/screen-dumps/dump.txt` (s45), `docs/screen-dumps/2025-08-28-initial-mapping.txt` (mapeamento inicial dos selectors do IG).
 4. **Constraints:**
     - Testes só no OnePlus Nord 5 / Android 16.
     - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
@@ -38,9 +41,9 @@
 5. **UX actual em device:**
     - **Home:** protagonismo ao `▶ Abrir o meu feed`. Descoberta (🔍, 📥, 🔗 Preparar URLs (N) condicional). Configuração.
     - **Feed:** full-screen VerticalPager. Auto-play inline. Chip único de reacção. Menu ⋮.
-    - **Definições:** 3 toggles + Filtrar conversas + Preparar URLs em lote + Diagnóstico com botão "🌳 Dump" que conta 5s antes de dumpar.
+    - **Definições:** 3 toggles + Filtrar conversas + Preparar URLs em lote + **s48: "📥 Descobrir tudo"** (secção nova entre Preparar URLs e Diagnóstico) + Diagnóstico com botão "🌳 Dump" com 5s de delay.
     - **Notificação persistente:** 3 botões (🔍 🔗 ▶) + progresso + Cancelar durante lotes.
-    - **Notificação de conclusão:** heads-up.
+    - **Notificação de conclusão:** heads-up individual, ou uma única no fim do batch "📥 Descobrir tudo".
 6. **Limitações conhecidas:**
     - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem.
     - **Reel skipped mid-backward-sweep (reportado na s46, instrumentado s47/s47b):** durante o backward-scroll dentro de `locateReelWithScroll`, o Reel-alvo pode aparecer brevemente em vista mas com `bounds.height() < MIN_REEL_BUBBLE_HEIGHT_PX` (200px) — o bubble está mid-layout durante uma transição do RecyclerView. O filtro de altura remove-o de `candidates` (correcto, para não tentar tap num bubble que ainda não está pronto). Mas o autor ficaria perdido. **s47b** captura estes autores num set `seenAuthors` que é enumerado ANTES do filtro; se o batch acabar sem match e `wantedAuthor in seenAuthors`, dispara warning `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing.` **s47** subiu `BATCH_MAX_FORWARD_SCROLLS` 5 → 15 para dar retracement suficiente. **Não é uma correcção total** — a fix estrutural implicaria (a) enumerar 2× por scroll com pequena separação de tempo para captar bubbles transientes, ou (b) retracement dinâmico ilimitado. Fica pendente até Q1 mostrar frequência real.
@@ -240,73 +243,54 @@ Já entregue no primeiro commit:
 
 ### 6.1 Próxima sessão — arranque
 
-**Estado no fim da s47b:** duas iterações sobre o bug reportado pelo utilizador na s46 (*"se ele já tiver passado por ele não volta para baixo para o reencontrar"*).
+**Estado no fim da s48:** feature nova + instrumentação da s47b ainda por validar (não bloqueia).
 
-- **s47:** propaguei `seenAuthors` por toda a recursão. Bug de design apanhado pelo utilizador: eu enchia o set a partir de `candidates` (pós-filtro `bounds.height() >= 200px` + `direction == RECEIVED`), mas o match usa `.firstOrNull { reelAuthor == wantedAuthor }`. Se o autor está em candidates, dá SEMPRE match — logo "wanted in seenAuthors" numa falha era matematicamente impossível.
-- **s47b:** enumero `allReels` primeiro, filtro por direction RECEIVED (mantido — o batch nunca processa SENT), e só depois aplico o filtro de altura/largura para `candidates`. `seenAuthors` acumula-se a partir de `allReels.filter { direction == RECEIVED }.mapNotNull { reelAuthor }`. Isto CAPTURA autores de bubbles mid-layout (bounds pequenas) que são filtradas de `candidates`, que é exactamente o cenário do bug real.
-- `BATCH_MAX_FORWARD_SCROLLS` 5 → 15 continua da s47.
-- **Nada mais mudou.**
+- **s48 — `📥 Descobrir tudo`:** iterador batch sobre `tracked_threads` que navega a cada conversa seleccionada e corre history-scroll em cada uma. Reutiliza `navigateToThreadAsync` (PoC-9) + `discoverReelsHistory` com um novo callback `onFinish` opcional (para o batch não spamar notif de conclusão a cada thread). Botão em Definições → "Descobrir histórico em todas as conversas" → **"📥 Descobrir tudo"**. Notif única de conclusão no final. Cancelável via broadcast (`ACTION_DISCOVER_HISTORY_ALL_CANCEL`).
+- **s47b (opcional):** instrumentação `seenAuthors` pré-filtro pronta em código; utilizador testa quando quiser. Não bloqueia mais features. Warning `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched` dispara quando o Reel foi visto mid-layout mas nunca deu match.
 
-**Bateria proposta — Sessão 47b (formato §8.1):**
+**Bateria proposta — Sessão 48 (formato §8.1):**
 
-#### Teste único — "Warning `Reel likely skipped` dispara quando bubble mid-layout é filtrada" (`SeenSkipped`)
+#### Teste 1 — "📥 Descobrir tudo percorre todas as conversas seleccionadas" (`DiscoverAll`)
 
-**O que se está a validar:** o warning `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing.` dispara quando o batch enrichment falha em encontrar um Reel cujo bubble apareceu no viewport durante o sweep mas foi filtrado por altura/largura (mid-layout).
+**O que se está a validar:** o novo botão em Definições dispara o batch, itera cada conversa em `tracked_threads`, insere Reels novos em Room, e termina com uma notif única.
 
 **Preparação:**
-1. `git pull` no telemóvel; recompilar e reinstalar o APK em `build=s47b`.
-2. Confirmar no logcat: `Action receiver registered (build=s47b ...)`.
-3. Escolher **uma conversa 1-a-1 CURTA com pelo menos 1 Reel na DB sem URL** (`reelUrl IS NULL`). O `astrid_gutierrez` da s45 é ideal se ainda tiveres Reels dela sem URL. Alternativa: usa qualquer conversa onde já fizeste 📥 histórico + enrichment parcial.
-4. Abrir `logcat -s IGReaderService`.
+1. `git pull` no telemóvel; recompilar e reinstalar o APK em `build=s48`.
+2. Confirmar no logcat: `Action receiver registered (build=s48 ...)` e vê que `historyAll=com.example.friendsreels.ACTION_DISCOVER_HISTORY_ALL_TRACKED` está registado.
+3. Em Definições, **"Filtrar conversas"** — seleccionar 2-3 conversas curtas conhecidas (o `astrid_gutierrez` da s45 é bom; adiciona mais 1-2 se tiveres). Confirmar que aparecem em `tracked_threads`.
+4. **Contar** os Reels que já tens na DB para essas conversas: em Definições → "Preparar URLs em lote" a contagem de `Reels sem URL` pode ajudar (mostra o total antes/depois).
+5. Abrir `logcat -s IGReaderService`.
 
 **Passos:**
-1. Abrir Friends Reels → **⚙ Definições** → **"🔗 Preparar todos"**.
-2. Observar o logcat até o batch terminar.
+1. Abrir Friends Reels → **⚙ Definições** → rolar até **"Descobrir histórico em todas as conversas"**.
+2. Tocar **"📥 Descobrir tudo"**. Toast confirma que arrancou.
+3. **Deixar o telemóvel em paz** — vai abrir o IG, navegar entre conversas, e scrollar cada uma até ao topo (ou até bater no cap de 100 scrolls). Cada thread demora 30s-2min consoante o comprimento.
+4. Esperar pela notif final "📥 Histórico descoberto (todas as conversas)".
 
 **O que confirmar no logcat:**
+- `HISTORY_ALL: starting batch for N thread(s).`
+- Para cada thread: `HISTORY_ALL: step K/N thread='<titulo>'`, seguido de `NAV: ...` (navigate) e depois `HISTORY: starting thread='<titulo>' ...`, `HISTORY: scroll M/100 ...`, `HISTORY: thread top reached ...` (ou `HISTORY: stopping — safety cap 100 scrolls hit.` se conversa gigante).
+- No fim de cada thread: `HISTORY_ALL: thread '<titulo>' done inserted=X scrolls=Y — batch running total=Z`.
+- Fim do batch: `HISTORY_ALL: finished — totalInserted=Z across N thread(s).`
+- Notif heads-up única: **"📥 Histórico descoberto (todas as conversas) — Z Reel(s) novo(s) em N conversa(s)."**
 
-Cenário A — Reel encontrado sem drama (o comum):
-- `ENRICH_ALL: step K/N reelId=X author=<autor>`.
-- `LOCATE: matched reelId=X ...` OU `LOCATE_FWD: matched reelId=X ...`.
-- Nenhum warning novo (autor não foi visto E não veio a dar match noutro sítio).
-
-Cenário B — Reel skipped (o interessante):
-- `ENRICH_ALL: step K/N reelId=X author=<autor>`.
-- Sequência de `LOCATE: scroll M/100 ...` sem match.
-- Em algum ponto: `LOCATE: thread top reached at scroll K/100` (s46) OU `LOCATE: backward exhausted after 100 scrolls` (s43).
-- **Novo (s47/47b):** `LOCATE: wanted author '<autor>' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing. Forward retracement will scan up to 15 scrolls to recover.`
-- Segue com `LOCATE_FWD: scroll 1/15`, etc.
-- Se o forward também não achar: `LOCATE_FWD: could not find reelId=X author=<autor> after 15 forward scrolls. — author WAS seen at some point (skipped bubble); consider bumping BATCH_MAX_FORWARD_SCROLLS seenDuringSweep=[...]`.
-
-Cenário C — Reel genuinamente ausente (autor não visto nunca):
-- Sequência de scrolls, sem match.
-- `LOCATE: thread top reached ...`
-- SEM o warning "was observed mid-backward-sweep".
-- `LOCATE_FWD: could not find ... seenDuringSweep=[<lista_sem_o_autor>]`.
-
-**Passa se:** para cada step do batch, o log corresponde a um dos 3 cenários acima. Especialmente, **o warning novo deve aparecer sempre que o autor procurado apareceu em algum snapshot mas o Reel não foi matched** — este é o sinal real do bug do utilizador.
+**Passa se:** todas as N conversas seleccionadas foram visitadas, Reels novos apareceram no feed, notif de conclusão apareceu.
 **Falha se:**
-- **F1:** o warning nunca aparece mesmo em batches com muitos fails → improvável que TODOS os fails sejam do cenário C. Verificar se `enumerateReels` está a devolver os bubbles mid-layout ou se um filtro anterior os apaga.
-- **F2:** o warning aparece SEMPRE em fails, mesmo quando o autor obviamente não estava na conversa → falso positivo. Provavelmente há partilhas antigas da autor em conversas antigas que o `enumerateReels` retorna. Verificar direction filter.
-
-**Após o teste:**
-Reportar o log completo (`docs/screen-dumps/dump.txt` ou similar). Vamos ver a frequência real do warning — se for comum, avanço para a fix estrutural na s48 (enumerar 2×/scroll ou retracement dinâmico ilimitado). Se for raro (o bump para 15 forward resolve o suficiente), fica só instrumentado.
+- **F1:** batch começa e não avança da primeira conversa (fica preso em `HISTORY: ...` sem chegar ao topo) → pode ser que `isThreadTopVisible` esteja a falhar nessa conversa; verificar logs.
+- **F2:** `HISTORY_ALL: nav failed for '<titulo>'` para várias threads consecutivas → a lógica de PoC-9 (`navigateToThreadAsync`) não está a encontrar as conversas na inbox. Ver `header_title` ou reindexar.
+- **F3:** N conversas seleccionadas em Definições, mas `HISTORY_ALL: starting batch for M thread(s).` mostra M ≠ N → `snapshotTitles()` não devolveu o mesmo conjunto que `observeTitles()`. Verificar Room.
+- **F4:** Toast a dizer "Nenhuma conversa seleccionada" mesmo tendo conversas em `tracked_threads` → verificar se o Toast do serviço aparece; log deve ter `HISTORY_ALL: no tracked threads — nothing to do.`
 
 ---
 
-**Priorização depois de Q validado:**
-1. **Fix estrutural do "Reel skipped mid-sweep"** dependendo da frequência revelada por Q1.
-2. **Sync de reacção actual (spec §7)** — coluna nova em Room + migração.
-3. **Match estrito por Reel URL no locate** — para colisões de mesmo autor.
-4. **Cosmético:** thumbnails / preview no feed; indicador visual de direcção de swipe.
-5. **Deep-link `instagram://direct/t/<thread_id>`** — investigar em dump da inbox.
-6. **Tuning de latência de scroll** — profilar `LOCATE_SCROLL_SETTLE_MS` real.
+**Priorização depois de R validado:**
 
-1. **Sync de reacção actual (spec §7)** — ler `message_reactions_pill_container` de cada Reel na DM e persistir a reacção actual, para reflectir no chip do feed. Adiciona coluna `currentReaction` a `ReelEntity` (migração Room).
-2. **Match estrito por Reel URL no `locateReelWithScroll`** — para casos de 2 Reels do mesmo criador na mesma conversa. Precisa de expandir o viewer para cada match candidato — não trivial. Investigar alternativas (posição relativa no thread, timestamp).
-3. **Cosmético:** thumbnails / preview no feed; ordem dos chips por `createdAt`; indicador visual de direcção de swipe.
-4. **Deep-link `instagram://direct/t/<thread_id>`** — investigar onde IG expõe o thread_id (dump da inbox).
-5. **Tuning de latência de scroll** — perfilar `LOCATE_SCROLL_SETTLE_MS` em conversas reais.
+1. **Sync de reacção actual (spec §7)** — coluna nova em Room + migração + leitura de `message_reactions_pill_container`.
+2. **Match estrito por Reel URL no `locateReelWithScroll`** — para colisões de mesmo autor. Precisa investigar disambiguation por posição/timestamp.
+3. **Cosmético:** thumbnails / preview no feed; indicador visual de direcção de swipe.
+4. **Deep-link `instagram://direct/t/<thread_id>`** — investigar em dump da inbox.
+5. **Tuning de latência de scroll.**
+6. **Bateria Q (`SeenSkipped` da s47b)** — quando for oportuno, para saber a frequência do "Reel skipped mid-sweep".
 
 ### 6.2 Alternativas arquitecturais
 
@@ -588,6 +572,31 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — zero erros com o novo símbolo `allReels`. Baseline classpath inalterado.
 - **Nada mudou** salvo o accumulator de `seenAuthors`. A s47b é uma micro-correcção à s47.
 - **Reconhecimento:** design flaw meu, utilizador apanhou por raciocínio puro (não teve de testar em device). Boa colaboração — poupou uma iteração inteira desperdiçada em Q1 a mostrar sempre "warning nunca aparece".
+
+---
+
+### 2026-08-31 — Sessão 48 (Ricardo + Copilot CLI) — `📥 Descobrir tudo` em conversas seleccionadas
+
+- **Contexto:** utilizador tem N amigos seleccionados em Definições → "Filtrar conversas" e quer que a app percorra todos automaticamente, sem ter de abrir cada conversa e tocar 📥 individualmente. Este é o próximo item do ranking em §6.1 depois da instrumentação da s47b, que fica não-bloqueante.
+- **Alterações:**
+  1. **`TrackedThreadDao.snapshotTitles(): List<String>`** (novo, suspend). Complementa o `observeTitles()` — o batch precisa de um snapshot estável no arranque, não de um Flow que possa mudar mid-run se o utilizador mexer nas selecções.
+  2. **`HistoryState.onFinish: ((HistoryState) -> Unit)? = null`** (novo campo opcional). Passado por `discoverReelsHistory` para dentro do state; `finishHistory` verifica: se não-null, chama `onFinish(state)` e SALTA a `postCompletionNotification` + `returnToAppIfEnabled` + `maybeAutoEnrichAfterDiscover`. Se null, comportamento original.
+  3. **`discoverReelsHistory(overrideThreadTitle: String? = null, onFinish: ((HistoryState) -> Unit)? = null)`** — assinatura alargada. `overrideThreadTitle` permite ao batch passar o título directamente sem depender de `lastKnownConversationTitle` (que pode ainda não ter chegado via a11y event depois da nav).
+  4. **`ACTION_DISCOVER_HISTORY_ALL_TRACKED` + `ACTION_DISCOVER_HISTORY_ALL_CANCEL`** (novas broadcasts). Registadas no IntentFilter; log line "Action receiver registered" ganha `historyAll=...` + `historyAllCancel=...`.
+  5. **`discoverHistoryAllTracked()`** (novo orquestrador). Guardia `historyBatchInProgress` volatile. Snapshot dos títulos. `processHistoryBatchStep(titles, index, totalInserted, threadsCovered)` chain: cada iteração faz `navigateToThreadAsync` → wait `HISTORY_BATCH_NAV_SETTLE_MS` (1200ms) → `discoverReelsHistory(overrideThreadTitle, onFinish)`, com o callback a chainar para o próximo index. Fim do batch: notif única "📥 Histórico descoberto (todas as conversas) — N Reel(s) novo(s) em M conversa(s)" + `maybeAutoEnrichAfterDiscover(totalInserted)`.
+  6. **`cancelHistoryBatch()`** — apenas flippa `historyBatchCancelled = true`. O próximo `processHistoryBatchStep` detecta e termina com "Cancelado após N Reels em M/K conversas".
+  7. **`BatchHistorySection()`** — nova composable em `SettingsActivity.kt` com título/subtítulo/botão "📥 Descobrir tudo". Colocada entre "Preparar URLs em lote" e "Ferramentas de diagnóstico". Toast a informar arranque.
+  8. **Novos strings:** `settings_history_all_title`, `settings_history_all_subtitle`, `settings_history_all_start`, `settings_history_all_start_toast`, `settings_history_all_cancel_toast`, `notif_completion_history_all_title`, `notif_completion_history_all_body`, `notif_completion_history_all_cancelled`, `notif_completion_history_all_empty`.
+- **`BUILD_TAG` bumped para `build=s48`.**
+- **Ficheiros alterados:**
+  - `data/TrackedThreadDao.kt` — nova query suspend.
+  - `service/InstagramReaderService.kt` — novas Volatile flags, novo bloco de funções (~120 linhas), refactor mínimo do `discoverReelsHistory` + `finishHistory`, novas 2 actions + IntentFilter + broadcast dispatch + log line, 2 constantes de timing (`HISTORY_BATCH_NAV_SETTLE_MS`, `HISTORY_BATCH_STEP_SPACING_MS`), `BUILD_TAG=s48`.
+  - `ui/settings/SettingsActivity.kt` — nova composable `BatchHistorySection` + chamada na SettingsScreen.
+  - `res/values/strings.xml` — 9 novos strings.
+  - `PROJECT_PROGRESS.md` — Estado, quick start, §6/6.1 (bateria R), este log.
+- **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 1614 erros totais, todos classpath. Zero erros com os novos símbolos (`discoverHistoryAllTracked`, `processHistoryBatchStep`, `cancelHistoryBatch`, `snapshotTitles`, `BatchHistorySection`, `HISTORY_BATCH_NAV_SETTLE_MS`, `HISTORY_BATCH_STEP_SPACING_MS`, `ACTION_DISCOVER_HISTORY_ALL_*`).
+- **Validação em device (esperada na próxima sessão):** bateria R (1 teste: `DiscoverAll`).
+- **Nada mudou** na chain de match (s47b), na detecção de topo (s46), no dump com delay (s45), no epoch guard (s44), no schema Room (nenhuma migration nova), na `enrichAllMissingUrls` chain PoC-9, nas prefs. A s48 é uma feature aditiva alicerçada em componentes existentes.
 
 ---
 

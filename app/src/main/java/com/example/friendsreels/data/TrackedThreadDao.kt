@@ -23,6 +23,16 @@ interface TrackedThreadDao {
     fun observeTitles(): Flow<List<String>>
 
     /**
+     * One-shot snapshot of the current selection. Used by the batch
+     * "discover history in all tracked threads" flow which needs a stable
+     * list at the moment the user tapped the button (as opposed to a Flow
+     * that would surprise the batch mid-run if the user tocasse selection
+     * changes on another window).
+     */
+    @Query("SELECT threadTitle FROM tracked_threads ORDER BY threadTitle ASC")
+    suspend fun snapshotTitles(): List<String>
+
+    /**
      * Snapshot of every distinct `threadTitle` we've ever discovered
      * (from the `reels` table). The settings screen shows this list so
      * the user can pick which ones to track. Note: this can include

@@ -54,6 +54,10 @@
     <string name="notif_completion_discover_body_empty">Sem Reels novos em \'%1$s\'.</string>
     <string name="notif_completion_history_title">📥 Histórico descoberto</string>
     <string name="notif_completion_history_body">%1$d Reel(s) novo(s) em \'%2$s\' (%3$d scrolls).</string>
+    <string name="notif_completion_history_all_title">📥 Histórico descoberto (todas as conversas)</string>
+    <string name="notif_completion_history_all_body">%1$d Reel(s) novo(s) em %2$d conversa(s).</string>
+    <string name="notif_completion_history_all_cancelled">Cancelado após %1$d Reel(s) em %2$d/%3$d conversa(s).</string>
+    <string name="notif_completion_history_all_empty">Nenhuma conversa seleccionada em Definições → Filtrar conversas.</string>
     <string name="notif_completion_copy_url_title">🔗 URL do Reel guardado</string>
     <string name="notif_completion_copy_url_body">de @%1$s em \'%2$s\'.</string>
     <string name="notif_completion_copy_url_body_no_author">Reel em \'%1$s\'.</string>
@@ -100,6 +104,13 @@
     <string name="settings_batch_enrich_last_result_cancelled">Última execução (cancelada): %1$d preparado(s), %2$d falharam</string>
     <string name="settings_batch_enrich_start_toast">Lote de enriquecimento iniciado. Mantém o telemóvel livre — o Instagram vai abrir automaticamente.</string>
     <string name="settings_batch_enrich_cancel_toast">Cancelamento pedido. O lote pára depois do Reel actual.</string>
+
+    <!-- Batch history discovery (s48) -->
+    <string name="settings_history_all_title">Descobrir histórico em todas as conversas</string>
+    <string name="settings_history_all_subtitle">Percorre todas as conversas seleccionadas em \"Filtrar conversas\", abre cada uma no Instagram e faz scroll até ao topo para encontrar Reels antigos. Cada conversa demora entre 30s e 2min: mantém o telemóvel livre. Se não tens conversas seleccionadas em Definições, este botão não faz nada.</string>
+    <string name="settings_history_all_start">📥 Descobrir tudo</string>
+    <string name="settings_history_all_start_toast">Descoberta em lote iniciada. O Instagram vai abrir e percorrer as conversas seleccionadas.</string>
+    <string name="settings_history_all_cancel_toast">Cancelamento pedido. Vai parar depois da conversa actual.</string>
 
     <!-- Feed screen -->
     <string name="feed_title">Friends Reels</string>

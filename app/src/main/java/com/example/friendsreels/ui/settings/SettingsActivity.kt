@@ -219,6 +219,10 @@ private fun SettingsScreen(
 
             HorizontalDivider()
 
+            BatchHistorySection()
+
+            HorizontalDivider()
+
             Text(
                 text = stringResource(R.string.settings_diagnostics_title),
                 style = MaterialTheme.typography.titleMedium,
@@ -447,6 +451,40 @@ private fun BatchEnrichmentSection(vm: SettingsViewModel) {
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             )
         }
+    }
+}
+
+/**
+ * s48 — Batch history discovery across every tracked thread. Doesn't
+ * have live progress state exposed via a bus (yet — the batch runs in
+ * the service and reports via notifications), so the UI is a lean
+ * title + subtitle + single action button. Cancellation is offered
+ * via the persistent control notification while the batch is running.
+ */
+@Composable
+private fun BatchHistorySection() {
+    val context = LocalContext.current
+    Text(
+        text = stringResource(R.string.settings_history_all_title),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+    )
+    Text(
+        text = stringResource(R.string.settings_history_all_subtitle),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    Button(
+        onClick = {
+            sendServiceBroadcast(context, InstagramReaderService.ACTION_DISCOVER_HISTORY_ALL_TRACKED)
+            Toast.makeText(
+                context,
+                context.getString(R.string.settings_history_all_start_toast),
+                Toast.LENGTH_LONG,
+            ).show()
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.settings_history_all_start))
     }
 }
 

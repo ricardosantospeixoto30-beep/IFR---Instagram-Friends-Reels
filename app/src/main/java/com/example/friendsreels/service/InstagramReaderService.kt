@@ -162,6 +162,8 @@ class InstagramReaderService : AccessibilityService() {
                     ACTION_CLIPBOARD_CAPTURED -> handleClipboardCaptured(intent)
                     ACTION_DISCOVER_REELS -> runInInstagram { discoverReels() }
                     ACTION_DISCOVER_REELS_HISTORY -> runInInstagram { discoverReelsHistory() }
+                    ACTION_DISCOVER_HISTORY_ALL_TRACKED -> discoverHistoryAllTracked()
+                    ACTION_DISCOVER_HISTORY_ALL_CANCEL -> cancelHistoryBatch()
                     ACTION_APPLY_PENDING -> runInInstagram { applyPendingActions() }
                     ACTION_APPLY_PENDING_CANCEL -> cancelApplyPending()
                     ACTION_ENRICH_REEL_URL -> {
@@ -183,6 +185,8 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_CLIPBOARD_CAPTURED)
             addAction(ACTION_DISCOVER_REELS)
             addAction(ACTION_DISCOVER_REELS_HISTORY)
+            addAction(ACTION_DISCOVER_HISTORY_ALL_TRACKED)
+            addAction(ACTION_DISCOVER_HISTORY_ALL_CANCEL)
             addAction(ACTION_APPLY_PENDING)
             addAction(ACTION_APPLY_PENDING_CANCEL)
             addAction(ACTION_ENRICH_REEL_URL)
@@ -202,7 +206,10 @@ class InstagramReaderService : AccessibilityService() {
             "Action receiver registered ($BUILD_TAG heart=$ACTION_REACT_HEART, " +
                 "laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
                 "copyUrl=$ACTION_COPY_REEL_URL, discover=$ACTION_DISCOVER_REELS, " +
-                "history=$ACTION_DISCOVER_REELS_HISTORY, applyPending=$ACTION_APPLY_PENDING, " +
+                "history=$ACTION_DISCOVER_REELS_HISTORY, " +
+                "historyAll=$ACTION_DISCOVER_HISTORY_ALL_TRACKED, " +
+                "historyAllCancel=$ACTION_DISCOVER_HISTORY_ALL_CANCEL, " +
+                "applyPending=$ACTION_APPLY_PENDING, " +
                 "applyCancel=$ACTION_APPLY_PENDING_CANCEL, " +
                 "enrichUrl=$ACTION_ENRICH_REEL_URL, enrichAll=$ACTION_ENRICH_ALL_MISSING_URLS, " +
                 "enrichCancel=$ACTION_ENRICH_ALL_CANCEL, dumpTree=$ACTION_DUMP_TREE)"
@@ -1128,6 +1135,23 @@ class InstagramReaderService : AccessibilityService() {
     private var historyInProgress = false
 
     /**
+     * Set by [discoverHistoryAllTracked] (s48). Guards the batch entry
+     * point against overlapping broadcasts. Independent of
+     * [historyInProgress], which is toggled per-thread inside the batch.
+     */
+    @Volatile
+    private var historyBatchInProgress: Boolean = false
+
+    /**
+     * Set by [cancelHistoryBatch] (s48). Checked between threads; the
+     * currently-running per-thread pass is allowed to finish naturally
+     * (so IG doesn't get left mid-scroll) but no further threads are
+     * dispatched.
+     */
+    @Volatile
+    private var historyBatchCancelled: Boolean = false
+
+    /**
      * Mutable state carried across the ping-pong between enumerate and
      * scroll steps. Kept as a single object so we don't have to thread
      * counters through every callback.
@@ -1135,24 +1159,54 @@ class InstagramReaderService : AccessibilityService() {
     private data class HistoryState(
         val threadTitle: String,
         val ignoreSent: Boolean,
+        /**
+         * When non-null, [finishHistory] delegates completion to this
+         * callback INSTEAD of posting a completion notification, calling
+         * [returnToAppIfEnabled], and running [maybeAutoEnrichAfterDiscover].
+         * Used by the s48 batch orchestrator ([discoverHistoryAllTracked])
+         * so that each per-thread pass doesn't spam the user with N
+         * completion notifications — only the outermost batch posts one.
+         */
+        val onFinish: ((HistoryState) -> Unit)? = null,
         var totalScrolls: Int = 0,
         var totalInserted: Int = 0,
         var totalSkipped: Int = 0,
         var consecutiveEmpty: Int = 0,
     )
 
-    private fun discoverReelsHistory() {
+    /**
+     * Kick off history-scroll discovery on the current conversation.
+     *
+     * @param overrideThreadTitle when non-null (batch use case), skips the
+     *   `lastKnownConversationTitle` heuristic and uses the provided
+     *   title. The caller must have already navigated to that thread.
+     * @param onFinish when non-null (batch use case), replaces the
+     *   default finish behaviour (completion notif + return-to-app +
+     *   auto-enrich) with the caller's callback. See [HistoryState.onFinish].
+     */
+    private fun discoverReelsHistory(
+        overrideThreadTitle: String? = null,
+        onFinish: ((HistoryState) -> Unit)? = null,
+    ) {
         if (historyInProgress) {
             Log.i(TAG, "HISTORY: already in progress, ignoring.")
+            onFinish?.invoke(HistoryState(threadTitle = overrideThreadTitle ?: "?", ignoreSent = false))
             return
         }
         val root = findIgApplicationWindow()?.root ?: rootInActiveWindow
         if (root == null || root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
             Log.w(TAG, "HISTORY: Instagram is not foreground, aborting.")
+            onFinish?.invoke(HistoryState(threadTitle = overrideThreadTitle ?: "?", ignoreSent = false))
             return
         }
-        val threadTitle = lastKnownConversationTitle?.takeIf { it.isNotBlank() } ?: "?"
-        val state = HistoryState(threadTitle = threadTitle, ignoreSent = isIgnoreSentEnabled())
+        val threadTitle = overrideThreadTitle?.takeIf { it.isNotBlank() }
+            ?: lastKnownConversationTitle?.takeIf { it.isNotBlank() }
+            ?: "?"
+        val state = HistoryState(
+            threadTitle = threadTitle,
+            ignoreSent = isIgnoreSentEnabled(),
+            onFinish = onFinish,
+        )
         historyInProgress = true
         Log.i(TAG, "HISTORY: starting thread='$threadTitle' ignoreSent=${state.ignoreSent}")
         updateHistoryProgressNotification(state)
@@ -1325,6 +1379,13 @@ class InstagramReaderService : AccessibilityService() {
                 "totalInsertedRun=${state.totalInserted} totalSkippedRun=${state.totalSkipped}"
         )
         historyInProgress = false
+        val onFinish = state.onFinish
+        if (onFinish != null) {
+            // Batch caller (s48) manages control/completion notifications
+            // and auto-enrich for the whole run — don't double up here.
+            onFinish(state)
+            return
+        }
         postControlNotification()
         postCompletionNotification(
             title = getString(R.string.notif_completion_history_title),
@@ -1337,6 +1398,145 @@ class InstagramReaderService : AccessibilityService() {
         )
         returnToAppIfEnabled()
         maybeAutoEnrichAfterDiscover(state.totalInserted)
+    }
+
+    // ---------------------------------------------------------------------
+    // Session 48 — batch history discovery across every tracked thread
+    //
+    // The single-thread [discoverReelsHistory] requires the user to open
+    // the target conversation first. That's fine for exploring but not
+    // for the "seed the feed" use case: the user has 20 friends selected
+    // in Definições and wants "just get me all their Reels". This
+    // orchestrator walks each tracked title, navigates to it via the
+    // s33 [navigateToThreadAsync] helper, runs [discoverReelsHistory]
+    // with a completion callback that chains to the next thread, and
+    // only posts a SINGLE completion notification at the end (accumu-
+    // lating inserted counts across all threads).
+    //
+    // Cancellation: [cancelHistoryBatch] flips [historyBatchCancelled];
+    // the currently-running per-thread pass finishes naturally, and the
+    // outer loop stops before the next `navigateToThreadAsync`.
+    // ---------------------------------------------------------------------
+
+    private fun discoverHistoryAllTracked() {
+        if (historyBatchInProgress) {
+            Log.i(TAG, "HISTORY_ALL: batch already in progress, ignoring.")
+            return
+        }
+        historyBatchInProgress = true
+        historyBatchCancelled = false
+        serviceScope.launch {
+            val dao = AppDatabase.get(this@InstagramReaderService).trackedThreadDao()
+            val titles = dao.snapshotTitles()
+            if (titles.isEmpty()) {
+                Log.i(TAG, "HISTORY_ALL: no tracked threads — nothing to do.")
+                mainHandler.post {
+                    historyBatchInProgress = false
+                    postCompletionNotification(
+                        title = getString(R.string.notif_completion_history_all_title),
+                        body = getString(R.string.notif_completion_history_all_empty),
+                    )
+                }
+                return@launch
+            }
+            Log.i(TAG, "HISTORY_ALL: starting batch for ${titles.size} thread(s).")
+            mainHandler.post {
+                runInInstagram {
+                    processHistoryBatchStep(
+                        titles = titles,
+                        index = 0,
+                        totalInserted = 0,
+                        threadsCovered = 0,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun processHistoryBatchStep(
+        titles: List<String>,
+        index: Int,
+        totalInserted: Int,
+        threadsCovered: Int,
+    ) {
+        if (historyBatchCancelled) {
+            Log.i(
+                TAG,
+                "HISTORY_ALL: cancelled at $threadsCovered/${titles.size} threads " +
+                    "(totalInserted=$totalInserted)."
+            )
+            historyBatchInProgress = false
+            postControlNotification()
+            postCompletionNotification(
+                title = getString(R.string.notif_completion_history_all_title),
+                body = getString(
+                    R.string.notif_completion_history_all_cancelled,
+                    totalInserted,
+                    threadsCovered,
+                    titles.size,
+                ),
+            )
+            returnToAppIfEnabled()
+            maybeAutoEnrichAfterDiscover(totalInserted)
+            return
+        }
+        if (index >= titles.size) {
+            Log.i(
+                TAG,
+                "HISTORY_ALL: finished — totalInserted=$totalInserted across ${titles.size} thread(s)."
+            )
+            historyBatchInProgress = false
+            postControlNotification()
+            postCompletionNotification(
+                title = getString(R.string.notif_completion_history_all_title),
+                body = getString(
+                    R.string.notif_completion_history_all_body,
+                    totalInserted,
+                    titles.size,
+                ),
+            )
+            returnToAppIfEnabled()
+            maybeAutoEnrichAfterDiscover(totalInserted)
+            return
+        }
+        val title = titles[index]
+        Log.i(TAG, "HISTORY_ALL: step ${index + 1}/${titles.size} thread='$title'")
+        navigateToThreadAsync(title, attemptsLeft = NAV_MAX_ATTEMPTS) { navOk ->
+            if (!navOk) {
+                Log.w(TAG, "HISTORY_ALL: nav failed for '$title', skipping.")
+                mainHandler.postDelayed({
+                    processHistoryBatchStep(titles, index + 1, totalInserted, threadsCovered)
+                }, HISTORY_BATCH_STEP_SPACING_MS)
+                return@navigateToThreadAsync
+            }
+            // Give IG a beat to fully settle after nav, then start the
+            // per-thread pass. Use overrideThreadTitle so we don't rely
+            // on `lastKnownConversationTitle` — the a11y event may not
+            // have caught up yet.
+            mainHandler.postDelayed({
+                discoverReelsHistory(overrideThreadTitle = title) { state ->
+                    val nextInserted = totalInserted + state.totalInserted
+                    val nextCovered = threadsCovered + 1
+                    Log.i(
+                        TAG,
+                        "HISTORY_ALL: thread '$title' done inserted=${state.totalInserted} " +
+                            "scrolls=${state.totalScrolls} — batch running total=$nextInserted"
+                    )
+                    mainHandler.postDelayed({
+                        processHistoryBatchStep(titles, index + 1, nextInserted, nextCovered)
+                    }, HISTORY_BATCH_STEP_SPACING_MS)
+                }
+            }, HISTORY_BATCH_NAV_SETTLE_MS)
+        }
+    }
+
+    private fun cancelHistoryBatch() {
+        if (!historyBatchInProgress) {
+            Log.i(TAG, "HISTORY_ALL: cancel requested but batch is not running.")
+            return
+        }
+        Log.i(TAG, "HISTORY_ALL: cancel requested.")
+        historyBatchCancelled = true
     }
 
     /**
@@ -2878,7 +3078,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s47b"
+        private const val BUILD_TAG = "build=s48"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -3059,6 +3259,21 @@ class InstagramReaderService : AccessibilityService() {
         /** Hard cap on scrolls per run so we never loop forever. */
         private const val HISTORY_MAX_SCROLLS = 100
 
+        /**
+         * Small settle delay between finishing navigation to a thread
+         * and starting the per-thread history-scroll pass in the s48
+         * batch. Gives IG time to render the message_list of the newly
+         * opened conversation before we begin enumerating.
+         */
+        private const val HISTORY_BATCH_NAV_SETTLE_MS = 1200L
+        /**
+         * Spacing between per-thread passes in the s48 batch. Same
+         * intent as [BATCH_ENRICH_STEP_SPACING_MS] — gives a11y events
+         * time to fire so the transition from one thread to the next
+         * doesn't race the previous pass's teardown.
+         */
+        private const val HISTORY_BATCH_STEP_SPACING_MS = 600L
+
         /** Placeholder text used by the PoC-6 mock reply broadcast. */
         const val MOCK_REPLY_TEXT = "👀"
 
@@ -3106,6 +3321,34 @@ class InstagramReaderService : AccessibilityService() {
          * [discoverReelsHistory].
          */
         const val ACTION_DISCOVER_REELS_HISTORY = "com.example.friendsreels.ACTION_DISCOVER_REELS_HISTORY"
+
+        /**
+         * s48 — Iterate over every conversation the user has selected
+         * in Definições ("Filtrar conversas" section, tracked_threads
+         * table) and run [discoverReelsHistory] on each one. Uses the
+         * PoC-9 [navigateToThreadAsync] to hop between threads. Posts
+         * a SINGLE completion notification at the end with the total
+         * number of inserted Reels across all threads (individual
+         * per-thread completion notifs are suppressed to avoid spam).
+         *
+         * Cancel via [ACTION_DISCOVER_HISTORY_ALL_CANCEL].
+         *
+         * Use case: the user has just tocado in Definições the 10-20
+         * friends whose Reels matter, and wants to seed the feed
+         * without opening each conversation and tapping 📥 manually.
+         */
+        const val ACTION_DISCOVER_HISTORY_ALL_TRACKED =
+            "com.example.friendsreels.ACTION_DISCOVER_HISTORY_ALL_TRACKED"
+
+        /**
+         * Cancel a running [ACTION_DISCOVER_HISTORY_ALL_TRACKED] batch
+         * after the current thread finishes. Same semantics as
+         * [ACTION_ENRICH_ALL_CANCEL]: the ongoing per-thread pass
+         * completes naturally so IG isn't left mid-scroll, but no
+         * further threads are dispatched.
+         */
+        const val ACTION_DISCOVER_HISTORY_ALL_CANCEL =
+            "com.example.friendsreels.ACTION_DISCOVER_HISTORY_ALL_CANCEL"
 
         /**
          * Broadcast sent by [com.example.friendsreels.ClipboardCaptureActivity]
