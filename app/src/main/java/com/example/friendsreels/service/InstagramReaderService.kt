@@ -170,6 +170,7 @@ class InstagramReaderService : AccessibilityService() {
                     }
                     ACTION_ENRICH_ALL_MISSING_URLS -> enrichAllMissingUrls()
                     ACTION_ENRICH_ALL_CANCEL -> cancelBatchEnrichment()
+                    ACTION_DUMP_TREE -> dumpAllWindows("manual")
                 }
             }
         }
@@ -186,6 +187,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_ENRICH_REEL_URL)
             addAction(ACTION_ENRICH_ALL_MISSING_URLS)
             addAction(ACTION_ENRICH_ALL_CANCEL)
+            addAction(ACTION_DUMP_TREE)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -202,7 +204,7 @@ class InstagramReaderService : AccessibilityService() {
                 "history=$ACTION_DISCOVER_REELS_HISTORY, applyPending=$ACTION_APPLY_PENDING, " +
                 "applyCancel=$ACTION_APPLY_PENDING_CANCEL, " +
                 "enrichUrl=$ACTION_ENRICH_REEL_URL, enrichAll=$ACTION_ENRICH_ALL_MISSING_URLS, " +
-                "enrichCancel=$ACTION_ENRICH_ALL_CANCEL)"
+                "enrichCancel=$ACTION_ENRICH_ALL_CANCEL, dumpTree=$ACTION_DUMP_TREE)"
         )
     }
 
@@ -1662,9 +1664,19 @@ class InstagramReaderService : AccessibilityService() {
         target: ReelEntity,
         scrollsLeft: Int,
         forwardScrollsLeft: Int = BATCH_MAX_FORWARD_SCROLLS,
-        stallHistory: ArrayDeque<Set<String>> = ArrayDeque(),
+        epoch: Long = enrichmentStepEpoch,
         onDone: (DmReelEntry?) -> Unit,
     ) {
+        // s44: stale-callback guard. If the batch executor has already
+        // moved past this step (epoch mismatch), don't touch UI, don't
+        // recurse, don't call onDone — the caller has been abandoned.
+        if (epoch != enrichmentStepEpoch) {
+            Log.i(
+                TAG,
+                "LOCATE: aborting stale callback (epoch=$epoch, current=$enrichmentStepEpoch)"
+            )
+            return
+        }
         val igWindow = findIgApplicationWindow()
         val root = igWindow?.root ?: rootInActiveWindow
         if (root == null || root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
@@ -1701,47 +1713,30 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
 
-        // s43: stall detection. If the enumerated set of visible authors
-        // hasn't changed across the last LOCATE_STOP_AFTER_N_STALLS scrolls
-        // we've likely hit a hard boundary (top of conversation or the
-        // RecyclerView is refusing to move). Bail out early instead of
-        // burning the full backward budget.
-        val visibleAuthors = candidates.map { it.reelAuthor ?: "?" }.toSet()
-        stallHistory.addLast(visibleAuthors)
-        while (stallHistory.size > LOCATE_STOP_AFTER_N_STALLS) stallHistory.removeFirst()
-        val stalled = stallHistory.size >= LOCATE_STOP_AFTER_N_STALLS &&
-            stallHistory.all { it == visibleAuthors }
-        if (stalled) {
-            Log.w(
-                TAG,
-                "LOCATE: stall detected — visible authors unchanged for $LOCATE_STOP_AFTER_N_STALLS " +
-                    "scrolls (author=$wantedAuthor visibleAuthors=$visibleAuthors). " +
-                    "Skipping remaining backward budget and switching to forward-scroll fallback."
-            )
-            if (forwardScrollsLeft > 0) {
-                locateReelWithForwardScroll(target, forwardScrollsLeft, onDone = onDone)
-            } else {
-                onDone(null)
-            }
-            return
-        }
+        // s44: stall detection removed. The previous "if the enumerated
+        // received-Reel authors are identical across 5 consecutive
+        // scrolls we assume top-of-conversation" heuristic was buggy —
+        // a stretch of 5 text messages (or sent Reels filtered out by
+        // ignore_sent) triggers it even mid-conversation. Proper top-
+        // of-conversation detection needs an IG-specific selector
+        // (large profile pic + "@handle" + "Ver perfil" header) which
+        // we can't identify without a real device dump. Until then,
+        // just let the budget run to completion.
 
         if (scrollsLeft <= 0) {
             // Backward budget exhausted. If we haven't tried scrolling
             // forward yet, do so — the Reel might live BELOW the
-            // current view (e.g. IG opened the conversation at a mid-
-            // point rather than the newest message, or the target Reel
-            // is actually the most recent shared and we scrolled up
-            // past it).
+            // current view.
             if (forwardScrollsLeft > 0) {
                 Log.i(
                     TAG,
                     "LOCATE: backward exhausted after $BATCH_MAX_SCROLLS scrolls, switching to forward " +
-                        "scroll fallback (forwardScrollsLeft=$forwardScrollsLeft author=$wantedAuthor)"
+                        "scroll fallback (author=$wantedAuthor forwardScrollsLeft=$forwardScrollsLeft)"
                 )
-                locateReelWithForwardScroll(target, forwardScrollsLeft, onDone = onDone)
+                locateReelWithForwardScroll(target, forwardScrollsLeft, epoch = epoch, onDone = onDone)
                 return
             }
+            val visibleAuthors = candidates.map { it.reelAuthor ?: "?" }
             Log.w(
                 TAG,
                 "LOCATE: could not find reelId=${target.id} author=$wantedAuthor after " +
@@ -1765,7 +1760,7 @@ class InstagramReaderService : AccessibilityService() {
                 )
             }
             mainHandler.postDelayed({
-                locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, stallHistory, onDone)
+                locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, epoch, onDone)
             }, LOCATE_SCROLL_SETTLE_MS)
             return
         }
@@ -1792,19 +1787,21 @@ class InstagramReaderService : AccessibilityService() {
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
         val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
             override fun onCompleted(g: GestureDescription?) {
+                if (epoch != enrichmentStepEpoch) return
                 Log.i(
                     TAG,
                     "LOCATE: swipe fallback completed scrollsLeft=$scrollsLeft author=$wantedAuthor"
                 )
                 mainHandler.postDelayed({
-                    locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, stallHistory, onDone)
+                    locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, epoch, onDone)
                 }, LOCATE_SCROLL_SETTLE_MS)
             }
             override fun onCancelled(g: GestureDescription?) {
+                if (epoch != enrichmentStepEpoch) return
                 Log.w(TAG, "LOCATE: swipe fallback cancelled by system.")
                 if (forwardScrollsLeft > 0) {
-                    Log.i(TAG, "LOCATE: switching to forward-scroll fallback.")
-                    locateReelWithForwardScroll(target, forwardScrollsLeft, onDone = onDone)
+                    Log.i(TAG, "LOCATE: switching to forward-scroll fallback (author=$wantedAuthor).")
+                    locateReelWithForwardScroll(target, forwardScrollsLeft, epoch = epoch, onDone = onDone)
                 } else {
                     onDone(null)
                 }
@@ -1813,8 +1810,8 @@ class InstagramReaderService : AccessibilityService() {
         if (!dispatched) {
             Log.w(TAG, "LOCATE: swipe fallback rejected by dispatchGesture.")
             if (forwardScrollsLeft > 0) {
-                Log.i(TAG, "LOCATE: switching to forward-scroll fallback.")
-                locateReelWithForwardScroll(target, forwardScrollsLeft, onDone = onDone)
+                Log.i(TAG, "LOCATE: switching to forward-scroll fallback (author=$wantedAuthor).")
+                locateReelWithForwardScroll(target, forwardScrollsLeft, epoch = epoch, onDone = onDone)
             } else {
                 onDone(null)
             }
@@ -1827,18 +1824,22 @@ class InstagramReaderService : AccessibilityService() {
      * the RecyclerView refused a backward scroll. Uses
      * `ACTION_SCROLL_FORWARD` (a11y-clean) with a swipe-UP gesture
      * fallback. Same matching logic — top-most bubble with the wanted
-     * `reelAuthor` wins. Also uses stall detection (s43).
-     *
-     * Session 42 change: added because s41 log surfaced a Reel that
-     * was likely below the current view; the batch spent 20 backward
-     * scrolls + timeout without ever checking downwards.
+     * `reelAuthor` wins. Uses the same [enrichmentStepEpoch] guard as
+     * the backward path (s44) to abort stale callbacks silently.
      */
     private fun locateReelWithForwardScroll(
         target: ReelEntity,
         forwardScrollsLeft: Int,
-        stallHistory: ArrayDeque<Set<String>> = ArrayDeque(),
+        epoch: Long = enrichmentStepEpoch,
         onDone: (DmReelEntry?) -> Unit,
     ) {
+        if (epoch != enrichmentStepEpoch) {
+            Log.i(
+                TAG,
+                "LOCATE_FWD: aborting stale callback (epoch=$epoch, current=$enrichmentStepEpoch)"
+            )
+            return
+        }
         val igWindow = findIgApplicationWindow()
         val root = igWindow?.root ?: rootInActiveWindow
         if (root == null || root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
@@ -1875,23 +1876,6 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
 
-        // Stall detection mirroring the backward path.
-        val visibleAuthors = candidates.map { it.reelAuthor ?: "?" }.toSet()
-        stallHistory.addLast(visibleAuthors)
-        while (stallHistory.size > LOCATE_STOP_AFTER_N_STALLS) stallHistory.removeFirst()
-        val stalled = stallHistory.size >= LOCATE_STOP_AFTER_N_STALLS &&
-            stallHistory.all { it == visibleAuthors }
-        if (stalled) {
-            Log.w(
-                TAG,
-                "LOCATE_FWD: stall detected — visible authors unchanged for " +
-                    "$LOCATE_STOP_AFTER_N_STALLS scrolls (author=$wantedAuthor " +
-                    "visibleAuthors=$visibleAuthors). Giving up."
-            )
-            onDone(null)
-            return
-        }
-
         if (forwardScrollsLeft <= 0) {
             Log.w(
                 TAG,
@@ -1915,13 +1899,12 @@ class InstagramReaderService : AccessibilityService() {
                 )
             }
             mainHandler.postDelayed({
-                locateReelWithForwardScroll(target, forwardScrollsLeft - 1, stallHistory, onDone)
+                locateReelWithForwardScroll(target, forwardScrollsLeft - 1, epoch, onDone)
             }, LOCATE_SCROLL_SETTLE_MS)
             return
         }
 
-        // Forward action refused. Fall back to swipe UP (opposite of
-        // the backward swipe DOWN).
+        // Forward action refused. Fall back to swipe UP.
         val bounds = Rect().also { messageList.getBoundsInScreen(it) }
         if (bounds.width() <= 0 || bounds.height() <= 0) {
             Log.w(TAG, "LOCATE_FWD: message_list has empty bounds; giving up.")
@@ -1939,15 +1922,17 @@ class InstagramReaderService : AccessibilityService() {
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
         val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
             override fun onCompleted(g: GestureDescription?) {
+                if (epoch != enrichmentStepEpoch) return
                 Log.i(
                     TAG,
                     "LOCATE_FWD: swipe UP fallback completed forwardScrollsLeft=$forwardScrollsLeft author=$wantedAuthor"
                 )
                 mainHandler.postDelayed({
-                    locateReelWithForwardScroll(target, forwardScrollsLeft - 1, stallHistory, onDone)
+                    locateReelWithForwardScroll(target, forwardScrollsLeft - 1, epoch, onDone)
                 }, LOCATE_SCROLL_SETTLE_MS)
             }
             override fun onCancelled(g: GestureDescription?) {
+                if (epoch != enrichmentStepEpoch) return
                 Log.w(TAG, "LOCATE_FWD: swipe UP fallback cancelled; giving up.")
                 onDone(null)
             }
@@ -2083,6 +2068,26 @@ class InstagramReaderService : AccessibilityService() {
      */
     @Volatile
     private var enrichmentStepFailedFast: Boolean = false
+
+    /**
+     * Monotonic counter incremented at the start of every
+     * [processBatchEnrichmentStep]. Passed as `epoch` parameter to
+     * [locateReelWithScroll] / [locateReelWithForwardScroll] recursive
+     * chain. Each recursion (and each `dispatchGesture` callback)
+     * checks its captured epoch against this field before scheduling
+     * further work — if they mismatch, the callback is stale (belongs
+     * to a step the batch executor has already moved past) and exits
+     * silently without calling `onDone` (the outer caller doesn't care
+     * anymore).
+     *
+     * Introduced in s44 to fix the "interleaved authors" bug reported
+     * by the user after s43: mainHandler.postDelayed callbacks from
+     * step N kept firing after the batch had advanced to step N+1,
+     * so `LOCATE_FWD: author=play.nighthub` was interleaving with
+     * `LOCATE: scroll ... author=the_clip_vault_7`.
+     */
+    @Volatile
+    private var enrichmentStepEpoch: Long = 0L
 
     /**
      * Kick off a batch that enriches every `reels` row where
@@ -2247,6 +2252,12 @@ class InstagramReaderService : AccessibilityService() {
             }
             mainHandler.post {
                 enrichmentStepFailedFast = false
+                // s44: increment epoch and kill any callbacks that
+                // survived from the previous step. Prevents scroll
+                // callbacks from step N from firing after we've
+                // advanced to step N+1 and interleaving authors in
+                // the log (bug seen in s43 device log).
+                enrichmentStepEpoch += 1
                 // s43: wrap each step in runInInstagram so IG comes back
                 // to the front if the user (or the system, e.g. a
                 // completion notification tap) navigated away. Without
@@ -2703,7 +2714,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s43"
+        private const val BUILD_TAG = "build=s44"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -2814,14 +2825,6 @@ class InstagramReaderService : AccessibilityService() {
          * on the common case per user feedback.
          */
         private const val BATCH_MAX_FORWARD_SCROLLS = 5
-        /**
-         * Stall detection (s43): if the enumerated received-Reel authors
-         * don't change across this many consecutive scrolls we assume
-         * we've reached a hard boundary (top of conversation or a
-         * layout stall) and give up early rather than burning through
-         * the whole budget. Same heuristic as [HISTORY_STOP_AFTER_N_EMPTY].
-         */
-        private const val LOCATE_STOP_AFTER_N_STALLS = 5
         /**
          * Log rate-limit (s43): with 100 backward scrolls per Reel a
          * verbose per-scroll log makes the a11y logcat unreadable.
@@ -2979,6 +2982,26 @@ class InstagramReaderService : AccessibilityService() {
          */
         const val ACTION_ENRICH_ALL_CANCEL =
             "com.example.friendsreels.ACTION_ENRICH_ALL_CANCEL"
+
+        /**
+         * Diagnostic broadcast — dumps every accessibility window's node
+         * tree to Logcat via [dumpAllWindows]. Useful when we need to
+         * identify a new IG selector (e.g. the "top of conversation"
+         * header with the large profile pic + `@handle` + "Ver perfil"
+         * button that we plan to use as a proper end-of-scroll signal).
+         *
+         * Fired from Settings → Ferramentas de diagnóstico → "🌳 Dump
+         * da árvore da página atual (Logcat)". Grep for `DUMP_ALL` in
+         * `logcat -s IGReaderService` to read the output.
+         *
+         * Note: [dumpActiveWindow] and [dumpAllWindows] have always
+         * lived in the codebase — they're called from internal failure
+         * paths (e.g. `share-not-found`, `reply-no-menu`). This s44
+         * broadcast just re-exposes them to the UI, per user request
+         * of "manter funcionalidades antigas escondidas em vez de
+         * removidas".
+         */
+        const val ACTION_DUMP_TREE = "com.example.friendsreels.ACTION_DUMP_TREE"
 
         /** SharedPreferences file shared between the UI and the service. */
         const val PREFS_NAME = "friends_reels_prefs"

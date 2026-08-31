@@ -7,32 +7,34 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC → MVP). **Sessões 37-40 validadas em device.** Sessão 41 valida em s42 (K1/K2 confirmados via log). Sessão 42 valida com L1 (fail-fast confirmado no log) + L3 (heads-up OK); L2 (forward-scroll) inadequado por budget baixo. Sessão 43 endereça o feedback do L2 com budgets 5x maiores + settle 2-3x mais rápido + stall detection + wrap de `runInInstagram` entre steps (o utilizador reportou que se saísse do IG, batch nunca voltava a trazê-lo à frente).
-**Última atualização:** 2026-08-31 (sessão 43 — mais rápido + mais scrolls + IG-focus recovery).
+**Fase atual:** Fase 1 (PoC → MVP). **Sessões 37-42 validadas em device.** Sessão 43 introduziu 5x mais scrolls + IG-focus recovery entre steps, mas o log da s43 revelou 2 bugs: (1) stall detection falsa positiva quando há mensagens de texto entre Reels, (2) callbacks de steps antigos a interleaving com o step actual (interleaving de autores no log). Sessão 44 remove a stall detection, adiciona epoch guard para callbacks stale, e traz de volta um botão de Dump em Diagnóstico para o utilizador poder capturar o topo da conversa (para futura detecção real de "fim de conversa" via selector IG).
+**Última atualização:** 2026-08-31 (sessão 44 — remove stall + epoch guard + dump button).
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s43`.
+**HEAD actual:** `build=s44`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s43 ...)`.
-2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F-M).
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s44 ...)`.
+2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F-N).
 3. **Ficheiros-chave:**
-    - `service/InstagramReaderService.kt` — motor a11y, batching, navegação, enrichment on-demand + em lote (fail-fast s42 + wrap runInInstagram entre steps s43), completion notifications heads-up (s42), return-to-app, auto-enrich após descoberta (s41), Cancelar em ambos os batches. Locate com backward (100) + forward (5) + stall detection (s43). History discover com budget 100/400ms (s43). Prefs: `PREF_IGNORE_SENT`, `PREF_INVERT_SWIPE` (escondida), `PREF_SELECTION_MODE`, `PREF_RETURN_TO_APP_ON_FINISH`, `PREF_AUTO_ENRICH_ON_DISCOVER`, `PREF_LAST_ENRICH_*` (privadas).
-    - `service/BatchEnrichmentBus.kt` — singleton `StateFlow<State>`; restore em `onServiceConnected`.
-    - `MainActivity.kt` — Home com botão "🔗 Preparar URLs em lote (N)" condicional.
-    - `ui/feed/FeedScreen.kt` — VerticalPager com WebView inline.
-    - `ui/feed/FeedViewModel.kt`, `ui/settings/*` — filtros + toggles + preparar URLs em lote.
-    - `data/*` — Room v4.
-    - Dumps: `docs/screen-dumps/feed.txt` (última corrida s42 — L1 ok, L2 inadequado, L3 ok).
+    - `service/InstagramReaderService.kt` — motor a11y. `dumpActiveWindow` e `dumpAllWindows` continuam definidas (usadas em `share-not-found`, `after-longpress`, etc.); s44 adicionou `ACTION_DUMP_TREE` broadcast + botão em Diagnóstico para trigger manual. Epoch guard em `locateReelWithScroll`/`locateReelWithForwardScroll` previne stale-callback interleaving. Stall detection foi removida (buggy).
+    - `service/BatchEnrichmentBus.kt`, `MainActivity.kt`, `ui/feed/*`, `ui/settings/*`, `data/*` — sem alterações estruturais.
+    - Dumps: `docs/screen-dumps/feed.txt` (última corrida s43 — L1 confirmado, forward-scroll funciona mas interleaving revelado).
 4. **Constraints:**
     - Testes só no OnePlus Nord 5 / Android 16.
     - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
     - Cada refactor visível deve bumpar `BUILD_TAG`.
-5. **UX actual em device:** igual à s42 mais o refinamento interno de scrolling.
+5. **UX actual em device:**
+    - **Home:** protagonismo ao `▶ Abrir o meu feed`. Descoberta (🔍, 📥, 🔗 Preparar URLs (N) condicional). Configuração.
+    - **Feed:** full-screen VerticalPager. Auto-play inline. Chip único de reacção. Menu ⋮.
+    - **Definições:** 3 toggles + Filtrar conversas + Preparar URLs em lote + Diagnóstico **agora com botão "🌳 Dump da árvore da página atual (Logcat)"** (s44).
+    - **Notificação persistente:** 3 botões (🔍 🔗 ▶) + progresso + Cancelar durante lotes.
+    - **Notificação de conclusão:** heads-up.
 6. **Limitações conhecidas:**
     - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem.
-    - Locate com 100 backward × 300ms + 5 forward = ~35s worst case por Reel (era ~27s na s42 com apenas 20 backward, mas agora com 5x o alcance). Stall detection (5 scrolls sem mudança) corta cedo casos onde já não há mais nada para carregar.
-    - Enrichment success ~5-8s; fail ~30s (100 scrolls + fail-fast).
+    - Locate com 100 backward × 300ms + 5 forward × 300ms = ~35s worst case por Reel. Sem stall detection, sempre corre budget completo se não encontrar.
+    - "Fim de conversa" ainda não é detectado — precisa de dump manual (via novo botão) para identificar o selector do header "@handle" + "Ver perfil" que aparece no topo de uma DM.
+    - Enrichment success ~5-8s; fail ~30s.
     - Batch enrichment partilha `pendingCopy` com o fluxo on-demand.
     - Consulta de respostas anteriores dentro da app (spec §5) — não temos sync.
     - Reacção "actual" só reflecte as que corremos via app.
@@ -213,37 +215,36 @@ Já entregue no primeiro commit:
 - ✅ PoC-8 iter 4 — batching localiza o Reel específico por `reelAuthor` + `ACTION_SCROLL_BACKWARD` até 20× + fallback swipe DOWN (validado em device s35).
 - ✅ s35 — feed alinhado com a visão (VerticalPager, reply real, estados por Reel, 3-pontinhos, Settings). Validada em device com nuances registadas.
 - ✅ s36 — auto-play inline (WebView por page) + fix E7 (isInboxVisible estrito) + chip único de reacção + limpeza do menu e Settings. Validada em device: F1-F5 todos passaram, F6 sanity ok.
-- ✅ **s37 — enriquecimento de URL on-demand + seleção de conversas (spec §8). Validada em device: G1/G2/G3 ok.**
-- ✅ **s38 — enrichment em batch. Validada em device: H1/H2/H3 ok.**
-- ✅ **s39 — feedback de conclusão + return-to-app. Validada em device (I ok).**
-- ✅ **s40 — atalhos (Home button, Cancel na notif, LastResult persistido). Validada em device (J ok).**
-- ✅ **s41 — Cancelar apply pending + auto-enrich após descoberta. K1/K2 confirmados em log da s42.**
-- ✅ **s42 — fail-fast + forward-scroll + heads-up. L1 confirmado (fast-failure short-circuits polling), L3 confirmado (heads-up peekava). L2 forward-scroll: budget baixo demais para o uso real.**
-- 🟡 **s43 — 5x mais scrolls (100 backward), 2-3x mais rápido (300ms settle), stall detection early-exit, log rate-limit, wrap `runInInstagram` entre steps (recovery quando IG perde foco). Pronta em código; aguarda validação em device (M1/M2/M3/M4).**
+- ✅ **s37 — enriquecimento de URL on-demand + seleção de conversas.** Validada em device.
+- ✅ **s38 — enrichment em batch.** Validada em device.
+- ✅ **s39 — feedback de conclusão + return-to-app.** Validada em device.
+- ✅ **s40 — atalhos (Home button, Cancel na notif, LastResult persistido).** Validada em device.
+- ✅ **s41 — Cancelar apply pending + auto-enrich após descoberta.** Validada em device.
+- ✅ **s42 — fail-fast + forward-scroll + heads-up.** L1+L3 confirmados.
+- ✅ **s43 — 5x mais scrolls + faster + IG-focus recovery.** M1 (recovery) esperado ok, M2-M3 revelaram interleaving + stall detection buggy.
+- 🟡 **s44 — remove stall detection + epoch guard + botão dump em Diagnóstico.** Pronta em código; aguarda validação em device (N1/N2/N3).
 
 ### 6.1 Próxima sessão — arranque
 
-**Estado no fim da s43:** três correcções que endereçam directamente o feedback da s42 em device:
-1. **"Não estou a gostar do número de scrolls"** — bumpados 5x (20 → 100 backward, 30 → 100 history).
-2. **"Tem que ser mais rápido"** — settle reduzido de 800ms para 300ms (backward) / 400ms (history).
-3. **"Se saísse do IG, o batch não voltava a abri-lo"** — wrap `runInInstagram` entre steps (fast-path se já está em primeiro plano; caso contrário, IG vem à frente).
+**Estado no fim da s44:** duas correcções em cima do feedback da s43 e uma feature de diagnóstico:
+1. **Stall detection removida** — a heurística "5 scrolls com mesmos autores visíveis == topo" era falsa positiva quando havia mensagens de texto ou Reels enviados por mim entre 2 Reels.
+2. **Epoch guard** — cada step incrementa `enrichmentStepEpoch`; callbacks agendados por steps anteriores comparam o epoch capturado com o actual e abortam se descoincidir. Fim do interleaving de autores no log.
+3. **Botão Dump** — utilizador pode agora tocar "🌳 Dump da árvore da página atual (Logcat)" em Definições → Diagnóstico para dumpar o tree completo. Objectivo: numa próxima sessão, usar o dump do topo duma conversa para identificar o selector do header "@handle" + "Ver perfil" e implementar detecção real de fim-de-conversa.
 
-Também: forward-scroll reduzido de 10 para 5 (o comum é Reel estar em cima). Stall detection (5 scrolls consecutivos com autores visíveis iguais → break early). Log rate-limit (log só cada 10º scroll).
+**Bateria proposta (N):**
 
-**Bateria proposta (M):**
+- **N1 — Sem interleaving.** Correr batch com Reels que vão falhar (situação da s43). Confirmar no log: os "LOCATE" para author=X e author=Y não se misturam. Cada Reel completa a sua fase de scrolls (ou aborta com "aborting stale callback") antes do próximo step arrancar.
+- **N2 — Fim do budget completo.** Sem stall detection, cada falha percorre os 100 scrolls (~30s por Reel). Confirmar que não há mais paragens precoces por "stall detected". Se o utilizador tiver 12 falhas, batch demora ~6 min agora (era menos com o stall, mas o stall estava a saltar Reels que podiam estar mais atrás no scroll).
+- **N3 — Dump do topo da conversa.** Abrir conversa no IG. Rolar até ao MESMO TOPO (onde aparece foto grande + @handle + "Ver perfil"). Sem sair do IG, tocar "🌳 Dump da árvore da página atual" nas Definições (ou via broadcast `adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_TREE`). Voltar ao IG. O logcat filtrado por `IGReaderService` deve mostrar `===== DUMP_ALL START reason=manual` seguido da árvore. Copiar essa secção para `docs/screen-dumps/feed.txt` para identificarmos os `id`/`text` do header numa próxima sessão.
 
-- **M1 — Recovery quando IG perde foco.** Arrancar batch enrichment. A meio, tocar Home do Android para ir para o launcher. Esperado: o próximo step traz IG à frente automaticamente (via `runInInstagram`), locate continua normalmente. Antes da s43, todos os steps subsequentes falhariam com `NAV: direct_tab not found`.
-- **M2 — Scroll longo.** Escolher um Reel que está DE FACTO longe (50+ scrolls acima). Esperado: log mostra `LOCATE: scroll 1/100`, `LOCATE: scroll 10/100`, `LOCATE: scroll 20/100`… até ~100 (ou match). Cada scroll ~300ms → 100 scrolls = ~30s por Reel no pior caso.
-- **M3 — Stall detection.** Correr batch onde a conversa está inteiramente "seca" (não há mais nada para carregar). Esperado: `LOCATE: stall detected — visible authors unchanged for 5 scrolls` no meio do budget, break early.
-- **M4 — Log rate-limit.** Confirmar que 100 scrolls só geram 10-11 linhas de log (não 100).
+**Priorização depois de N validado:**
 
-**Priorização depois de M validado:**
-
-1. **Sync de reacção actual (spec §7).**
-2. **Match estrito por URL no `locateReelWithScroll`.**
-3. **Cosmético:** thumbnails / preview no feed; ordem dos chips por `createdAt`; indicador visual de direcção de swipe.
-4. **Tuning de latência.**
-5. **Deep-link `instagram://direct/t/<thread_id>`.**
+1. **Detecção real de "topo de conversa"** usando o selector identificado no N3. Termina o batch antes de esgotar o budget quando genuinamente chega ao topo.
+2. **Sync de reacção actual (spec §7).**
+3. **Match estrito por URL no `locateReelWithScroll`.**
+4. **Cosmético:** thumbnails / preview no feed; ordem dos chips por `createdAt`; indicador visual de direcção de swipe.
+5. **Tuning de latência.**
+6. **Deep-link `instagram://direct/t/<thread_id>`.**
 
 ### 6.2 Alternativas arquitecturais
 
@@ -666,6 +667,43 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 26 erros totais, todos classpath (K2 falha nos filter/mapping chains e nos `Direction`/`reelAuthor` unresolved). Zero erros novos de sintaxe no código s43.
 - **Validação em device (esperada na próxima sessão):** bateria M1-M4 descrita em §6.1.
 - **Nada mudou** nos primitivos react/reply/copy URL, na navegação PoC-9 (helpers), nos completion notifs, no return-to-app, no auto-enrich, na chain PoC-7, nas prefs, no schema Room, na UI. A s43 é 100% ajustes internos de scroll/timing + defensive `runInInstagram`.
+
+---
+
+### 2026-08-31 — Sessão 44 (Ricardo + Copilot CLI) — remove stall + epoch guard + botão dump
+
+- **Feedback do utilizador após M/s43 em device** (log `docs/screen-dumps/feed.txt` 12:43→12:46):
+  1. Confirmou que **não viu forward-scroll** (na verdade acontece nos logs — LOCATE_FWD scroll 1/5 — mas em 1.5s, imperceptível).
+  2. **Crítica correcta:** "5 scrolls vazios dizer que acabou" é falso positivo. Podem ser 5 mensagens de texto ou 5 Reels enviados por mim (filtrados por PREF_IGNORE_SENT), não fim da conversa.
+  3. **Sinal real de fim de conversa** (segundo o utilizador): no topo da DM aparece a foto grande da pessoa + nome + `@handle` + botão "Ver perfil". Não tem forma de mostrar sem um dump.
+  4. **Confirmação implícita:** "espero que as funcionalidades antigas... não tenham sido removidas do código mas sim apenas se tenha escondido o botão na interface". Já era o caso: `dumpActiveWindow` e `dumpAllWindows` continuam definidos e são chamados de dentro do código (share-not-found, reply-no-menu, etc.). Só o botão de UI da fase PoC-2 é que tinha sido removido.
+  5. **Bug adicional descoberto no log**: interleaving de autores. Ex.: `LOCATE_FWD: scroll 1/5 author=play.nighthub` a acontecer **~2.5s depois** de `LOCATE: scroll 1/100 author=the_clip_vault_7` ter começado. Root cause: `mainHandler.postDelayed` calls agendadas pelo step antigo continuam a disparar mesmo depois de o batch ter avançado para o novo step. Isto acontece porque:
+     - Step N corre scrolls. Cada scroll agenda o próximo via `postDelayed`.
+     - Step N chama `onDone(null)` (por stall ou budget esgotado) e o batch executor passa a step N+1.
+     - Uma gesture callback (dispatchGesture onCompleted) de step N ainda está em curso; ao completar, chama `postDelayed({ locateReelWithScroll(target_N, ...) })`. Este callback fires DEPOIS de step N+1 já ter começado.
+     - Resultado: dois locates a correr em paralelo → interleaving de autores no log + gestos misturados.
+
+- **Correcções:**
+  1. **Remove stall detection** — apagada a heurística `visibleAuthors unchanged for 5 scrolls → give up`. A constante `LOCATE_STOP_AFTER_N_STALLS` foi removida. A ArrayDeque `stallHistory` e os checks associados nas funções foram removidos. **Trade-off:** sem stall, cada falha percorre os 100 scrolls (~30s), mas nunca aborta prematuramente. Utilizador prefere isto — melhor demorar 30s a garantir do que saltar Reels que estavam mais atrás.
+  2. **Epoch guard** para stale callbacks:
+     - Novo `@Volatile private var enrichmentStepEpoch: Long = 0L`. Incrementado no arranque de cada `processBatchEnrichmentStep`.
+     - Assinaturas de `locateReelWithScroll` e `locateReelWithForwardScroll` ganham `epoch: Long = enrichmentStepEpoch`. Cada recursion captura o epoch corrente e passa-o na chamada seguinte.
+     - No topo de cada recursion: `if (epoch != enrichmentStepEpoch) { Log.i("aborting stale callback"); return }`. Não chama `onDone` (o caller já avançou; ninguém está à espera).
+     - Também nos `dispatchGesture` callbacks (`onCompleted`/`onCancelled`): guard idêntico antes de `postDelayed`.
+  3. **Botão Dump em Diagnóstico:**
+     - Novo `ACTION_DUMP_TREE` broadcast que triga `dumpAllWindows("manual")`.
+     - Novo botão "🌳 Dump da árvore da página atual (Logcat)" na secção Diagnóstico da SettingsActivity.
+     - Utilizador pode agora tocá-lo no topo duma conversa; grep `IGReaderService` no logcat mostra `===== DUMP_ALL START reason=manual` seguido da árvore. Objectivo prático: identificar o selector do header topo-da-conversa (foto grande + `@handle` + "Ver perfil") numa próxima sessão.
+- **Confirmação sobre "manter funcionalidades antigas":** `dumpActiveWindow`, `dumpAllWindows`, e todas as PoC-2/3 helpers já estavam no código. Só a UI que foi removida na sessão-24 (clean-up dos botões exploratórios). Este princípio será mantido — remover UI ≠ remover código.
+- **`BUILD_TAG` bumped para `build=s44`.**
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — remove stall detection + constante, adiciona `enrichmentStepEpoch` + guards em ambas locate functions + gesture callbacks, `ACTION_DUMP_TREE`, log line ganha `dumpTree=...`, `BUILD_TAG=s44`.
+  - `ui/settings/SettingsActivity.kt` — botão Dump Tree em Diagnóstico.
+  - `res/values/strings.xml` — `btn_dump_tree`.
+  - `PROJECT_PROGRESS.md` — Estado, quick start, §6/6.1 (bateria N), este log.
+- **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 22 erros totais, todos classpath (mesmo baseline s43 minus stall detection erros que não existiam). Zero erros novos de sintaxe.
+- **Validação em device (esperada na próxima sessão):** bateria N1/N2/N3 descrita em §6.1.
+- **Nada mudou** nos primitivos react/reply, na navegação PoC-9, no filtro de selecção, no batching de apply pending, no fluxo de completion notifs, no return-to-app, no auto-enrich, na chain PoC-7, nas prefs (excepto o novo action DUMP_TREE), no schema Room. A s44 é uma correcção cirúrgica + feature de diagnóstico.
 
 ---
 

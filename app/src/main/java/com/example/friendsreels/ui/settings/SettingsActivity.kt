@@ -251,6 +251,10 @@ private fun SettingsScreen(
                 labelRes = R.string.btn_reply_reel,
                 onClick = { sendServiceBroadcast(context, InstagramReaderService.ACTION_REPLY_FIRST_REEL_MOCK) },
             )
+            DiagnosticActionButton(
+                labelRes = R.string.btn_dump_tree,
+                onClick = { sendServiceBroadcast(context, InstagramReaderService.ACTION_DUMP_TREE) },
+            )
 
             Spacer(Modifier.height(16.dp))
             Button(onClick = onFinish, modifier = Modifier.fillMaxWidth()) {
