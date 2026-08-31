@@ -1661,6 +1661,7 @@ class InstagramReaderService : AccessibilityService() {
     private fun locateReelWithScroll(
         target: ReelEntity,
         scrollsLeft: Int,
+        forwardScrollsLeft: Int = BATCH_MAX_FORWARD_SCROLLS,
         onDone: (DmReelEntry?) -> Unit,
     ) {
         val igWindow = findIgApplicationWindow()
@@ -1700,11 +1701,27 @@ class InstagramReaderService : AccessibilityService() {
         }
 
         if (scrollsLeft <= 0) {
+            // Backward budget exhausted. If we haven't tried scrolling
+            // forward yet, do so — the Reel might live BELOW the
+            // current view (e.g. IG opened the conversation at a mid-
+            // point rather than the newest message, or the target Reel
+            // is actually the most recent shared and we scrolled up
+            // past it).
+            if (forwardScrollsLeft > 0) {
+                Log.i(
+                    TAG,
+                    "LOCATE: backward exhausted, switching to forward scroll fallback " +
+                        "(forwardScrollsLeft=$forwardScrollsLeft author=$wantedAuthor)"
+                )
+                locateReelWithForwardScroll(target, forwardScrollsLeft, onDone)
+                return
+            }
             val visibleAuthors = candidates.map { it.reelAuthor ?: "?" }
             Log.w(
                 TAG,
                 "LOCATE: could not find reelId=${target.id} author=$wantedAuthor after " +
-                    "$BATCH_MAX_SCROLLS scrolls. visibleReceived=${candidates.size} authors=$visibleAuthors"
+                    "$BATCH_MAX_SCROLLS backward + $BATCH_MAX_FORWARD_SCROLLS forward scrolls. " +
+                    "visibleReceived=${candidates.size} authors=$visibleAuthors"
             )
             onDone(null)
             return
@@ -1718,14 +1735,16 @@ class InstagramReaderService : AccessibilityService() {
                     "scrollsLeft=$scrollsLeft author=$wantedAuthor"
             )
             mainHandler.postDelayed({
-                locateReelWithScroll(target, scrollsLeft - 1, onDone)
+                locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, onDone)
             }, LOCATE_SCROLL_SETTLE_MS)
             return
         }
 
-        // Fallback: dispatch a swipe DOWN inside the message_list to
-        // reveal older messages. Same technique used by discoverReelsHistory
-        // when the a11y scroll action is refused.
+        // Backward scroll refused by RecyclerView (top of list). Try
+        // the swipe-DOWN gesture fallback first (covers cases where
+        // the a11y action is rejected but the list still has older
+        // content). If that also fails, jump straight to the forward-
+        // scroll fallback — no point in retrying the same direction.
         val bounds = Rect().also { messageList.getBoundsInScreen(it) }
         if (bounds.width() <= 0 || bounds.height() <= 0) {
             Log.w(TAG, "LOCATE: message_list has empty bounds; giving up.")
@@ -1748,16 +1767,140 @@ class InstagramReaderService : AccessibilityService() {
                     "LOCATE: swipe fallback completed scrollsLeft=$scrollsLeft author=$wantedAuthor"
                 )
                 mainHandler.postDelayed({
-                    locateReelWithScroll(target, scrollsLeft - 1, onDone)
+                    locateReelWithScroll(target, scrollsLeft - 1, forwardScrollsLeft, onDone)
                 }, LOCATE_SCROLL_SETTLE_MS)
             }
             override fun onCancelled(g: GestureDescription?) {
-                Log.w(TAG, "LOCATE: swipe fallback cancelled by system; giving up.")
+                Log.w(TAG, "LOCATE: swipe fallback cancelled by system.")
+                if (forwardScrollsLeft > 0) {
+                    Log.i(TAG, "LOCATE: switching to forward-scroll fallback.")
+                    locateReelWithForwardScroll(target, forwardScrollsLeft, onDone)
+                } else {
+                    onDone(null)
+                }
+            }
+        }, mainHandler)
+        if (!dispatched) {
+            Log.w(TAG, "LOCATE: swipe fallback rejected by dispatchGesture.")
+            if (forwardScrollsLeft > 0) {
+                Log.i(TAG, "LOCATE: switching to forward-scroll fallback.")
+                locateReelWithForwardScroll(target, forwardScrollsLeft, onDone)
+            } else {
+                onDone(null)
+            }
+        }
+    }
+
+    /**
+     * Fallback of [locateReelWithScroll] that scrolls FORWARD (towards
+     * newer messages). Called after the backward budget is exhausted or
+     * the RecyclerView refused a backward scroll. Uses
+     * `ACTION_SCROLL_FORWARD` (a11y-clean) with a swipe-UP gesture
+     * fallback. Same matching logic — top-most bubble with the wanted
+     * `reelAuthor` wins.
+     *
+     * Session 42 change: added because s41 log surfaced a Reel that
+     * was likely below the current view; the batch spent 20 backward
+     * scrolls + timeout without ever checking downwards.
+     */
+    private fun locateReelWithForwardScroll(
+        target: ReelEntity,
+        forwardScrollsLeft: Int,
+        onDone: (DmReelEntry?) -> Unit,
+    ) {
+        val igWindow = findIgApplicationWindow()
+        val root = igWindow?.root ?: rootInActiveWindow
+        if (root == null || root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
+            Log.w(TAG, "LOCATE_FWD: no IG root available (pkg=${root?.packageName}), giving up.")
+            onDone(null)
+            return
+        }
+        val messageList = root
+            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
+            .firstOrNull()
+        if (messageList == null) {
+            Log.w(TAG, "LOCATE_FWD: no message_list; giving up.")
+            onDone(null)
+            return
+        }
+
+        val candidates = enumerateReels(messageList)
+            .filter { it.bounds.width() > 0 && it.bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX }
+            .filter { it.direction == Direction.RECEIVED }
+        val wantedAuthor = target.reelAuthor
+        val match = if (wantedAuthor != null) {
+            candidates.firstOrNull { it.reelAuthor == wantedAuthor }
+        } else {
+            candidates.firstOrNull()
+        }
+        if (match != null) {
+            Log.i(
+                TAG,
+                "LOCATE_FWD: matched reelId=${target.id} author=$wantedAuthor at " +
+                    "index=${match.index} bounds=${match.bounds.toShortString()} " +
+                    "(forwardScrollsLeft=$forwardScrollsLeft, visibleReceived=${candidates.size})"
+            )
+            onDone(match)
+            return
+        }
+
+        if (forwardScrollsLeft <= 0) {
+            Log.w(
+                TAG,
+                "LOCATE_FWD: could not find reelId=${target.id} author=$wantedAuthor after " +
+                    "$BATCH_MAX_FORWARD_SCROLLS forward scrolls."
+            )
+            onDone(null)
+            return
+        }
+
+        val scrolled = messageList.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+        if (scrolled) {
+            Log.i(
+                TAG,
+                "LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted " +
+                    "forwardScrollsLeft=$forwardScrollsLeft author=$wantedAuthor"
+            )
+            mainHandler.postDelayed({
+                locateReelWithForwardScroll(target, forwardScrollsLeft - 1, onDone)
+            }, LOCATE_SCROLL_SETTLE_MS)
+            return
+        }
+
+        // Forward action refused. Fall back to swipe UP (opposite of
+        // the backward swipe DOWN).
+        val bounds = Rect().also { messageList.getBoundsInScreen(it) }
+        if (bounds.width() <= 0 || bounds.height() <= 0) {
+            Log.w(TAG, "LOCATE_FWD: message_list has empty bounds; giving up.")
+            onDone(null)
+            return
+        }
+        val startX = bounds.exactCenterX()
+        val startY = bounds.top + bounds.height() * 0.85f
+        val endY = bounds.top + bounds.height() * 0.25f
+        val path = Path().apply {
+            moveTo(startX, startY)
+            lineTo(startX, endY)
+        }
+        val stroke = GestureDescription.StrokeDescription(path, 0L, LOCATE_SWIPE_DURATION_MS)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+        val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(g: GestureDescription?) {
+                Log.i(
+                    TAG,
+                    "LOCATE_FWD: swipe UP fallback completed forwardScrollsLeft=$forwardScrollsLeft author=$wantedAuthor"
+                )
+                mainHandler.postDelayed({
+                    locateReelWithForwardScroll(target, forwardScrollsLeft - 1, onDone)
+                }, LOCATE_SCROLL_SETTLE_MS)
+            }
+            override fun onCancelled(g: GestureDescription?) {
+                Log.w(TAG, "LOCATE_FWD: swipe UP fallback cancelled; giving up.")
                 onDone(null)
             }
         }, mainHandler)
         if (!dispatched) {
-            Log.w(TAG, "LOCATE: swipe fallback rejected by dispatchGesture; giving up.")
+            Log.w(TAG, "LOCATE_FWD: swipe UP fallback rejected; giving up.")
             onDone(null)
         }
     }
@@ -1813,6 +1956,10 @@ class InstagramReaderService : AccessibilityService() {
             navigateToThreadAsync(reel.threadTitle, attemptsLeft = NAV_MAX_ATTEMPTS) { navOk ->
                 if (!navOk) {
                     Log.w(TAG, "ENRICH_URL: nav to '${reel.threadTitle}' failed, giving up reelId=${reel.id}")
+                    // Signal fast-failure so the batch executor (if any)
+                    // can break out of its polling loop immediately
+                    // instead of waiting the full 45s timeout.
+                    enrichmentStepFailedFast = true
                     return@navigateToThreadAsync
                 }
                 mainHandler.postDelayed({ locateAndOpenReelViewer(reel) }, NAV_POST_ARRIVAL_SETTLE_MS)
@@ -1824,6 +1971,7 @@ class InstagramReaderService : AccessibilityService() {
         locateReelWithScroll(reel, scrollsLeft = BATCH_MAX_SCROLLS) { entry ->
             if (entry == null) {
                 Log.w(TAG, "ENRICH_URL: could not locate Reel author=${reel.reelAuthor} in '${reel.threadTitle}', giving up reelId=${reel.id}")
+                enrichmentStepFailedFast = true
                 return@locateReelWithScroll
             }
             // Guard against off-screen taps.
@@ -1832,6 +1980,7 @@ class InstagramReaderService : AccessibilityService() {
             }
             if (windowBounds != null && !windowBounds.contains(entry.bounds.centerX(), entry.bounds.centerY())) {
                 Log.w(TAG, "ENRICH_URL: bubble center outside IG window bounds — refusing to tap off-screen.")
+                enrichmentStepFailedFast = true
                 return@locateReelWithScroll
             }
             // Set pendingCopy BEFORE tapping so the clipboard bridge can
@@ -1861,11 +2010,26 @@ class InstagramReaderService : AccessibilityService() {
     private var batchEnrichmentInProgress = false
 
     /**
-     * Set by `ACTION_ENRICH_ALL_CANCEL`. Checked between each Reel; the
+     * Set by [cancelBatchEnrichment]. Checked between each Reel; the
      * current step is allowed to finish (so IG doesn't get left mid-
      * share-sheet) but no further steps are dispatched.
      */
     private var batchEnrichmentCancelled = false
+
+    /**
+     * Set by fast-failure paths inside a single enrichment step (nav
+     * fails, locate can't find the bubble, tap target off-screen) so
+     * the batch executor's polling loop breaks out immediately instead
+     * of waiting the full [BATCH_ENRICH_STEP_TIMEOUT_MS] budget. Reset
+     * at the start of every step by [processBatchEnrichmentStep].
+     *
+     * Session 41 log showed batches wasting ~45s per failing Reel
+     * because the polling loop kept waiting for a URL that would never
+     * land — 7 failures = >5 minutes stuck. This flag makes each
+     * failure add spacing only (~1.5s), not the full timeout.
+     */
+    @Volatile
+    private var enrichmentStepFailedFast: Boolean = false
 
     /**
      * Kick off a batch that enriches every `reels` row where
@@ -2028,14 +2192,27 @@ class InstagramReaderService : AccessibilityService() {
                 }, BATCH_ENRICH_SPACING_MS)
                 return@launch
             }
-            mainHandler.post { startEnrichmentForReel(fresh) }
-            // Poll the DB until the URL lands, we time out, or the
-            // user cancels.
+            mainHandler.post {
+                enrichmentStepFailedFast = false
+                startEnrichmentForReel(fresh)
+            }
+            // Poll the DB until the URL lands, we time out, we detect a
+            // fast-failure signal from the enrichment pipeline
+            // (nav/locate/off-screen), or the user cancels.
             val deadlineMs = System.currentTimeMillis() + BATCH_ENRICH_STEP_TIMEOUT_MS
             var stepOk = false
+            var failedFast = false
             while (System.currentTimeMillis() < deadlineMs) {
                 kotlinx.coroutines.delay(BATCH_ENRICH_POLL_INTERVAL_MS)
                 if (batchEnrichmentCancelled) break
+                if (enrichmentStepFailedFast) {
+                    failedFast = true
+                    Log.i(
+                        TAG,
+                        "ENRICH_ALL: step ${index + 1} short-circuited by fast-failure signal — skipping wait."
+                    )
+                    break
+                }
                 val r = dao.byId(target.id) ?: break
                 if (!r.reelUrl.isNullOrBlank()) {
                     stepOk = true
@@ -2046,7 +2223,7 @@ class InstagramReaderService : AccessibilityService() {
             val nextFailed = failed + if (stepOk) 0 else 1
             Log.i(
                 TAG,
-                "ENRICH_ALL: step ${index + 1} result stepOk=$stepOk " +
+                "ENRICH_ALL: step ${index + 1} result stepOk=$stepOk failedFast=$failedFast " +
                     "(succeeded=$nextSucceeded failed=$nextFailed cancelled=$batchEnrichmentCancelled)"
             )
             // pendingCopy might still be set if the previous step
@@ -2459,7 +2636,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s41"
+        private const val BUILD_TAG = "build=s42"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -2540,6 +2717,15 @@ class InstagramReaderService : AccessibilityService() {
          * to the target first.
          */
         private const val BATCH_MAX_SCROLLS = 20
+        /**
+         * Budget for the forward-scroll fallback (s42). Kicks in when
+         * the backward budget is exhausted — covers the case where the
+         * Reel is BELOW the current position in the conversation (rare
+         * because IG opens conversations at the bottom, but real when
+         * the user was navigating older messages or IG restored a
+         * mid-thread scroll position).
+         */
+        private const val BATCH_MAX_FORWARD_SCROLLS = 10
         /** Delay after a `ACTION_SCROLL_BACKWARD` before re-enumerating. */
         private const val LOCATE_SCROLL_SETTLE_MS = 800L
         /** Duration of the fallback swipe DOWN when a11y scroll is refused. */
@@ -2768,11 +2954,17 @@ class InstagramReaderService : AccessibilityService() {
         private const val NOTIF_ID = 1001
 
         /**
-         * Separate channel for completion notifications (s39). Uses
-         * IMPORTANCE_DEFAULT so the user actually notices when a batch
-         * finishes; the persistent control notification stays on LOW.
+         * Separate channel for completion notifications (s39, bumped to
+         * heads-up in s42). Uses IMPORTANCE_HIGH so the completion
+         * peeks briefly at the top of the screen — the user doesn't
+         * have to pull down the shade to know that a batch is done.
+         * Channel ID was renamed from `friends_reels_status` in s42:
+         * Android's NotificationManager silently ignores importance
+         * upgrades to already-registered channels, so the only way to
+         * force existing installs into the new behaviour is a fresh
+         * channel ID.
          */
-        private const val NOTIF_CHANNEL_STATUS_ID = "friends_reels_status"
+        private const val NOTIF_CHANNEL_STATUS_ID = "friends_reels_status_v2"
         private const val NOTIF_ID_COMPLETION = 1003
     }
 
@@ -2863,13 +3055,19 @@ class InstagramReaderService : AccessibilityService() {
         val status = NotificationChannel(
             NOTIF_CHANNEL_STATUS_ID,
             getString(R.string.notif_channel_status_name),
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = getString(R.string.notif_channel_status_description)
             setShowBadge(true)
-            enableVibration(false)
+            enableVibration(true)
         }
         system.createNotificationChannel(status)
+        // Delete the old s39/s40/s41 status channel (`friends_reels_status`)
+        // so it doesn't clutter the user's app-notification settings.
+        // No-op if the channel was never created (fresh install on s42+).
+        try {
+            system.deleteNotificationChannel("friends_reels_status")
+        } catch (_: Exception) { /* channel already gone */ }
     }
 
     // ---------------------------------------------------------------------
@@ -2895,7 +3093,11 @@ class InstagramReaderService : AccessibilityService() {
             ))
             .setAutoCancel(true)
             .setOngoing(false)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            // s42: PRIORITY_HIGH matches the channel's IMPORTANCE_HIGH,
+            // ensures the notification actually shows as heads-up on
+            // pre-Android 8 devices (channels only exist since 8.0).
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setContentIntent(pendingActivity(
                 com.example.friendsreels.ui.feed.FeedActivity::class.java,

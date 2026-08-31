@@ -7,47 +7,46 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC → MVP). **Sessão 37/38 validadas em device. Sessão 39 validada em device (I ok — 2026-08-31 11:36→11:39). Sessão 40 validada em device (J ok).** Sessão 41 adiciona paridade de Cancelar entre `applyPendingActions` e `enrichAllMissingUrls` + toggle auto-enrich após descoberta — aguarda validação em device.
-**Última atualização:** 2026-08-31 (sessão 41 — Cancelar apply + auto-enrich).
-**Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`. Investigação s36 (§9 deste doc) confirmou que é a via mais segura para a conta.
-**HEAD actual:** `build=s41`.
+**Fase atual:** Fase 1 (PoC → MVP). **Sessões 37-40 validadas em device.** Sessão 41 aguardava validação de K quando a s42 corrigiu 3 problemas identificados no log da s41 em produção: fail-fast do batch enrichment (evita 45s por Reel falhado), forward-scroll fallback no `locateReelWithScroll` (Reels abaixo da view actual), heads-up notifications no canal `friends_reels_status_v2` (o utilizador vê a completion sem ter de abrir o shade). Aguarda validação em device.
+**Última atualização:** 2026-08-31 (sessão 42 — fail-fast + forward-scroll + heads-up).
+**Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`.
+**HEAD actual:** `build=s42`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s41 ...)`.
-2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F/G/H/I/J/K).
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s42 ...)`.
+2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F-L).
 3. **Ficheiros-chave:**
-    - `service/InstagramReaderService.kt` — motor a11y, batching (com Cancelar — s41), navegação, enrichment on-demand + em lote (s38, com Cancelar — s40) + auto-chain após descoberta (s41), completion notifications + return-to-app (s39). Prefs: `PREF_IGNORE_SENT`, `PREF_INVERT_SWIPE` (escondida), `PREF_SELECTION_MODE`, `PREF_RETURN_TO_APP_ON_FINISH`, `PREF_AUTO_ENRICH_ON_DISCOVER` (s41), `PREF_LAST_ENRICH_*` (privadas).
-    - `service/BatchEnrichmentBus.kt` — singleton `StateFlow<State>` (s38); restore em `onServiceConnected` (s40).
-    - `MainActivity.kt` — Home. Botão "🔗 Preparar URLs em lote (N)" só quando N>0 (s40).
+    - `service/InstagramReaderService.kt` — motor a11y, batching, navegação, enrichment on-demand + em lote (com fail-fast — s42), completion notifications heads-up (s42), return-to-app, auto-enrich após descoberta (s41), Cancelar em ambos os batches (s40/s41). Locate com backward + forward fallback (s42). Prefs: `PREF_IGNORE_SENT`, `PREF_INVERT_SWIPE` (escondida), `PREF_SELECTION_MODE`, `PREF_RETURN_TO_APP_ON_FINISH`, `PREF_AUTO_ENRICH_ON_DISCOVER`, `PREF_LAST_ENRICH_*` (privadas).
+    - `service/BatchEnrichmentBus.kt` — singleton `StateFlow<State>`; restore em `onServiceConnected`.
+    - `MainActivity.kt` — Home. Botão "🔗 Preparar URLs em lote (N)" só quando N>0.
     - `ui/feed/FeedScreen.kt` — VerticalPager com WebView inline. Placeholder com "🔗 Preparar Reel".
     - `ui/feed/FeedViewModel.kt` — filtro por selection mode + `requestUrlEnrichment(reelId)`.
-    - `ui/settings/SettingsActivity.kt` + `SettingsViewModel.kt` — 3 toggles (ignorar sent, voltar à app, auto-enrich após descoberta — s41), filtrar conversas, preparar URLs em lote, diagnóstico.
+    - `ui/settings/SettingsActivity.kt` + `SettingsViewModel.kt` — 3 toggles + secções + diagnóstico.
     - `data/TrackedThreadEntity.kt`, `TrackedThreadDao.kt` — entidade Room v4 (spec §8).
     - `data/ReelDao.kt` — inclui `allMissingUrls()` e `observeMissingUrlCount()` (s38).
     - `instagram/IgSelectors.kt` — IDs/labels do IG.
-    - Dumps: `docs/screen-dumps/feed.txt` (última corrida s40).
+    - Dumps: `docs/screen-dumps/feed.txt` (última corrida s41 — 12:02, com 7 falhas que motivaram a s42).
 4. **Constraints:**
     - Testes só no OnePlus Nord 5 / Android 16.
     - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
     - Cada refactor visível deve bumpar `BUILD_TAG`.
 5. **UX actual em device:**
-    - **Home:** protagonismo ao `▶ Abrir o meu feed`. Descoberta (🔍, 📥, 🔗 Preparar URLs (N) condicional — s40). Configuração (a11y toggle, abrir IG, ⚙ Definições).
+    - **Home:** protagonismo ao `▶ Abrir o meu feed`. Descoberta (🔍, 📥, 🔗 Preparar URLs (N) condicional). Configuração (a11y toggle, abrir IG, ⚙ Definições).
     - **Feed:** full-screen VerticalPager. Auto-play inline. Chip único de reacção. Menu ⋮. Reels sem URL têm botão "🔗 Preparar Reel".
-    - **Definições:** 3 toggles (Ignorar sent, Voltar à app, **Preparar URLs auto após descobrir** — s41) + Filtrar conversas + Preparar URLs em lote (com histórico persistido) + Diagnóstico.
-    - **Notificação persistente:** 3 botões (🔍 🔗 ▶). Durante lotes mostra progresso + botão **✕ Cancelar** tanto no batch enrichment (s40) como no apply pending (**s41**).
-    - **Notificação de conclusão (transiente):** aparece quando qualquer acção longa termina, num canal DEFAULT, tap abre o feed.
+    - **Definições:** 3 toggles (Ignorar sent, Voltar à app, Preparar URLs auto após descobrir) + Filtrar conversas + Preparar URLs em lote (histórico persistido) + Diagnóstico.
+    - **Notificação persistente:** 3 botões (🔍 🔗 ▶). Durante lotes mostra progresso + botão ✕ Cancelar (batch enrichment E apply pending).
+    - **Notificação de conclusão (heads-up após s42):** peek breve no topo quando qualquer acção longa termina, num canal HIGH.
 6. **Limitações conhecidas:**
     - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem (top-most vence).
-    - Cap de 20 scrolls no `locateReelWithScroll`.
-    - Enrichment: 5-8s por Reel. Em lote multiplica-se por N.
+    - Locate com backward + forward = 20 + 10 scrolls = ~30 tentativas. Após s42, o failure é rápido (fail-fast quebra o polling do batch em vez dos 45s antigos).
+    - Enrichment: 5-8s por Reel bem-sucedido; ~2s por Reel que falha (era ~1min antes da s42).
     - Batch enrichment partilha `pendingCopy` com o fluxo on-demand — guard evita duplo arranque.
-    - Auto-enrich após descoberta (s41) só dispara se não houver outro batch a correr (`enrichInProgress` e `applyInProgress` false).
-    - Cancelar apply pending (s41) espera o step actual acabar — se estamos a meio duma resposta, o IG termina a resposta antes de o batch parar.
     - Consulta de respostas anteriores dentro da app (spec §5) — não temos sync.
     - Reacção "actual" só reflecte as que corremos via app.
-    - `threadTitle` como chave — se o utilizador renomear um grupo, a selecção perde-se para essa thread.
-    - `returnToAppIfEnabled` traz o feed para a frente com `FLAG_ACTIVITY_REORDER_TO_FRONT`. Se o toggle estiver OFF, fica onde estava.
+    - `threadTitle` como chave — se o utilizador renomear um grupo, a selecção perde-se.
+    - `returnToAppIfEnabled` traz o feed para a frente com `FLAG_ACTIVITY_REORDER_TO_FRONT`.
+    - Heads-up completion depende do canal `friends_reels_status_v2` estar em IMPORTANCE_HIGH. Se o utilizador baixar em Definições Android, deixa de peekar.
 
 ---
 
@@ -224,25 +223,28 @@ Já entregue no primeiro commit:
 - ✅ s35 — feed alinhado com a visão (VerticalPager, reply real, estados por Reel, 3-pontinhos, Settings). Validada em device com nuances registadas.
 - ✅ s36 — auto-play inline (WebView por page) + fix E7 (isInboxVisible estrito) + chip único de reacção + limpeza do menu e Settings. Validada em device: F1-F5 todos passaram, F6 sanity ok.
 - ✅ **s37 — enriquecimento de URL on-demand + seleção de conversas (spec §8). Validada em device: G1/G2/G3 ok.**
-- ✅ **s38 — enrichment em batch (Definições → "Preparar URLs em lote"). Validada em device: H1/H2/H3 ok.**
+- ✅ **s38 — enrichment em batch. Validada em device: H1/H2/H3 ok.**
 - ✅ **s39 — feedback de conclusão + return-to-app. Validada em device (I ok).**
 - ✅ **s40 — atalhos (Home button, Cancel na notif, LastResult persistido). Validada em device (J ok).**
-- 🟡 **s41 — Cancelar apply pending (paridade com batch) + auto-enrich após descoberta. Pronta em código; aguarda validação em device (K1/K2/K3).**
+- 🟡 **s41 — Cancelar apply pending + auto-enrich após descoberta. Pronta em código; aguarda validação em device (K1/K2/K3).**
+- 🟡 **s42 — fail-fast no batch + forward-scroll fallback + heads-up completion notifications. Pronta em código; aguarda validação em device (L1/L2/L3).**
 
 ### 6.1 Próxima sessão — arranque
 
-**Estado no fim da s41:** o utilizador tem paridade completa de Cancelar entre os dois batches longos (`applyPendingActions` e `enrichAllMissingUrls`), e um toggle novo que transforma `📥 Descobrir histórico` num fluxo "descobre + prepara URLs" one-tap.
+**Estado no fim da s42:** três correcções que vieram directamente do log da s41 (7 Reels falharam ao fim de 5+ minutos, o utilizador teve de cancelar). O batch enrichment agora falha rapidamente quando não consegue localizar, procura em duas direcções (backward + forward), e as completion notifications peekam brevemente no topo do ecrã sem obrigar o utilizador a abrir o shade.
 
-**Bateria proposta (K):**
+**Bateria proposta (L):**
 
-- **K1 — Cancelar apply pending via notificação.** Enfileirar 3-4 acções em conversas diferentes. Tocar ▶ Aplicar. Enquanto está a correr, abrir o shade em qualquer ecrã. Confirmar que aparece `A aplicar K/N…` + botão `✕ Cancelar`. Tocar. Esperado: log `APPLY_PENDING: cancel requested — drain will stop after the current step` + step actual termina + completion `▶ Fila aplicada — X ação(ões) · Y falharam — cancelado`.
-- **K2 — Auto-enrich após 🔍 Descobrir.** Definições → activar "Preparar URLs auto após descobrir". Abrir uma conversa nova com Reels visíveis. Tocar 🔍 Descobrir na notificação. Esperado: completion de descoberta + a seguir arranca o batch enrichment automaticamente (`AUTO_ENRICH: pref enabled, insertedCount=X — chaining ACTION_ENRICH_ALL_MISSING_URLS`).
-- **K3 — Auto-enrich após 📥 Descobrir histórico.** Manter toggle ON. Numa conversa longa, tocar 📥 Descobrir histórico. Esperado: history termina → completion + chain para o batch enrichment → tudo termina + return-to-app. Um único gesto que traz TUDO da conversa e prepara os URLs.
+- **L1 — Fail-fast.** Repetir cenário s41: batch enrichment onde alguns Reels não podem ser localizados (Reels antigos, IG saiu de foco, etc.). Antes da s42, cada falha custava ~45s (polling timeout). Esperado: cada falha custa agora ~2-3s (fail-fast quebra o polling). O log deve mostrar `ENRICH_ALL: step K short-circuited by fast-failure signal` logo depois do `giving up`.
+- **L2 — Forward-scroll.** Numa conversa longa, abrir a partir de um ponto no meio (rolar para cima manualmente antes de deixar). Tocar 🔗 Preparar Reel num Reel que está BAIXO do que ficou visível. Esperado: log `LOCATE: backward exhausted, switching to forward scroll fallback` → `LOCATE_FWD: target not visible, ACTION_SCROLL_FORWARD accepted` → `LOCATE_FWD: matched reelId=…`. URL é capturado.
+- **L3 — Heads-up notification.** Correr qualquer acção longa (batch enrichment, apply pending, history discover). Esperado: quando termina, a notificação `🔗 Lote de URLs terminado` peek durante 1-2s no topo do ecrã sem ter de descer o shade. Se não fizer, o utilizador vai a Definições Android → Notificações → Friends Reels → "Conclusão de ações" e confirma que Importance está `Urgent`/`High`.
 
-**Priorização depois de K validado:**
+**Nota sobre canal:** os utilizadores existentes tinham o canal `friends_reels_status` com IMPORTANCE_DEFAULT. O s42 cria um canal NOVO `friends_reels_status_v2` com HIGH e apaga o antigo automaticamente. Se restar setting antigo, uninstall + reinstall garante limpeza. Utilizadores novos entram directamente em HIGH.
 
-1. **Sync de reacção actual (spec §7 "Reagido = reacção existe agora").** Refresh que percorre a conversa e lê o `message_reactions_pill_container`, cruzando com `pending_actions.DONE` para saber o estado real. Também detecta remoções feitas directamente no IG.
-2. **Match estrito por URL no `locateReelWithScroll`.** Só necessário se aparecerem colisões reais.
+**Priorização depois de L validado:**
+
+1. **Sync de reacção actual (spec §7).** Refresh que percorre a conversa e lê o `message_reactions_pill_container`.
+2. **Match estrito por URL no `locateReelWithScroll`.**
 3. **Cosmético:** thumbnails / preview no feed; ordem dos chips por `createdAt`; indicador visual de direcção de swipe.
 4. **Tuning de latência.**
 5. **Deep-link `instagram://direct/t/<thread_id>`.**
@@ -599,6 +601,44 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 18 erros totais, todos idênticos ao baseline (K2 type inference sem stdlib). Zero erros novos no código s41. Sintaxe OK.
 - **Validação em device (esperada na próxima sessão):** bateria K1/K2/K3 descrita na §6.1.
 - **Nada mudou** no fluxo de completion notifs, no return-to-app, na chain PoC-7, na navegação PoC-9, nos primitivos react/reply, no filtro de selecção. As duas features s41 são aditivas.
+
+---
+
+### 2026-08-31 — Sessão 42 (Ricardo + Copilot CLI) — fail-fast + forward-scroll + heads-up
+
+- **Contexto:** utilizador reportou 3 problemas depois de correr K em device (log `docs/screen-dumps/feed.txt` 11:52→12:03, resultado catastrófico — 7 Reels falharam num batch de ~5 minutos):
+  1. **Batches ficam "parados demasiado tempo"** quando LOCATE/NAV falham. Cálculo do log: cada Reel falhado custava ~45s (polling BATCH_ENRICH_STEP_TIMEOUT_MS) mesmo depois de já sabermos que ia falhar. 7 falhas × 45s = ~5 minutos inutilizados. Foi o motivo do utilizador ter cancelado.
+  2. **LOCATE só scrolla para cima.** Um dos Reels (author `laglesssoul`) ficou fora do alcance mesmo depois de 20 scrolls backward. Visível ainda: `voidsenpai.fx_`. O Reel estava provavelmente ABAIXO. O motor original só faz `ACTION_SCROLL_BACKWARD`.
+  3. **Completion notification só é visível abrindo o shade.** Utilizador quer heads-up (peek breve no topo). Ao descer o shade para ver o progresso, o dedo bate no ✕ Cancelar da s40 sem querer.
+- **Fix 1: Fail-fast batch enrichment.**
+  - Novo campo `@Volatile private var enrichmentStepFailedFast: Boolean = false`.
+  - Reset em `processBatchEnrichmentStep` no início de cada step (antes de `startEnrichmentForReel`).
+  - Set em 3 pontos:
+    - `startEnrichmentForReel` quando `navigateToThreadAsync` retorna `navOk=false`.
+    - `locateAndOpenReelViewer` quando `locateReelWithScroll` devolve `entry == null`.
+    - `locateAndOpenReelViewer` quando o tap seria off-screen.
+  - Polling loop passa a verificar `if (enrichmentStepFailedFast) { failedFast = true; break }` entre polls. Log estruturado inclui `failedFast=$failedFast`.
+  - Efeito: falha típica agora custa apenas o tempo dos scrolls (~18s no pior caso das 20 tentativas backward + eventuais 10 forward) + spacing 1.5s, em vez dos ~45s antigos.
+- **Fix 2: Forward-scroll fallback no `locateReelWithScroll`.**
+  - Nova constante `BATCH_MAX_FORWARD_SCROLLS = 10` (metade do budget backward, porque o caso é raro).
+  - Assinatura ganha parâmetro opcional `forwardScrollsLeft: Int = BATCH_MAX_FORWARD_SCROLLS`.
+  - Quando `scrollsLeft <= 0` (backward esgotado), chama `locateReelWithForwardScroll(target, forwardScrollsLeft, onDone)`.
+  - Quando swipe DOWN fallback é rejeitado (topo do RecyclerView), também transita imediatamente para forward.
+  - Nova função `locateReelWithForwardScroll` — mesma estrutura mas com `ACTION_SCROLL_FORWARD` + swipe UP como fallback.
+  - Log distinto: `LOCATE_FWD` vs `LOCATE`.
+- **Fix 3: Heads-up completion notifications.**
+  - Rename `NOTIF_CHANNEL_STATUS_ID` de `friends_reels_status` → `friends_reels_status_v2`. Motivo: Android's `NotificationManager` ignora silenciosamente qualquer upgrade de `importance` a um canal já criado. A única forma de forçar existing installs a HIGH é criar um canal novo.
+  - Novo canal em `IMPORTANCE_HIGH` + `enableVibration(true)` (para o peek ser mais notável).
+  - `createNotificationChannel` também apaga o canal antigo `friends_reels_status` (silent no-op em fresh installs).
+  - `postCompletionNotification` builder ganha `.setPriority(NotificationCompat.PRIORITY_HIGH)` e `.setDefaults(NotificationCompat.DEFAULT_ALL)` — cobre também devices pré-Android 8 (sem canais).
+  - Efeito: quando qualquer acção longa termina, o utilizador vê a notificação peek durante ~2s no topo do ecrã sem ter de abrir o shade.
+- **`BUILD_TAG` bumped para `build=s42`.** Sem alteração de schema Room.
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — flag fail-fast + reset + set nos 3 pontos, polling check, forward-scroll param + nova função `locateReelWithForwardScroll`, constante `BATCH_MAX_FORWARD_SCROLLS`, canal renomeado + IMPORTANCE_HIGH, `postCompletionNotification` PRIORITY_HIGH, `deleteNotificationChannel` do canal antigo, `BUILD_TAG=s42`.
+  - `PROJECT_PROGRESS.md` — Estado, quick start, §6/6.1 (bateria L), este log.
+- **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 22 erros no total, todos classpath (K2 falha type inference nos `.filter { it.direction == Direction.RECEIVED }` e `.filter { it.reelAuthor == ... }` das novas `locateReelWith*` porque `Direction` e `ReelEntity.reelAuthor` são unresolved sem stdlib). Zero erros novos de sintaxe.
+- **Validação em device (esperada na próxima sessão):** bateria L1/L2/L3 descrita em §6.1.
+- **Nada mudou** nos primitivos react/reply/copy URL, na navegação PoC-9, no filtro de selecção, no batching de apply pending (para além da mesma paridade de Cancelar), nas prefs. As três correcções são cirúrgicas sobre os pontos concretos identificados no log.
 
 ---
 
