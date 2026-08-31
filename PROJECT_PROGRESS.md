@@ -15,7 +15,7 @@
 ### Como continuar na próxima sessão (quick start)
 
 1. **Pull** do repo. Confirmar `Action receiver registered (build=s44 ...)`.
-2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F-N).
+2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `service/InstagramReaderService.kt` — motor a11y. `dumpActiveWindow` e `dumpAllWindows` continuam definidas (usadas em `share-not-found`, `after-longpress`, etc.); s44 adicionou `ACTION_DUMP_TREE` broadcast + botão em Diagnóstico para trigger manual. Epoch guard em `locateReelWithScroll`/`locateReelWithForwardScroll` previne stale-callback interleaving. Stall detection foi removida (buggy).
     - `service/BatchEnrichmentBus.kt`, `MainActivity.kt`, `ui/feed/*`, `ui/settings/*`, `data/*` — sem alterações estruturais.
@@ -231,15 +231,114 @@ Já entregue no primeiro commit:
 2. **Epoch guard** — cada step incrementa `enrichmentStepEpoch`; callbacks agendados por steps anteriores comparam o epoch capturado com o actual e abortam se descoincidir. Fim do interleaving de autores no log.
 3. **Botão Dump** — utilizador pode agora tocar "🌳 Dump da árvore da página atual (Logcat)" em Definições → Diagnóstico para dumpar o tree completo. Objectivo: numa próxima sessão, usar o dump do topo duma conversa para identificar o selector do header "@handle" + "Ver perfil" e implementar detecção real de fim-de-conversa.
 
-**Bateria proposta (N):**
+**Bateria proposta — Sessão 44 (nomes descritivos + passos concretos):**
 
-- **N1 — Sem interleaving.** Correr batch com Reels que vão falhar (situação da s43). Confirmar no log: os "LOCATE" para author=X e author=Y não se misturam. Cada Reel completa a sua fase de scrolls (ou aborta com "aborting stale callback") antes do próximo step arrancar.
-- **N2 — Fim do budget completo.** Sem stall detection, cada falha percorre os 100 scrolls (~30s por Reel). Confirmar que não há mais paragens precoces por "stall detected". Se o utilizador tiver 12 falhas, batch demora ~6 min agora (era menos com o stall, mas o stall estava a saltar Reels que podiam estar mais atrás no scroll).
-- **N3 — Dump do topo da conversa.** Abrir conversa no IG. Rolar até ao MESMO TOPO (onde aparece foto grande + @handle + "Ver perfil"). Sem sair do IG, tocar "🌳 Dump da árvore da página atual" nas Definições (ou via broadcast `adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_TREE`). Voltar ao IG. O logcat filtrado por `IGReaderService` deve mostrar `===== DUMP_ALL START reason=manual` seguido da árvore. Copiar essa secção para `docs/screen-dumps/feed.txt` para identificarmos os `id`/`text` do header numa próxima sessão.
+Nome curto no fim de cada teste (`Interleaving`, `Budget`, `Dump`) só para referência rápida em conversa; nas instruções abaixo usa a versão completa. Se um teste falhar, para e reporta — não passes ao seguinte.
+
+#### Teste 1 — "Passos antigos não interferem com o passo actual" (`Interleaving`)
+
+**O que se está a validar:** o epoch guard impede que callbacks agendados por um step antigo do batch ainda estejam a correr quando um step novo já começou.
+
+**Preparação:**
+1. `git pull` no telemóvel-de-testes; recompilar e reinstalar o APK em `build=s44`.
+2. Certifica-te que tens **pelo menos 3 Reels sem URL** na base de dados. Se não tiveres, faz `🔍 Descobrir` numa conversa nova para gerar entradas.
+3. Nas **Definições** do IG, **NÃO abras a conversa alvo** — deixa o IG na inbox ou noutra conversa. Isto força o batch a arrastar-se por LOCATE com falhas frequentes (aparecem os steps a advance-ar e os callbacks a disparar).
+4. Abre `logcat -s IGReaderService` num terminal ligado ao telemóvel.
+
+**Passos:**
+1. Abre a app Friends Reels.
+2. Toca **⚙ Definições**.
+3. Rola até à secção **"Preparar URLs em lote"**.
+4. Toca **"🔗 Preparar todos"**.
+5. Deixa o batch correr durante ~3 minutos (2-3 Reels processados).
+
+**O que confirmar no logcat:**
+- Cada step arranca com `ENRICH_ALL: step K/N reelId=X author=A thread='T'`.
+- Todas as linhas `LOCATE: scroll M/100 author=Y` de um determinado step têm **o mesmo `author=`**. Não pode haver `LOCATE: scroll 30/100 author=alice` seguido de `LOCATE: scroll 1/100 author=bob` seguido de `LOCATE: scroll 31/100 author=alice`.
+- Sempre que o batch avança para o próximo step, callbacks pendentes do antigo (se ainda estivessem em curso) mostram **`LOCATE: aborting stale callback (epoch=X, current=Y)`** (X < Y).
+
+**Passa se:** os autores no log estão sempre agrupados por step, sem interleaving.
+**Falha se:** vês linhas de dois autores diferentes intercaladas dentro dum mesmo intervalo de scrolls.
+
+---
+
+#### Teste 2 — "Falha executa os 100 scrolls completos" (`Budget`)
+
+**O que se está a validar:** sem stall detection, cada Reel que não é encontrado percorre o budget completo (100 backward + 5 forward = ~35s por Reel).
+
+**Preparação:**
+1. Recompilar/reinstalar em `build=s44` (mesma prep do Teste 1).
+2. Ter **1 Reel na DB com URL null cujo autor não exista na conversa actual do IG** — pode ser inventado ou um Reel já apagado. Se tens várias conversas, o batch vai visitar cada uma; para simplificar, faz **um único** Reel sem URL numa conversa específica onde o autor não aparece.
+3. Confirmar que o telemóvel está em silêncio (a Home button no meio do teste anularia o Teste 1 e da s43).
+
+**Passos:**
+1. Abrir Friends Reels → **⚙ Definições** → **"🔗 Preparar todos"**.
+2. Ficar quieto (não mexer no telemóvel, não abrir shade).
+
+**O que confirmar no logcat:**
+- `ENRICH_ALL: step 1/1 reelId=X`
+- Aparece `LOCATE: scroll 1/100` logo depois.
+- Depois `LOCATE: scroll 10/100`, `20/100`, ..., **até `LOCATE: scroll 100/100`** (com timestamp ~30 segundos depois do 1/100).
+- A seguir: `LOCATE: backward exhausted after 100 scrolls, switching to forward scroll fallback (author=X forwardScrollsLeft=5)`.
+- Depois: `LOCATE_FWD: scroll 1/5`, `LOCATE_FWD: scroll 5/5`.
+- Finalmente: `LOCATE_FWD: could not find reelId=X author=X after 5 forward scrolls.`
+- E o batch conclui: `ENRICH_ALL: step 1 short-circuited by fast-failure signal` + `ENRICH_ALL: batch complete (succeeded=0 failed=1)`.
+
+**NÃO** deve aparecer no log:
+- `stall detected — visible authors unchanged` (foi removido).
+
+**Passa se:** batch chega aos 100 scrolls, faz 5 forward, dá `failed=1`. Duração total do step ~35s.
+**Falha se:** batch dá up antes dos 100 scrolls (indica que sobrou lógica de stall).
+
+---
+
+#### Teste 3 — "Dump da árvore do topo da conversa" (`Dump`)
+
+**O que se está a validar:** o novo botão em Diagnóstico consegue chamar `dumpAllWindows("manual")` e a árvore do topo da DM aparece no logcat. Objectivo prático: identificar o `resource-id` / `content-desc` / `text` do header `@handle` + "Ver perfil" para uma futura detecção real de fim-de-conversa.
+
+**Preparação:**
+1. Recompilar/reinstalar em `build=s44`.
+2. Escolher **uma conversa 1-a-1 curta** (~20 mensagens) para o teste — quanto mais curta, mais fácil chegar ao topo com o dedo.
+3. Abrir `logcat -s IGReaderService` num terminal.
+
+**Passos:**
+1. Abrir o **Instagram**.
+2. Ir à **conversa** escolhida.
+3. **Rolar o dedo até ao topo absoluto** da conversa. Deve aparecer:
+    - Foto de perfil da pessoa em grande no centro.
+    - Nome da pessoa por baixo.
+    - `@handle` (username com @).
+    - Botão / link "Ver perfil".
+    - Possivelmente "Enviaste-te uma mensagem" ou datas antigas.
+4. **Sem sair do IG**, puxar o shade (ou abrir a app Friends Reels via Recents, o que preferires).
+5. Abrir Friends Reels → **⚙ Definições** → rolar até **"Ferramentas de diagnóstico"** → tocar **"🌳 Dump da árvore da página atual (Logcat)"**.
+6. **Voltar imediatamente ao IG** (para que o dump apanhe a UI da conversa e não a UI das Definições).
+
+**Alternativa via adb (mais fiável para apanhar o topo):**
+```
+adb shell am broadcast -a com.example.friendsreels.ACTION_DUMP_TREE
+```
+Isto podes disparar sem sair do IG.
+
+**O que confirmar no logcat:**
+- Aparece `===== DUMP_ALL START reason=manual windowCount=N =====`.
+- Depois vários blocos de nós (indentados com `└─` ou tabs, dependendo do formato do dump).
+- Deve aparecer pelo menos um nó com o **nome da pessoa** como `text` e outro com o handle (`text` começando por `@` OU `desc` contendo o handle).
+- Termina com `===== DUMP_ALL END reason=manual`.
+
+**Após o teste (importante!):**
+1. Copiar o bloco **inteiro** (do START ao END, incluindo indentação) para `docs/screen-dumps/feed.txt`.
+2. Adicionar uma linha de contexto no topo do bloco: `# Dump do topo da conversa 'NOME_DA_PESSOA' — 2026-08-31`.
+3. Isto vai permitir-me identificar na próxima sessão o `resource-id` exacto do header (algo como `com.instagram.android:id/thread_header_profile_pic` ou similar) para depois implementar `isThreadHeaderVisible()` que substitui a stall detection removida.
+
+**Passa se:** o dump aparece no log com nós que incluem o nome/handle da pessoa.
+**Falha se:** dump aparece vazio (só `windowCount=0`) ou não aparece de todo (procurar `ACTION_DUMP_TREE` no log — se não estiver, o receiver não recebeu o broadcast).
+
+---
 
 **Priorização depois de N validado:**
 
-1. **Detecção real de "topo de conversa"** usando o selector identificado no N3. Termina o batch antes de esgotar o budget quando genuinamente chega ao topo.
+1. **Detecção real de "topo de conversa"** usando o selector identificado no Teste 3. Termina o batch antes de esgotar o budget quando genuinamente chega ao topo.
 2. **Sync de reacção actual (spec §7).**
 3. **Match estrito por URL no `locateReelWithScroll`.**
 4. **Cosmético:** thumbnails / preview no feed; ordem dos chips por `createdAt`; indicador visual de direcção de swipe.
@@ -702,25 +801,68 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
   - `res/values/strings.xml` — `btn_dump_tree`.
   - `PROJECT_PROGRESS.md` — Estado, quick start, §6/6.1 (bateria N), este log.
 - **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 22 erros totais, todos classpath (mesmo baseline s43 minus stall detection erros que não existiam). Zero erros novos de sintaxe.
-- **Validação em device (esperada na próxima sessão):** bateria N1/N2/N3 descrita em §6.1.
+- **Validação em device (esperada na próxima sessão):** 3 testes em §6.1 no novo formato (nomes descritivos + preparação + passos concretos + o que confirmar/o que NÃO deve aparecer / passa se / falha se), conforme §8.1 pediu.
 - **Nada mudou** nos primitivos react/reply, na navegação PoC-9, no filtro de selecção, no batching de apply pending, no fluxo de completion notifs, no return-to-app, no auto-enrich, na chain PoC-7, nas prefs (excepto o novo action DUMP_TREE), no schema Room. A s44 é uma correcção cirúrgica + feature de diagnóstico.
 
 ---
 
 ## 8. Como testar em device (modelo aceite pelo utilizador)
 
-**Baterias históricas** (F1-F6 da s36, G1-G3 da s37) estão nos logs de sessão da §7 e no `docs/screen-dumps/feed.txt` (última corrida). Modelo de reporte consolidado:
+### 8.1 Formato obrigatório de cada teste
 
-1. **Prep:** pull → rebuild → reinstalar APK. Confirmar Logcat com filtro `IGReaderService` mostra `Action receiver registered (build=sNN ...)` com o `BUILD_TAG` da sessão actual.
-2. **Executar** a bateria da sessão (definida na §6.1 ou no último log de §7).
-3. **Reportar:** copiar Logcat para `docs/screen-dumps/feed.txt` + linha curta por teste — `"X ok / Y ok / Z falhou porque …"`. Não é preciso detalhar passos que funcionaram como esperado.
+**Cada teste em §6.1 tem de ter, sem excepção:**
 
-**Testes de smoke que valem sempre a pena depois de qualquer mudança:**
+1. **Nome descritivo** — não `N1`, `L2`, etc. Escrever o que se está a validar. Ex.: **"Falha executa os 100 scrolls completos"**, **"Cancelar apply pending via notificação"**. O código curto (`N1`, `Interleaving`, etc.) fica opcional entre parêntesis para conversa rápida.
+2. **"O que se está a validar"** — 1 linha a explicar a hipótese em teste.
+3. **"Preparação"** — lista numerada com o que instalar/pull, que estado precisa a app / o IG antes de começar (base de dados com N Reels sem URL, IG na inbox, etc.), se é preciso um terminal com `logcat -s IGReaderService` aberto.
+4. **"Passos"** — lista numerada, cada passo indica **onde tocar** (nome exacto do botão ou do menu). Não vale "correr o batch" — vale "abrir Friends Reels → ⚙ Definições → tocar 🔗 Preparar todos".
+5. **"O que confirmar no logcat"** — lista concreta de linhas de log esperadas (com strings copy-paste-áveis) OU o que se vê na UI. Nunca `verifica se funciona`.
+6. **"O que NÃO deve aparecer"** — sinais negativos (bugs conhecidos que estamos a corrigir).
+7. **"Passa se" / "Falha se"** — critério binário para o utilizador poder reportar `passou/falhou` sem ambiguidade.
+8. **Comandos adb alternativos** (opcional) — se um passo em UI for chato, dar equivalente via `adb shell am broadcast`.
 
-- **Descoberta base:** notif 🔍 numa conversa qualquer → abrir feed → aparecem os Reels.
-- **Enrichment:** feed → tocar "🔗 Preparar Reel" num placeholder → IG abre, faz o fluxo, volta, vídeo aparece.
-- **Batching:** enfileirar ❤ / 😂 / 💬 em cards → notif ▶ Aplicar → aplica correctamente (mesmo partindo da Home do IG).
-- **Filtro:** Definições → Filtrar conversas → mudar de "Ver tudo" para "Apenas selecionadas" ou "Excluir selecionadas" → feed reflecte o filtro.
+### 8.2 Regra de reporte
+
+Depois de correr a bateria completa:
+
+1. **Copiar Logcat** filtrado por `IGReaderService` para `docs/screen-dumps/feed.txt`. Incluir timestamps.
+2. **Uma linha por teste** — `"Teste 1 (Interleaving) — passou / falhou porque …"`. Se passou como esperado, não é preciso detalhar. Se falhou, adicionar contexto: em que passo estava, o que apareceu no log, o que aconteceu na UI.
+3. **Se um teste falhar, parar a bateria** — os testes seguintes podem depender do anterior. Reporta e espera correcção.
+
+### 8.3 Como testar depois de um pull
+
+1. **Prep:** `git pull` → rebuild → reinstalar APK. Confirmar `logcat -s IGReaderService` mostra:
+   ```
+   Action receiver registered (build=sNN heart=… laugh=… …)
+   ```
+   com o `BUILD_TAG` da sessão actual (NN = número da sessão).
+2. **Executar** a bateria da sessão actual (§6.1) OU a última bateria pendente de validação.
+3. **Reportar** segundo §8.2.
+
+### 8.4 Testes de smoke — sempre valem depois de qualquer alteração
+
+Não são obrigatórios, mas se estiveres a duvidar de algo, faz este mini-set em 2 minutos:
+
+- **"Descoberta base":** abrir uma conversa no IG com Reels visíveis → puxar shade → tocar botão **🔍** na notificação persistente → abrir Friends Reels → ver Reels novos no feed.
+- **"Enrichment on-demand":** feed → swipe até um Reel com placeholder cinzento "URL ainda não capturado" → tocar **🔗 Preparar Reel** → IG abre, faz o fluxo (~5-8s), volta, vídeo aparece.
+- **"Batching":** feed → em 2-3 Reels tocar ❤ / 😂 / 💬 → contadores nos chips ficam em `pending` → puxar shade → tocar botão **▶** → confirmar que aplica em IG e que o batch produz completion notification `▶ Fila aplicada — X ações …`.
+- **"Filtro de conversas":** Definições → **Filtrar conversas no feed** → mudar radio de **Ver tudo** para **Apenas selecionadas em baixo** → marcar 1-2 conversas → voltar ao feed → confirmar que só aparecem Reels dessas conversas.
+
+### 8.5 Baterias históricas
+
+Estão nos logs de sessão da §7 e no `docs/screen-dumps/feed.txt` de cada era. Para consulta rápida:
+
+- **F1-F6 (s36)** — smoke pós-refactor grande. Nomes: feed vertical, auto-play, chips, reply real, 3-pontinhos, ignoreSent toggle.
+- **G1-G3 (s37)** — enrichment on-demand + selection mode. Nomes: enrichment single, apenas selecionadas, excluir selecionadas.
+- **H1-H3 (s38)** — batch enrichment. Nomes: batch smoke, cross-thread, cancelar.
+- **I1-I5 (s39)** — completion notifications + return-to-app. Nomes: batch/apply/history completion, discover-completion sem return, toggle OFF.
+- **J1-J3 (s40)** — Home button, Cancelar via notif, persistência LastResult.
+- **K1-K3 (s41)** — Cancelar apply pending, auto-enrich após 🔍/📥.
+- **L1-L3 (s42)** — fail-fast, forward-scroll, heads-up.
+- **M1-M4 (s43)** — recovery quando IG perde foco, scroll longo, stall detection (removido em s44), rate-limit.
+- **N (s44)** — 3 testes com nomes descritivos em §6.1 acima: **"Passos antigos não interferem com o passo actual"**, **"Falha executa os 100 scrolls completos"**, **"Dump da árvore do topo da conversa"**.
+
+Da s45 em diante, cada bateria segue o formato de §8.1.
 
 ## 9. Investigação — "Socialite" e alternativas arquitecturais (s36)
 
