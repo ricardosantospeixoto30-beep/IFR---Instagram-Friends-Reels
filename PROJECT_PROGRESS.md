@@ -7,22 +7,22 @@
 
 ## Estado atual
 
-**Fase atual:** Fase 1 (PoC → MVP). **Sessão 37 validada em device (G1/G2/G3 ok).** **Sessão 38 validada em device (H1/H2/H3 ok — 2026-08-31).** Sessão 39 adiciona feedback visual de conclusão (notificações + return-to-app) — aguarda validação em device. Sistema tem agora todos os pilares da spec: feed vertical full-screen com auto-play (§3), reagir (§4), responder com texto real (§5), estados por Reel (§7), seleção de conversas (§8), menu 3-pontinhos (§12), definições (§11), descoberta manual + histórico de Reels, enrichment automático de URL on-demand e em lote, e feedback quando qualquer acção longa termina.
-**Última atualização:** 2026-08-31 (sessão 39 — feedback de conclusão).
+**Fase atual:** Fase 1 (PoC → MVP). **Sessão 37 validada em device (G1/G2/G3 ok).** **Sessão 38 validada em device (H1/H2/H3 ok — 2026-08-31).** Sessão 39 adiciona feedback visual de conclusão (notificações + return-to-app). Sessão 40 adiciona atalhos e polish: botão "Preparar URLs (N)" na Home, Cancelar directo na notificação, e persistência do último resultado do lote — aguardam validação em device conjunta. Sistema tem agora todos os pilares da spec + o "quality of life" pedido pelo utilizador em cima.
+**Última atualização:** 2026-08-31 (sessão 40 — atalhos e persistência).
 **Arquitetura escolhida:** Opção C — app externa Android + `AccessibilityService`. Investigação s36 (§9 deste doc) confirmou que é a via mais segura para a conta.
-**HEAD actual:** `build=s39`.
+**HEAD actual:** `build=s40`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s39 ...)`.
-2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F/G/H/I).
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s40 ...)`.
+2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, §8 bateria de testes (F/G/H/I/J).
 3. **Ficheiros-chave:**
-    - `service/InstagramReaderService.kt` — motor a11y, batching, navegação, enrichment on-demand + em lote (s38), completion notifications + return-to-app (s39). Prefs: `PREF_IGNORE_SENT`, `PREF_INVERT_SWIPE` (escondida), `PREF_SELECTION_MODE`, `PREF_RETURN_TO_APP_ON_FINISH` (s39).
-    - `service/BatchEnrichmentBus.kt` — singleton in-process com `StateFlow<State>` para o progresso do lote (s38).
+    - `service/InstagramReaderService.kt` — motor a11y, batching, navegação, enrichment on-demand + em lote (s38), completion notifications + return-to-app (s39), Cancel button na progress notif + persistência do LastResult (s40). Prefs: `PREF_IGNORE_SENT`, `PREF_INVERT_SWIPE` (escondida), `PREF_SELECTION_MODE`, `PREF_RETURN_TO_APP_ON_FINISH`, `PREF_LAST_ENRICH_*` (privadas).
+    - `service/BatchEnrichmentBus.kt` — singleton in-process, `StateFlow<State>` (s38); estado inicial seedado por `restorePersistedBatchEnrichResult` em `onServiceConnected` (s40).
+    - `MainActivity.kt` — Home. Observa `observeMissingUrlCount` e mostra botão "🔗 Preparar URLs em lote (N)" só quando N>0 (s40).
     - `ui/feed/FeedScreen.kt` — VerticalPager com WebView inline. Placeholder com botão "🔗 Preparar Reel" quando o Reel não tem URL.
     - `ui/feed/FeedViewModel.kt` — filtro por selection mode + `requestUrlEnrichment(reelId)`.
-    - `ui/settings/SettingsActivity.kt` + `SettingsViewModel.kt` — Ignorar sent, voltar à app (s39), filtrar conversas, preparar URLs em lote, diagnóstico.
-    - `ui/player/EmbedPlayer.kt` — helpers partilhados WebView.
+    - `ui/settings/SettingsActivity.kt` + `SettingsViewModel.kt` — Ignorar sent, voltar à app (s39), filtrar conversas, preparar URLs em lote com contagem live + progresso + histórico persistido (s40), diagnóstico.
     - `data/TrackedThreadEntity.kt`, `TrackedThreadDao.kt` — entidade Room v4 (spec §8).
     - `data/ReelDao.kt` — inclui `allMissingUrls()` e `observeMissingUrlCount()` (s38).
     - `instagram/IgSelectors.kt` — IDs/labels do IG.
@@ -32,16 +32,16 @@
     - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
     - Cada refactor visível deve bumpar `BUILD_TAG`.
 5. **UX actual em device:**
-    - **Home:** protagonismo ao `▶ Abrir o meu feed`. Descoberta (🔍 conversa aberta, 📥 histórico). Configuração (a11y toggle, abrir IG, ⚙ Definições).
-    - **Feed:** full-screen VerticalPager. Auto-play inline por page. Chip único de reacção. Menu ⋮. Reels sem URL têm botão "🔗 Preparar Reel".
-    - **Definições:** toggles "Ignorar Reels enviados" + **"Voltar à app quando terminar"** (s39, default ON) + secção "Filtrar conversas no feed" + secção "Preparar URLs em lote" + Ferramentas de diagnóstico.
-    - **Notificação de controlo (persistente):** 3 botões (🔍 🔗 ▶). Durante lotes mostra progresso (`A aplicar 2/5…`, `A preparar URLs 3/12…`, `A descobrir histórico… 5/30`).
+    - **Home:** protagonismo ao `▶ Abrir o meu feed`. Descoberta (🔍 conversa aberta, 📥 histórico, **🔗 Preparar URLs em lote (N)** condicional — s40). Configuração (a11y toggle, abrir IG, ⚙ Definições).
+    - **Feed:** full-screen VerticalPager. Auto-play inline. Chip único de reacção. Menu ⋮. Reels sem URL têm botão "🔗 Preparar Reel".
+    - **Definições:** toggles "Ignorar Reels enviados" + "Voltar à app quando terminar" (s39) + secção "Filtrar conversas no feed" + secção "Preparar URLs em lote" (com histórico persistido — s40) + Ferramentas de diagnóstico.
+    - **Notificação de controlo (persistente):** 3 botões (🔍 🔗 ▶). Durante lotes mostra progresso + **botão Cancelar** durante o batch enrichment (s40).
     - **Notificação de conclusão (transiente, s39):** aparece quando uma acção longa termina (`🔗 Lote de URLs terminado — 3 preparados · 1 falhou`, etc.) num canal DEFAULT, tap abre o feed.
 6. **Limitações conhecidas:**
     - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem (top-most vence).
     - Cap de 20 scrolls no `locateReelWithScroll`.
-    - Enrichment: 5-8s por Reel (nav+scroll+viewer+share+copy). Em lote multiplica-se por N.
-    - Batch enrichment partilha `pendingCopy` slot com o fluxo on-demand — guard `batchEnrichmentInProgress` evita duplo arranque.
+    - Enrichment: 5-8s por Reel. Em lote multiplica-se por N.
+    - Batch enrichment partilha `pendingCopy` com o fluxo on-demand — guard `batchEnrichmentInProgress` evita duplo arranque.
     - Consulta de respostas anteriores dentro da app (spec §5) — não temos sync.
     - Reacção "actual" só reflecte as que corremos via app.
     - `threadTitle` como chave — se o utilizador renomear um grupo, a selecção perde-se para essa thread.
@@ -224,29 +224,26 @@ Já entregue no primeiro commit:
 - ✅ **s37 — enriquecimento de URL on-demand + seleção de conversas (spec §8). Validada em device: G1/G2/G3 ok.**
 - ✅ **s38 — enrichment em batch (Definições → "Preparar URLs em lote"). Validada em device: H1/H2/H3 ok.** Feedback do utilizador: quando o lote termina fica em IG sem indicação clara → resolvido em s39.
 - 🟡 **s39 — feedback de conclusão (notificação transiente + return-to-app) em TODAS as ações longas + progress notif do batch enrichment. Pronta em código; aguarda validação em device (I1-I5).**
+- 🟡 **s40 — atalhos: botão "Preparar URLs (N)" na Home; botão Cancelar directo na notificação de progresso do batch; persistência de `LastResult` entre reinicializações do serviço.**
 
 ### 6.1 Próxima sessão — arranque
 
-**Estado no fim da s39:** o utilizador passa a receber uma notificação clara sempre que uma ação longa termina (canal `friends_reels_status` com IMPORTANCE_DEFAULT) e — se o toggle "Voltar à app quando terminar" estiver ligado (default ON) — o feed vem automaticamente para a frente. Cobre `applyPendingActions`, `enrichAllMissingUrls`, `discoverReels`, `discoverReelsHistory`, single copy URL / single enrichment. A notificação persistente também mostra progresso live durante o lote de URLs (`A preparar URLs 3/12…`).
+**Estado no fim da s40:** as ações longas emitem completion notifications visíveis (s39), a app volta ao feed automaticamente (s39, toggleável), a Home tem um atalho para preparar URLs em lote sem passar por Definições, o Cancelar do lote fica acessível directamente na notificação sem trocar de app, e o "Última execução: X preparados, Y falharam" sobrevive à morte do processo.
 
-**Bateria proposta (I) para validação em device** (depois de pull + reinstalar):
+**Bateria proposta (J) para a próxima sessão** (executa em cima de I quando possível):
 
-- **I1 — batch enrichment.** Repetir H1. Confirmar:
-  - Durante o lote a notificação persistente mostra `A preparar URLs K/N…` com barra de progresso.
-  - Ao terminar, aparece notificação `🔗 Lote de URLs terminado — X preparados · Y falharam`.
-  - Se o toggle estiver ON, o feed vem automaticamente para a frente após o lote.
-- **I2 — apply pending.** Enfileirar 2-3 ações e tocar ▶ Aplicar. Confirmar completion `▶ Fila aplicada — X ação(ões) · Y falharam` + return-to-app.
-- **I3 — descobrir histórico.** Correr 📥 Descobrir histórico. Confirmar `📥 Histórico descoberto — X Reel(s) novo(s) em 'Y' (N scrolls)` + return-to-app.
-- **I4 — descobrir só o visível.** Correr 🔍 Descobrir. Confirmar completion `🔍 Descoberta concluída — X Reel(s) novo(s) em 'Y'` (SEM return-to-app — é ação curta, o utilizador está a decidir em IG).
-- **I5 — toggle OFF.** Definições → desligar "Voltar à app quando terminar". Repetir I1. Confirmar notificação aparece mas o IG **não** é trocado. Reactivar toggle.
+- **I1-I5** (herdada da s39, ver log). Bateria de completion notifs + return-to-app.
+- **J1 — Home button "Preparar URLs em lote (N)".** Abrir a Home com Reels sem URL. Confirmar que o botão aparece com o contador correcto. Tocar → mesmo comportamento que o botão nas Definições. Depois de o lote terminar, botão desaparece (N=0).
+- **J2 — Cancelar via notificação de progresso.** Arrancar batch enrichment (Home ou Definições). Deslizar o shade em IG. Confirmar que a notificação persistente mostra o progresso E tem botão "✕ Cancelar". Tocar. Efeito: mesmo que o Cancelar nas Definições — Reel actual termina, batch para. Utilizador NÃO precisa de sair do IG.
+- **J3 — Persistência do LastResult.** Correr um batch (ex.: 2 Reels, com sucesso). Forçar `stop` do a11y service (Definições Android → Acessibilidade → desligar → religar). Abrir Definições da app. Confirmar que "Última execução: 2 preparado(s) · 0 falharam" ainda aparece — não ficou vazio.
 
-**Priorização depois de I validado:**
+**Priorização depois de J validado:**
 
 1. **Sync de reacção actual (spec §7 "Reagido = reacção existe agora").** Refresh que percorre a conversa e lê o `message_reactions_pill_container`, cruzando com `pending_actions.DONE` para saber o estado real. Também detecta remoções feitas directamente no IG.
 2. **Match estrito por URL no `locateReelWithScroll`.** Só necessário se aparecerem colisões reais.
 3. **Cosmético:** thumbnails / preview no feed; ordem dos chips por `createdAt`; indicador visual de direcção de swipe.
-4. **Tuning de latência.** `POST_LONG_PRESS_SETTLE_MS`, `COMPOSER_SETTLE_MS`, `SHARE_SHEET_SETTLE_MS`, `NAV_STEP_SETTLE_MS`, `LOCATE_SCROLL_SETTLE_MS`, `NAV_POST_ARRIVAL_SETTLE_MS`, `REEL_VIEWER_SETTLE_MS`, `CLIPBOARD_READ_DELAY_MS`, `BATCH_ENRICH_SPACING_MS`.
-5. **Deep-link `instagram://direct/t/<thread_id>`** — só se aparecerem falhas em produção da navegação por título.
+4. **Tuning de latência.**
+5. **Deep-link `instagram://direct/t/<thread_id>`.**
 
 ### 6.2 Alternativas arquitecturais
 
@@ -553,6 +550,24 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — todos os erros são classpath-derived (`unresolved reference`, `overload resolution ambiguity` por Long/Int/Iterator sem stdlib inferível). Zero erros no código novo que não sejam idênticos ao baseline pré-s39. Sintaxe OK.
 - **Validação em device (esperada na próxima sessão):** bateria I1-I5 descrita na §6.1.
 - **Nada mudou** nos fluxos de dados, no schema Room, nos primitivos PoC-3/5/6/7, na navegação PoC-9, no filtro de selecção, na chain PoC-7, no bus `BatchEnrichmentBus` (a UI das Definições já mostrava o progresso via bus — isto adiciona-lhe uma **segunda** camada de feedback, via notificação, para quando o utilizador está fora das Definições).
+
+---
+
+### 2026-08-31 — Sessão 40 (Ricardo + Copilot CLI) — atalhos e persistência
+
+- **Contexto:** o utilizador pediu para continuar autonomamente com features independentes. A s39 já tinha resolvido o feedback de conclusão; a s40 arruma três polish items que reduzem fricção sem depender do próximo teste em device.
+- **Feature A — Home button "🔗 Preparar URLs em lote (N)":** `MainActivity` observa `AppDatabase.reelDao().observeMissingUrlCount()` via `collectAsState`. O botão aparece na secção "Descobrir Reels" só quando `N > 0`, com o contador live. Toca → mesmo broadcast que o botão nas Definições (`ACTION_ENRICH_ALL_MISSING_URLS`). Elimina a necessidade de entrar em Definições quando o objectivo é só "processar tudo o que está pendente".
+- **Feature B — Cancel button na progress notification do batch:** `updateBatchEnrichProgressNotification` agora inclui uma action button `✕ Cancelar` (broadcast `ACTION_ENRICH_ALL_CANCEL`). Enquanto o batch corre, a notificação persistente mostra `A preparar URLs K/N…` + progresso + Cancelar — o utilizador não precisa de sair do IG para parar o lote (fecha o feedback deixado em aberto na s38 sobre o cancelamento exigir mudança de app).
+- **Feature C — Persistir `LastResult`:** novas prefs privadas `PREF_LAST_ENRICH_HAS/SUCCEEDED/FAILED/CANCELLED`. `persistBatchEnrichResult` grava-as no terminal branch de `processBatchEnrichmentStep` (2 caminhos: empty e normal-terminal). Novo `restorePersistedBatchEnrichResult()` chamado em `onServiceConnected` seed-a o `BatchEnrichmentBus` com o resultado guardado — o Settings mostra correctamente "Última execução: X preparados, Y falharam" mesmo depois de o processo do serviço ser morto pelo Android (edge case: reboot, low memory, toggle a11y off/on).
+- **`BUILD_TAG` bumped para `build=s40`.** Sem alteração de schema Room.
+- **Ficheiros alterados:**
+  - `MainActivity.kt` — observa `missingUrlCount` + novo callback + botão conditional.
+  - `service/InstagramReaderService.kt` — 3 novas prefs, `persistBatchEnrichResult`/`restorePersistedBatchEnrichResult`, `onServiceConnected` chama restore, `updateBatchEnrichProgressNotification` ganha Cancel action, `processBatchEnrichmentStep` chama persist em 2 branches, `BUILD_TAG=s40`.
+  - `res/values/strings.xml` — 2 strings novas (`home_prepare_urls_batch`, `notif_action_cancel`).
+  - `PROJECT_PROGRESS.md` — Estado atual, quick start, §6/6.1 (bateria J), este log.
+- **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 31 "real errors" totais, todos em código pré-existente e todos derivados de classpath (K2 falha type inference sem stdlib inferível). Zero erros no código novo da s40. Sintaxe OK.
+- **Validação em device (esperada na próxima sessão):** bateria I+J descrita na §6.1.
+- **Nada mudou** nos primitivos PoC, na navegação PoC-9, no filtro de selecção, na chain PoC-7, no fluxo de completion notifs da s39. A s40 é aditiva.
 
 ---
 

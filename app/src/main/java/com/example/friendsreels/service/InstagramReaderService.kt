@@ -107,6 +107,7 @@ class InstagramReaderService : AccessibilityService() {
         Log.i(TAG, "InstagramReaderService connected")
         registerActionReceiver()
         postControlNotification()
+        restorePersistedBatchEnrichResult()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -1875,16 +1876,18 @@ class InstagramReaderService : AccessibilityService() {
             val missing = dao.allMissingUrls()
             if (missing.isEmpty()) {
                 Log.i(TAG, "ENRICH_ALL: nothing to enrich, exiting.")
+                val emptyResult = BatchEnrichmentBus.LastResult(0, 0, cancelled = false)
                 BatchEnrichmentBus.update(
                     BatchEnrichmentBus.State(
                         running = false,
                         currentIndex = 0,
                         total = 0,
-                        lastResult = BatchEnrichmentBus.LastResult(0, 0, cancelled = false),
+                        lastResult = emptyResult,
                     )
                 )
                 mainHandler.post {
                     batchEnrichmentInProgress = false
+                    persistBatchEnrichResult(emptyResult)
                     postCompletionNotification(
                         title = getString(R.string.notif_completion_batch_enrich_title),
                         body = getString(R.string.notif_completion_batch_enrich_body, 0, 0),
@@ -1947,19 +1950,21 @@ class InstagramReaderService : AccessibilityService() {
                     (if (done) "complete" else "cancelled at ${index + 1}/${reels.size}") +
                     " (succeeded=$succeeded failed=$failed).",
             )
+            val result = BatchEnrichmentBus.LastResult(
+                succeeded = succeeded,
+                failed = failed,
+                cancelled = !done,
+            )
             BatchEnrichmentBus.update(
                 BatchEnrichmentBus.State(
                     running = false,
                     currentIndex = index,
                     total = reels.size,
-                    lastResult = BatchEnrichmentBus.LastResult(
-                        succeeded = succeeded,
-                        failed = failed,
-                        cancelled = !done,
-                    ),
+                    lastResult = result,
                 )
             )
             batchEnrichmentInProgress = false
+            persistBatchEnrichResult(result)
             // Restore the persistent control notification and post the
             // transient completion notification on the higher-importance
             // status channel so the user knows the batch is done even
@@ -2414,7 +2419,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s39"
+        private const val BUILD_TAG = "build=s40"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -2677,6 +2682,19 @@ class InstagramReaderService : AccessibilityService() {
         const val PREF_RETURN_TO_APP_ON_FINISH = "return_to_app_on_finish"
         const val PREF_RETURN_TO_APP_ON_FINISH_DEFAULT = true
 
+        /**
+         * Persisted mirror of [BatchEnrichmentBus.LastResult] so the
+         * Settings screen still shows "Última execução: X preparados,
+         * Y falharam" after the app process (or the a11y service) is
+         * killed and re-created. Written at the end of every
+         * [processBatchEnrichmentStep] terminal branch; loaded by
+         * [restorePersistedBatchEnrichResult] on service connect.
+         */
+        private const val PREF_LAST_ENRICH_HAS = "last_enrich_has"
+        private const val PREF_LAST_ENRICH_SUCCEEDED = "last_enrich_succeeded"
+        private const val PREF_LAST_ENRICH_FAILED = "last_enrich_failed"
+        private const val PREF_LAST_ENRICH_CANCELLED = "last_enrich_cancelled"
+
         private const val NOTIF_CHANNEL_ID = "friends_reels_controls"
         private const val NOTIF_ID = 1001
 
@@ -2852,6 +2870,46 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     /**
+     * Persist [result] into SharedPreferences so it can be shown in the
+     * Settings screen even after the app process (or a11y service) is
+     * killed. Called from the terminal branch of
+     * [processBatchEnrichmentStep].
+     */
+    private fun persistBatchEnrichResult(result: BatchEnrichmentBus.LastResult) {
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(PREF_LAST_ENRICH_HAS, true)
+            .putInt(PREF_LAST_ENRICH_SUCCEEDED, result.succeeded)
+            .putInt(PREF_LAST_ENRICH_FAILED, result.failed)
+            .putBoolean(PREF_LAST_ENRICH_CANCELLED, result.cancelled)
+            .apply()
+    }
+
+    /**
+     * Seed [BatchEnrichmentBus] with the last persisted result (if any)
+     * so the Settings screen shows the correct history even on the
+     * first render after a process restart.
+     */
+    private fun restorePersistedBatchEnrichResult() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(PREF_LAST_ENRICH_HAS, false)) return
+        val restored = BatchEnrichmentBus.LastResult(
+            succeeded = prefs.getInt(PREF_LAST_ENRICH_SUCCEEDED, 0),
+            failed = prefs.getInt(PREF_LAST_ENRICH_FAILED, 0),
+            cancelled = prefs.getBoolean(PREF_LAST_ENRICH_CANCELLED, false),
+        )
+        BatchEnrichmentBus.update(
+            BatchEnrichmentBus.State(
+                running = false,
+                currentIndex = 0,
+                total = 0,
+                lastResult = restored,
+            )
+        )
+        Log.i(TAG, "restorePersistedBatchEnrichResult: restored $restored to bus.")
+    }
+
+    /**
      * Overwrite the persistent control notification with a "A preparar
      * URLs %1/%2…" status while [enrichAllMissingUrls] is running.
      * Reverts to the normal button row via [postControlNotification]
@@ -2874,6 +2932,11 @@ class InstagramReaderService : AccessibilityService() {
                 requestCode = 0,
             ))
             .setProgress(total.coerceAtLeast(1), currentStep, false)
+            .addAction(
+                0,
+                getString(R.string.notif_action_cancel),
+                pendingBroadcast(ACTION_ENRICH_ALL_CANCEL, requestCode = 12),
+            )
         try {
             NotificationManagerCompat.from(this).notify(NOTIF_ID, builder.build())
         } catch (e: SecurityException) {

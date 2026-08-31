@@ -28,14 +28,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.example.friendsreels.data.AppDatabase
 import com.example.friendsreels.service.InstagramReaderService
 import com.example.friendsreels.ui.settings.SettingsActivity
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 /**
  * Home screen focused on the vision (spec §3): the user should barely
@@ -52,10 +57,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ensureNotificationPermission()
+        val missingUrlCountFlow: Flow<Int> = try {
+            AppDatabase.get(this).reelDao().observeMissingUrlCount()
+        } catch (e: Exception) {
+            flowOf(0)
+        }
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize()) {
+                    val missingUrlCount by missingUrlCountFlow.collectAsState(initial = 0)
                     HomeScreen(
+                        missingUrlCount = missingUrlCount,
                         onOpenFeed = {
                             startActivity(
                                 Intent(this, com.example.friendsreels.ui.feed.FeedActivity::class.java)
@@ -72,6 +84,9 @@ class MainActivity : ComponentActivity() {
                         },
                         onDiscoverReelsHistory = {
                             sendServiceBroadcast(InstagramReaderService.ACTION_DISCOVER_REELS_HISTORY)
+                        },
+                        onPrepareUrlsBatch = {
+                            sendServiceBroadcast(InstagramReaderService.ACTION_ENRICH_ALL_MISSING_URLS)
                         },
                         onOpenInstagram = {
                             val launch = packageManager.getLaunchIntentForPackage("com.instagram.android")
@@ -105,10 +120,12 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun HomeScreen(
+    missingUrlCount: Int,
     onOpenFeed: () -> Unit,
     onEnableAccessibility: () -> Unit,
     onDiscoverReels: () -> Unit,
     onDiscoverReelsHistory: () -> Unit,
+    onPrepareUrlsBatch: () -> Unit,
     onOpenInstagram: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -156,6 +173,11 @@ private fun HomeScreen(
             }
             OutlinedButton(onClick = onDiscoverReelsHistory, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.btn_discover_reels_history))
+            }
+            if (missingUrlCount > 0) {
+                OutlinedButton(onClick = onPrepareUrlsBatch, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.home_prepare_urls_batch, missingUrlCount))
+                }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))

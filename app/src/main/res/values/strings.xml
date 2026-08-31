@@ -12,6 +12,8 @@
     <string name="home_discovery_hint">Abre uma conversa no Instagram e usa um dos botões abaixo (ou os da notificação persistente) para importar Reels para o feed.</string>
     <string name="home_setup_title">Configuração</string>
     <string name="home_open_settings">⚙ Definições</string>
+    <!-- s40 — quick shortcut on Home when there are URLs pending enrichment. -->
+    <string name="home_prepare_urls_batch">🔗 Preparar URLs em lote (%1$d)</string>
 
     <!-- Setup / diagnostic buttons -->
     <string name="btn_enable_accessibility">Ativar serviço de acessibilidade</string>
@@ -30,6 +32,7 @@
     <string name="notif_action_copy_url">🔗</string>
     <string name="notif_action_discover">🔍</string>
     <string name="notif_action_apply">▶</string>
+    <string name="notif_action_cancel">✕ Cancelar</string>
     <string name="notif_apply_progress">A aplicar %1$d/%2$d…</string>
     <string name="notif_history_progress">A descobrir histórico… scroll %1$d/%2$d, %3$d novos Reels</string>
     <string name="notif_enrich_all_progress">A preparar URLs %1$d/%2$d…</string>
