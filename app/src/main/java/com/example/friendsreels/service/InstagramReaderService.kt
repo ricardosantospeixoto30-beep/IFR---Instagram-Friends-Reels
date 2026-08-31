@@ -162,6 +162,7 @@ class InstagramReaderService : AccessibilityService() {
                     ACTION_DISCOVER_REELS -> runInInstagram { discoverReels() }
                     ACTION_DISCOVER_REELS_HISTORY -> runInInstagram { discoverReelsHistory() }
                     ACTION_APPLY_PENDING -> runInInstagram { applyPendingActions() }
+                    ACTION_APPLY_PENDING_CANCEL -> cancelApplyPending()
                     ACTION_ENRICH_REEL_URL -> {
                         val reelId = intent.getLongExtra(EXTRA_REEL_ID, -1L)
                         if (reelId > 0) runInInstagram { enrichReelUrl(reelId) }
@@ -181,6 +182,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_DISCOVER_REELS)
             addAction(ACTION_DISCOVER_REELS_HISTORY)
             addAction(ACTION_APPLY_PENDING)
+            addAction(ACTION_APPLY_PENDING_CANCEL)
             addAction(ACTION_ENRICH_REEL_URL)
             addAction(ACTION_ENRICH_ALL_MISSING_URLS)
             addAction(ACTION_ENRICH_ALL_CANCEL)
@@ -198,6 +200,7 @@ class InstagramReaderService : AccessibilityService() {
                 "laugh=$ACTION_REACT_LAUGH, reply=$ACTION_REPLY_FIRST_REEL_MOCK, " +
                 "copyUrl=$ACTION_COPY_REEL_URL, discover=$ACTION_DISCOVER_REELS, " +
                 "history=$ACTION_DISCOVER_REELS_HISTORY, applyPending=$ACTION_APPLY_PENDING, " +
+                "applyCancel=$ACTION_APPLY_PENDING_CANCEL, " +
                 "enrichUrl=$ACTION_ENRICH_REEL_URL, enrichAll=$ACTION_ENRICH_ALL_MISSING_URLS, " +
                 "enrichCancel=$ACTION_ENRICH_ALL_CANCEL)"
         )
@@ -1091,6 +1094,7 @@ class InstagramReaderService : AccessibilityService() {
                     title = getString(R.string.notif_completion_discover_title),
                     body = body,
                 )
+                maybeAutoEnrichAfterDiscover(inserted)
             }
         }
     }
@@ -1316,6 +1320,7 @@ class InstagramReaderService : AccessibilityService() {
             ),
         )
         returnToAppIfEnabled()
+        maybeAutoEnrichAfterDiscover(state.totalInserted)
     }
 
     /**
@@ -1621,6 +1626,13 @@ class InstagramReaderService : AccessibilityService() {
     /** Counters used to render the s39 completion notification after apply pending. */
     private var applyPendingSucceeded = 0
     private var applyPendingFailed = 0
+    /**
+     * Set by [cancelApplyPending] (broadcast `ACTION_APPLY_PENDING_CANCEL`).
+     * Checked between each step in [runBatchStep]. Same semantics as
+     * [batchEnrichmentCancelled]: the running step is allowed to finish
+     * so IG isn't left mid-composer or mid-share-sheet.
+     */
+    private var applyPendingCancelled = false
 
     // -------------------------------------------------------------------
     // PoC-8 iter 4 (session 34) — locate a specific Reel via history scroll
@@ -2063,6 +2075,21 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     /**
+     * Ask the running `applyPendingActions` drain to stop after the
+     * current step finishes. No-op if no drain is running. See
+     * [cancelBatchEnrichment] for the same pattern applied to the URL
+     * enrichment batch.
+     */
+    private fun cancelApplyPending() {
+        if (!batchInProgress) {
+            Log.i(TAG, "APPLY_PENDING: cancel requested but no drain running.")
+            return
+        }
+        Log.i(TAG, "APPLY_PENDING: cancel requested — drain will stop after the current step.")
+        applyPendingCancelled = true
+    }
+
+    /**
      * Entry point for `ACTION_APPLY_PENDING`. Reads the pending queue on
      * the IO scope, then hops back to the main handler to execute each
      * row via [runBatchStep]. Guarded by [batchInProgress] so double taps
@@ -2076,6 +2103,7 @@ class InstagramReaderService : AccessibilityService() {
         val currentThread = currentHeaderTitle()
         Log.i(TAG, "APPLY_PENDING: starting drain (currentThread='$currentThread').")
         batchInProgress = true
+        applyPendingCancelled = false
         applyPendingSucceeded = 0
         applyPendingFailed = 0
 
@@ -2146,18 +2174,25 @@ class InstagramReaderService : AccessibilityService() {
      * scope for each step.
      */
     private fun runBatchStep(steps: List<BatchStep>, index: Int) {
-        if (index >= steps.size) {
+        if (applyPendingCancelled || index >= steps.size) {
+            val done = index >= steps.size
             Log.i(
                 TAG,
-                "APPLY_PENDING: drain finished (${steps.size} step(s) processed, " +
+                "APPLY_PENDING: " +
+                    (if (done) "drain finished" else "drain cancelled at ${index + 1}/${steps.size}") +
+                    " (${steps.size} step(s) total, " +
                     "succeeded=$applyPendingSucceeded failed=$applyPendingFailed)."
             )
             batchInProgress = false
             postControlNotification()
+            val bodyRes = if (!done)
+                R.string.notif_completion_apply_pending_body_cancelled
+            else
+                R.string.notif_completion_apply_pending_body
             postCompletionNotification(
                 title = getString(R.string.notif_completion_apply_pending_title),
                 body = getString(
-                    R.string.notif_completion_apply_pending_body,
+                    bodyRes,
                     applyPendingSucceeded,
                     applyPendingFailed,
                 ),
@@ -2312,6 +2347,11 @@ class InstagramReaderService : AccessibilityService() {
                 requestCode = 0,
             ))
             .setProgress(total, currentStep, false)
+            .addAction(
+                0,
+                getString(R.string.notif_action_cancel),
+                pendingBroadcast(ACTION_APPLY_PENDING_CANCEL, requestCode = 13),
+            )
         try {
             NotificationManagerCompat.from(this).notify(NOTIF_ID, builder.build())
         } catch (e: SecurityException) {
@@ -2419,7 +2459,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s40"
+        private const val BUILD_TAG = "build=s41"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -2527,6 +2567,14 @@ class InstagramReaderService : AccessibilityService() {
          */
         private const val BATCH_ENRICH_SPACING_MS = 1_500L
 
+        /**
+         * Grace period between a discovery finishing and the auto-chain
+         * enrichment (see [maybeAutoEnrichAfterDiscover]). Lets the
+         * completion notification of the discovery render before the
+         * progress notification of the enrichment takes over.
+         */
+        private const val AUTO_ENRICH_CHAIN_DELAY_MS = 2_500L
+
         // -----------------------------------------------------------------
         // PoC-8 iteration 3 part B — history discovery (auto scroll)
         // -----------------------------------------------------------------
@@ -2565,6 +2613,16 @@ class InstagramReaderService : AccessibilityService() {
          * knows to switch conversations before applying again.
          */
         const val ACTION_APPLY_PENDING = "com.example.friendsreels.ACTION_APPLY_PENDING"
+
+        /**
+         * Cancel a running `applyPendingActions` batch after the current
+         * step finishes. Same semantics as [ACTION_ENRICH_ALL_CANCEL]:
+         * we let the current gesture chain complete so IG isn't left
+         * mid-composer / mid-share-sheet. Fires via the Cancel action
+         * on the persistent progress notification.
+         */
+        const val ACTION_APPLY_PENDING_CANCEL =
+            "com.example.friendsreels.ACTION_APPLY_PENDING_CANCEL"
 
         /**
          * Auto-scroll the current DM conversation upwards, enumerating
@@ -2681,6 +2739,17 @@ class InstagramReaderService : AccessibilityService() {
          */
         const val PREF_RETURN_TO_APP_ON_FINISH = "return_to_app_on_finish"
         const val PREF_RETURN_TO_APP_ON_FINISH_DEFAULT = true
+
+        /**
+         * When true, successful discoveries (`ACTION_DISCOVER_REELS` and
+         * `ACTION_DISCOVER_REELS_HISTORY`) automatically kick off
+         * [enrichAllMissingUrls] once they finish inserting new rows.
+         * Turns the "🔍 → 📥 → 🔗 (Preparar todos)" sequence into a
+         * single tap. Off by default because chaining two long-running
+         * operations without warning could surprise users.
+         */
+        const val PREF_AUTO_ENRICH_ON_DISCOVER = "auto_enrich_on_discover"
+        const val PREF_AUTO_ENRICH_ON_DISCOVER_DEFAULT = false
 
         /**
          * Persisted mirror of [BatchEnrichmentBus.LastResult] so the
@@ -2907,6 +2976,38 @@ class InstagramReaderService : AccessibilityService() {
             )
         )
         Log.i(TAG, "restorePersistedBatchEnrichResult: restored $restored to bus.")
+    }
+
+    /**
+     * If [PREF_AUTO_ENRICH_ON_DISCOVER] is enabled, fire the batch URL
+     * enrichment right after a discovery inserts at least one new row.
+     * Guarded against overlap with a running enrichment or apply-pending
+     * drain; also skips if there are no missing URLs anymore (race
+     * with a parallel copy-link path).
+     *
+     * Called at the tail of [discoverReels] and [finishHistory] on the
+     * main handler. Intentionally posts with a short delay so the
+     * previous completion notification renders first — otherwise the
+     * user sees the enrichment progress notif overwrite the discover
+     * completion before they get to notice it.
+     */
+    private fun maybeAutoEnrichAfterDiscover(insertedCount: Int) {
+        if (insertedCount <= 0) return
+        val enabled = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(PREF_AUTO_ENRICH_ON_DISCOVER, PREF_AUTO_ENRICH_ON_DISCOVER_DEFAULT)
+        if (!enabled) return
+        if (batchEnrichmentInProgress || batchInProgress) {
+            Log.i(
+                TAG,
+                "AUTO_ENRICH: skipped — another batch is already running " +
+                    "(enrichInProgress=$batchEnrichmentInProgress applyInProgress=$batchInProgress)."
+            )
+            return
+        }
+        Log.i(TAG, "AUTO_ENRICH: pref enabled, insertedCount=$insertedCount — chaining ACTION_ENRICH_ALL_MISSING_URLS.")
+        mainHandler.postDelayed({
+            enrichAllMissingUrls()
+        }, AUTO_ENRICH_CHAIN_DELAY_MS)
     }
 
     /**

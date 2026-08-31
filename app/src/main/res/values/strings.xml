@@ -48,6 +48,7 @@
     <string name="notif_completion_batch_enrich_body_cancelled">%1$d preparado(s) · %2$d falhou(aram) — cancelado.</string>
     <string name="notif_completion_apply_pending_title">▶ Fila aplicada</string>
     <string name="notif_completion_apply_pending_body">%1$d ação(ões) executada(s) · %2$d falhou(aram).</string>
+    <string name="notif_completion_apply_pending_body_cancelled">%1$d ação(ões) executada(s) · %2$d falhou(aram) — cancelado.</string>
     <string name="notif_completion_discover_title">🔍 Descoberta concluída</string>
     <string name="notif_completion_discover_body">%1$d Reel(s) novo(s) em \'%2$s\'.</string>
     <string name="notif_completion_discover_body_empty">Sem Reels novos em \'%1$s\'.</string>
@@ -66,6 +67,10 @@
     <!-- Return to app on finish (s39) -->
     <string name="settings_return_to_app_title">Voltar à app quando terminar</string>
     <string name="settings_return_to_app_subtitle">Depois de terminar ações longas (aplicar fila, preparar URLs em lote, descobrir histórico), traz o feed automaticamente para a frente para veres o resultado.</string>
+
+    <!-- Auto-enrich on discover (s41) -->
+    <string name="settings_auto_enrich_title">Preparar URLs automaticamente após descobrir</string>
+    <string name="settings_auto_enrich_subtitle">Quando ativado, sempre que uma descoberta (🔍 ou 📥) inserir Reels novos sem URL, o lote de preparação arranca automaticamente logo a seguir. Torna 📥 num único gesto que traz TUDO da conversa. Default desligado — porque encadeia dois processos longos.</string>
 
     <!-- Selection of conversations (spec §8) -->
     <string name="settings_selection_title">Filtrar conversas no feed</string>

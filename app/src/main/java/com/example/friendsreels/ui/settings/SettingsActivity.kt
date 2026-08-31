@@ -90,6 +90,13 @@ class SettingsActivity : ComponentActivity() {
                         onReturnToAppChange = { v ->
                             prefs.edit().putBoolean(InstagramReaderService.PREF_RETURN_TO_APP_ON_FINISH, v).apply()
                         },
+                        initialAutoEnrich = prefs.getBoolean(
+                            InstagramReaderService.PREF_AUTO_ENRICH_ON_DISCOVER,
+                            InstagramReaderService.PREF_AUTO_ENRICH_ON_DISCOVER_DEFAULT,
+                        ),
+                        onAutoEnrichChange = { v ->
+                            prefs.edit().putBoolean(InstagramReaderService.PREF_AUTO_ENRICH_ON_DISCOVER, v).apply()
+                        },
                         onFinish = { finish() },
                     )
                 }
@@ -106,10 +113,13 @@ private fun SettingsScreen(
     onIgnoreSentChange: (Boolean) -> Unit,
     initialReturnToApp: Boolean,
     onReturnToAppChange: (Boolean) -> Unit,
+    initialAutoEnrich: Boolean,
+    onAutoEnrichChange: (Boolean) -> Unit,
     onFinish: () -> Unit,
 ) {
     var ignoreSent by remember { mutableStateOf(initialIgnoreSent) }
     var returnToApp by remember { mutableStateOf(initialReturnToApp) }
+    var autoEnrich by remember { mutableStateOf(initialAutoEnrich) }
     val context = LocalContext.current
 
     val selectionMode by vm.selectionMode.collectAsState()
@@ -145,6 +155,16 @@ private fun SettingsScreen(
                 onChange = {
                     returnToApp = it
                     onReturnToAppChange(it)
+                },
+            )
+
+            SettingToggle(
+                title = stringResource(R.string.settings_auto_enrich_title),
+                subtitle = stringResource(R.string.settings_auto_enrich_subtitle),
+                value = autoEnrich,
+                onChange = {
+                    autoEnrich = it
+                    onAutoEnrichChange(it)
                 },
             )
 
