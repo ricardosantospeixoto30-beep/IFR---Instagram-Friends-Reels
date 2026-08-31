@@ -17,13 +17,17 @@ import androidx.room.RoomDatabase
  *   `InstagramReaderService.ACTION_APPLY_PENDING` in a single IG pass.
  * - v4 (sessão 37): adds `tracked_threads` table for the conversation
  *   selection feature (spec §8) — see [TrackedThreadEntity].
+ * - v5 (sessão 49): adds `currentReaction` column to `reels` (spec §7)
+ *   so the feed can show the reaction actually present on the DM,
+ *   not just the one our own app has sent. Populated during
+ *   `enumerateReels` from `message_reactions_pill_container`.
  *
  * We use `fallbackToDestructiveMigration()` — the PoC data is regenerated
  * by the user with a quick "Descobrir" pass.
  */
 @Database(
     entities = [ReelEntity::class, PendingActionEntity::class, TrackedThreadEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {

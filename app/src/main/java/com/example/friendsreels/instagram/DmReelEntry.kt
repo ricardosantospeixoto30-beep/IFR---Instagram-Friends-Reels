@@ -48,4 +48,13 @@ data class DmReelEntry(
     val reelAuthor: String?,
     val bounds: Rect,
     val node: AccessibilityNodeInfo,
+    /**
+     * Emoji currently reacted on the bubble, if any. Extracted from the
+     * `message_reactions_pill_container` associated with this bubble
+     * (best-effort: matched by geometric proximity when the pill is not
+     * a descendant of `message_content`). Null when no reaction is
+     * present. See [ReelEntity.currentReaction] for how this ends up in
+     * Room.
+     */
+    val currentReaction: String? = null,
 )

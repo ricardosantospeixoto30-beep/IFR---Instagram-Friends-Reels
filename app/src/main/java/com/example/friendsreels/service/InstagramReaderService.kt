@@ -1061,6 +1061,7 @@ class InstagramReaderService : AccessibilityService() {
                 kind = it.kind,
                 direction = it.direction,
                 author = it.reelAuthor,
+                currentReaction = it.currentReaction,
             )
         }
         val discoveredAt = System.currentTimeMillis()
@@ -1068,10 +1069,18 @@ class InstagramReaderService : AccessibilityService() {
             val dao = AppDatabase.get(this@InstagramReaderService).reelDao()
             var inserted = 0
             var skipped = 0
+            var reactionsRefreshed = 0
             for (s in snapshot) {
                 val existing = dao.countMatching(threadTitle, s.author, s.direction.name)
                 if (existing > 0) {
                     skipped++
+                    val n = dao.updateCurrentReactionByKey(
+                        thread = threadTitle,
+                        author = s.author,
+                        direction = s.direction.name,
+                        reaction = s.currentReaction,
+                    )
+                    if (n > 0) reactionsRefreshed++
                     continue
                 }
                 val row = ReelEntity(
@@ -1085,6 +1094,7 @@ class InstagramReaderService : AccessibilityService() {
                     bubbleIndex = s.index,
                     reelUrl = null,
                     discoveredAt = discoveredAt,
+                    currentReaction = s.currentReaction,
                 )
                 val id = dao.insert(row)
                 if (id > 0) inserted++ else skipped++
@@ -1093,7 +1103,8 @@ class InstagramReaderService : AccessibilityService() {
             Log.i(
                 TAG,
                 "DISCOVER: thread='$threadTitle' visibleReceived=$visibleReceived visibleSent=$visibleSent " +
-                    "ignoreSent=$ignoreSent kept=${snapshot.size} inserted=$inserted skipped=$skipped totalInDb=$total"
+                    "ignoreSent=$ignoreSent kept=${snapshot.size} inserted=$inserted skipped=$skipped " +
+                    "reactionsRefreshed=$reactionsRefreshed totalInDb=$total"
             )
             mainHandler.post {
                 val body = if (inserted > 0)
@@ -1237,15 +1248,31 @@ class InstagramReaderService : AccessibilityService() {
         }
         val entries = enumerateReels(messageList)
         val kept = if (state.ignoreSent) entries.filter { it.direction == Direction.RECEIVED } else entries
-        val snapshot = kept.map { Snapshot(it.index, it.kind, it.direction, it.reelAuthor) }
+        val snapshot = kept.map {
+            Snapshot(it.index, it.kind, it.direction, it.reelAuthor, it.currentReaction)
+        }
         val discoveredAt = System.currentTimeMillis()
         serviceScope.launch {
             val dao = AppDatabase.get(this@InstagramReaderService).reelDao()
             var inserted = 0
             var skipped = 0
+            var reactionsRefreshed = 0
             for (s in snapshot) {
                 val existing = dao.countMatching(state.threadTitle, s.author, s.direction.name)
-                if (existing > 0) { skipped++; continue }
+                if (existing > 0) {
+                    skipped++
+                    // s49: even though we skip the insert, keep the
+                    // currentReaction column in sync with what IG shows
+                    // now. Cheap UPDATE that no-ops when unchanged.
+                    val n = dao.updateCurrentReactionByKey(
+                        thread = state.threadTitle,
+                        author = s.author,
+                        direction = s.direction.name,
+                        reaction = s.currentReaction,
+                    )
+                    if (n > 0) reactionsRefreshed++
+                    continue
+                }
                 val row = ReelEntity(
                     threadTitle = state.threadTitle,
                     reelAuthor = s.author,
@@ -1255,6 +1282,7 @@ class InstagramReaderService : AccessibilityService() {
                     bubbleIndex = s.index,
                     reelUrl = null,
                     discoveredAt = discoveredAt,
+                    currentReaction = s.currentReaction,
                 )
                 val id = dao.insert(row)
                 if (id > 0) inserted++ else skipped++
@@ -1266,7 +1294,9 @@ class InstagramReaderService : AccessibilityService() {
             Log.i(
                 TAG,
                 "HISTORY: scroll=${state.totalScrolls} inserted=$inserted skipped=$skipped " +
-                    "totalInsertedRun=${state.totalInserted} consecutiveEmpty=${state.consecutiveEmpty} totalInDb=$total"
+                    "reactionsRefreshed=$reactionsRefreshed " +
+                    "totalInsertedRun=${state.totalInserted} " +
+                    "consecutiveEmpty=${state.consecutiveEmpty} totalInDb=$total"
             )
             mainHandler.post {
                 updateHistoryProgressNotification(state)
@@ -1579,6 +1609,7 @@ class InstagramReaderService : AccessibilityService() {
         val kind: String,
         val direction: Direction,
         val author: String?,
+        val currentReaction: String? = null,
     )
 
     /**
@@ -1598,6 +1629,18 @@ class InstagramReaderService : AccessibilityService() {
         val genericId = IgSelectors.id(IgSelectors.Thread.MESSAGE_MEDIA_GENERIC)
         val senderAvatarId = IgSelectors.id(IgSelectors.Thread.SENDER_AVATAR)
         val authorId = IgSelectors.id(IgSelectors.Thread.REEL_AUTHOR_USERNAME)
+        val pillId = IgSelectors.id(IgSelectors.Thread.REACTIONS_PILL_CONTAINER)
+
+        // s49: enumerate all reactions pills upfront and match them by
+        // geometric proximity to bubbles below. IG places the pill just
+        // beneath the bubble it belongs to (~15-40px vertical gap). Doing
+        // this once at the top of the loop avoids O(N × M) tree walks.
+        val pills = messageList.findAccessibilityNodeInfosByViewId(pillId).orEmpty()
+        val pillEntries: List<Pair<Rect, String?>> = pills.mapNotNull { pill ->
+            val rect = Rect().also { pill.getBoundsInScreen(it) }
+            if (rect.width() <= 0 || rect.height() <= 0) null
+            else rect to extractReactionEmoji(pill)
+        }
 
         val entries = mutableListOf<DmReelEntry>()
         var next = 0
@@ -1615,6 +1658,8 @@ class InstagramReaderService : AccessibilityService() {
 
             val author = media.findAccessibilityNodeInfosByViewId(authorId)?.firstOrNull()?.text?.toString()
             val bounds = Rect().also { media.getBoundsInScreen(it) }
+            val bubbleBounds = Rect().also { bubble.getBoundsInScreen(it) }
+            val currentReaction = matchReactionPill(bubbleBounds, pillEntries)
             entries += DmReelEntry(
                 index = next++,
                 kind = kind,
@@ -1622,9 +1667,73 @@ class InstagramReaderService : AccessibilityService() {
                 reelAuthor = author,
                 bounds = bounds,
                 node = media,
+                currentReaction = currentReaction,
             )
         }
         return entries
+    }
+
+    /**
+     * s49 — pull the emoji off a `message_reactions_pill_container` node.
+     *
+     * Two variants observed on device:
+     * - **No reaction:** pill is a `LinearLayout` containing a `Button
+     *   id=reaction_add` with `contentDescription="Toca para reagir..."`.
+     *   We return `null` in this case.
+     * - **With reaction:** pill is a `Button` containing a `FrameLayout`
+     *   whose `contentDescription` IS the emoji character (e.g. `"😂"`).
+     *
+     * Strategy: walk descendants; the first non-`reaction_add` node whose
+     * `contentDescription` is a short (≤4 char) non-empty string is
+     * treated as the emoji. IG reactions are always a single emoji code
+     * point (rarely two — some flag emojis), so ≤4 UTF-16 chars is safe.
+     */
+    private fun extractReactionEmoji(pill: AccessibilityNodeInfo): String? {
+        val reactionAddId = IgSelectors.id(IgSelectors.Thread.REACTION_ADD_BUTTON)
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.addLast(pill)
+        while (stack.isNotEmpty()) {
+            val node = stack.removeLast()
+            val id = node.viewIdResourceName
+            val desc = node.contentDescription?.toString()
+            if (id != reactionAddId && !desc.isNullOrEmpty() && desc.length <= 4) {
+                return desc
+            }
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                stack.addLast(child)
+            }
+        }
+        return null
+    }
+
+    /**
+     * s49 — match a bubble bounds to the nearest reactions pill just
+     * below it. Returns the emoji when a pill within
+     * [REACTION_PILL_MAX_GAP_PX] of the bubble's bottom is found, else
+     * null. The horizontal-overlap check filters spurious pills from
+     * adjacent bubbles in the same visible viewport.
+     */
+    private fun matchReactionPill(
+        bubble: Rect,
+        pills: List<Pair<Rect, String?>>,
+    ): String? {
+        var best: Pair<Rect, String?>? = null
+        var bestGap = Int.MAX_VALUE
+        for (candidate in pills) {
+            val (pillRect, emoji) = candidate
+            if (emoji == null) continue
+            val gap = pillRect.top - bubble.bottom
+            if (gap < -REACTION_PILL_OVERLAP_TOLERANCE_PX || gap > REACTION_PILL_MAX_GAP_PX) continue
+            // Horizontal overlap check.
+            val hOverlap = minOf(bubble.right, pillRect.right) - maxOf(bubble.left, pillRect.left)
+            if (hOverlap <= 0) continue
+            if (gap < bestGap) {
+                bestGap = gap
+                best = candidate
+            }
+        }
+        return best?.second
     }
 
     /**
@@ -3078,7 +3187,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s48"
+        private const val BUILD_TAG = "build=s49"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -3273,6 +3382,21 @@ class InstagramReaderService : AccessibilityService() {
          * doesn't race the previous pass's teardown.
          */
         private const val HISTORY_BATCH_STEP_SPACING_MS = 600L
+
+        /**
+         * s49 — geometric tolerance for matching a
+         * `message_reactions_pill_container` to the bubble it belongs
+         * to. IG places the pill immediately beneath the bubble, but
+         * the exact vertical gap varies with bubble size / density
+         * settings. 60px is generous but still discriminates between
+         * adjacent bubbles.
+         */
+        private const val REACTION_PILL_MAX_GAP_PX = 60
+        /**
+         * Allow the pill to slightly overlap the bottom of the bubble
+         * (some builds render it into the bubble's padding).
+         */
+        private const val REACTION_PILL_OVERLAP_TOLERANCE_PX = 20
 
         /** Placeholder text used by the PoC-6 mock reply broadcast. */
         const val MOCK_REPLY_TEXT = "👀"

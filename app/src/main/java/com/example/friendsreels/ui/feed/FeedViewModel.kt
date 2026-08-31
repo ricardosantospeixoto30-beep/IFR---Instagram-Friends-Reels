@@ -166,7 +166,13 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
                 pendingHeart = list.any { it.kind == PendingActionEntity.KIND_REACT_HEART && it.status == PendingActionEntity.STATUS_PENDING },
                 pendingLaugh = list.any { it.kind == PendingActionEntity.KIND_REACT_LAUGH && it.status == PendingActionEntity.STATUS_PENDING },
                 pendingReply = list.any { it.kind == PendingActionEntity.KIND_REPLY_TEXT && it.status == PendingActionEntity.STATUS_PENDING },
-                currentReaction = latestReaction?.kind,
+                // s49: prefer the actual current reaction from the DM
+                // (populated during discovery from
+                // message_reactions_pill_container). Fall back to the
+                // "last DONE reaction we sent through the app" heuristic
+                // for rows that predate the s49 population OR haven't
+                // been re-enumerated yet.
+                currentReaction = mapPillEmojiToKind(reel.currentReaction) ?: latestReaction?.kind,
                 replied = list.any { it.kind == PendingActionEntity.KIND_REPLY_TEXT && it.status == PendingActionEntity.STATUS_DONE },
                 failedActions = list.count { it.status == PendingActionEntity.STATUS_FAILED },
             )
@@ -273,5 +279,24 @@ class FeedViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     enum class Result { Queued, AlreadyQueued, Empty }
+}
+
+/**
+ * s49 — bridge the raw emoji stored on `ReelEntity.currentReaction` (as
+ * captured from `message_reactions_pill_container`) to the
+ * `PendingActionEntity.KIND_REACT_*` constants that the feed UI already
+ * uses to highlight chips. Only the emojis we know about map cleanly;
+ * others return null so the fallback (last DONE reaction we sent) still
+ * kicks in.
+ *
+ * IG has 6 preset reactions but the app currently only surfaces heart
+ * and laugh in the feed (see the [FeedScreen] chip row); other emojis
+ * simply don't get a chip so returning null is safe.
+ */
+private fun mapPillEmojiToKind(emoji: String?): String? = when (emoji?.trim()) {
+    null, "" -> null
+    "❤", "❤️" -> PendingActionEntity.KIND_REACT_HEART
+    "😂" -> PendingActionEntity.KIND_REACT_LAUGH
+    else -> null
 }
 

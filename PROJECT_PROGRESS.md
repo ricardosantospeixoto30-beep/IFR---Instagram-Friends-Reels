@@ -8,9 +8,9 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-08-31 (sessão 48 — descobrir histórico em batch em todas as conversas seleccionadas).
+**Última actualização:** 2026-08-31 (sessão 49 — sync da reacção actual, spec §7).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s48`.
+**HEAD actual:** `build=s49`.
 
 **Recap sessões 41-47 (as validadas ou próximas de validação):**
 
@@ -22,18 +22,20 @@
 - **s47** (superseded pela s47b): tentei instrumentar mas usei `candidates` (pós-filtro) como source do `seenAuthors`. Utilizador apanhou (esta ronda): dado que o match é `.firstOrNull { reelAuthor == wantedAuthor }`, se o autor está em `candidates` o match acontece sempre — logo o warning nunca disparava. Bug de design.
 - **s47b** (aguarda validação — não bloqueia): `seenAuthors` agora acumula-se a partir de `allReels.filter { direction == RECEIVED }.mapNotNull { reelAuthor }` — ANTES do filtro `bounds.width() > 0 && bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX`. Isto captura autores de bubbles mid-layout que a s47 perdia. `BATCH_MAX_FORWARD_SCROLLS` continua 15 (era 5 em ≤s46).
 - **s48** (aguarda validação): **`📥 Descobrir tudo` — batch de history-scroll em todas as conversas seleccionadas em Definições**. Utilizador tem 20 amigos seleccionados em "Filtrar conversas", carrega no novo botão em Definições e a app itera cada conversa, navega para lá, faz scroll até ao topo, guarda os Reels novos, e passa à próxima. Notificação única de conclusão no final ("N Reels novos em M conversas"). Reutiliza a chain PoC-9 (`navigateToThreadAsync`) + `discoverReelsHistory` (com `overrideThreadTitle` + callback `onFinish` novo para não spamar notifs por thread).
+- **s49** (aguarda validação): **sync da reacção actual (spec §7)**. Room DB v5 com nova coluna `currentReaction: String?` em `reels`. `enumerateReels` procura por todos os `message_reactions_pill_container` no `message_list` e faz match por proximidade geométrica (pill.top ≈ bubble.bottom com tolerância) — extrai o emoji do descendant com `contentDescription` curta e não vazia (skipping o `reaction_add`). Populada em `discoverReels` (fast) e `doHistoryEnumerate` (histórico). O feed prefere `reel.currentReaction` (mapeado via `mapPillEmojiToKind`) sobre o valor derivado das "últimas reacções DONE que enviámos", fazendo fallback quando a coluna é null.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s48 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s49 ...)`.
 2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
-    - `instagram/IgSelectors.kt` — objecto `Thread` tem `HEADER_VIEW_PROFILE_BUTTON` + 3 fallbacks (s46).
-    - `service/InstagramReaderService.kt` — `isThreadTopVisible(root)` (s46), `seenAuthors` pré-filtro (s47b), e **s48**: novos `ACTION_DISCOVER_HISTORY_ALL_TRACKED` + `ACTION_DISCOVER_HISTORY_ALL_CANCEL`; nova função `discoverHistoryAllTracked()` que faz snapshot da tabela `tracked_threads`, orquestra `processHistoryBatchStep(titles, index, totalInserted, threadsCovered)` para navegar → correr history-scroll → chain; `HistoryState` ganhou `onFinish: ((HistoryState) -> Unit)?` (o batch passa callback, single-thread continua com `null` = comportamento original com notif individual + auto-enrich).
-    - `data/TrackedThreadDao.kt` — nova `snapshotTitles(): List<String>` (suspend, one-shot vs Flow observável).
-    - `ui/settings/SettingsActivity.kt` — nova `BatchHistorySection` com título/subtítulo/botão "📥 Descobrir tudo" logo abaixo da secção "Preparar URLs em lote".
-    - `res/values/strings.xml` — novos `settings_history_all_*` + `notif_completion_history_all_*`.
-    - Dumps: `docs/screen-dumps/dump.txt` (s45), `docs/screen-dumps/2025-08-28-initial-mapping.txt` (mapeamento inicial dos selectors do IG).
+    - `instagram/IgSelectors.kt` — objecto `Thread` tem `HEADER_VIEW_PROFILE_BUTTON` + 3 fallbacks (s46), e as constantes `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` foram reutilizadas na s49.
+    - `service/InstagramReaderService.kt` — `isThreadTopVisible(root)` (s46), `seenAuthors` pré-filtro (s47b), batch history (s48), e **s49**: `enumerateReels` agora extrai `currentReaction` via novas helpers `extractReactionEmoji(pill)` + `matchReactionPill(bubbleBounds, pillEntries)`; `discoverReels` e `doHistoryEnumerate` persistem via `dao.updateCurrentReactionByKey` (skips) ou `insert com currentReaction` (novos).
+    - `data/*.kt` — `ReelEntity` nova coluna, `ReelDao` 2 novos UPDATE queries, `AppDatabase` v5. `fallbackToDestructiveMigration` mantém-se (dados são regeneráveis).
+    - `instagram/DmReelEntry.kt` — campo `currentReaction: String?`.
+    - `ui/feed/FeedViewModel.kt` — nova helper `mapPillEmojiToKind` (top-level); `uiStates` prefere `reel.currentReaction` mapeado sobre o valor derivado.
+    - `ui/settings/SettingsActivity.kt` — `BatchHistorySection` (s48), sem alterações na s49.
+    - Dumps: `docs/screen-dumps/dump.txt` (s45).
 4. **Constraints:**
     - Testes só no OnePlus Nord 5 / Android 16.
     - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
@@ -51,7 +53,7 @@
     - Enrichment success ~5-8s; fail depende do tamanho da conversa.
     - Batch enrichment partilha `pendingCopy` com o fluxo on-demand.
     - Consulta de respostas anteriores dentro da app (spec §5) — não temos sync.
-    - Reacção "actual" só reflecte as que corremos via app.
+    - Reacção "actual" no feed **(s49):** agora prefere o emoji lido de `message_reactions_pill_container` durante o discovery / history-scroll (Room `reels.currentReaction`), com fallback para o valor derivado das reacções DONE que enviámos pela app. Emojis suportados no chip: ❤ e 😂 (`PendingActionEntity.KIND_REACT_HEART`/`KIND_REACT_LAUGH`). Outros emojis do IG (😮 😢 😡 👍) são detectados e persistidos mas não têm chip próprio na UI — ficam invisíveis até uma futura secção multi-emoji.
     - `threadTitle` como chave — se o utilizador renomear um grupo, a selecção perde-se.
     - Heads-up completion depende do canal `friends_reels_status_v2` em IMPORTANCE_HIGH.
 
@@ -283,14 +285,41 @@ Já entregue no primeiro commit:
 
 ---
 
-**Priorização depois de R validado:**
+**Priorização depois de R e S validados:**
 
-1. **Sync de reacção actual (spec §7)** — coluna nova em Room + migração + leitura de `message_reactions_pill_container`.
+1. ~~**Sync de reacção actual (spec §7)**~~ — **feito na s49**, aguarda validação (bateria S).
 2. **Match estrito por Reel URL no `locateReelWithScroll`** — para colisões de mesmo autor. Precisa investigar disambiguation por posição/timestamp.
 3. **Cosmético:** thumbnails / preview no feed; indicador visual de direcção de swipe.
 4. **Deep-link `instagram://direct/t/<thread_id>`** — investigar em dump da inbox.
 5. **Tuning de latência de scroll.**
 6. **Bateria Q (`SeenSkipped` da s47b)** — quando for oportuno, para saber a frequência do "Reel skipped mid-sweep".
+7. **Suporte a mais emojis no chip do feed** — actualmente só ❤ e 😂. Adicionar 😮 😢 😡 👍 (as 6 preset do IG). Simples: expandir `mapPillEmojiToKind` + adicionar chips ao FeedScreen.
+
+#### Teste 2 — "Reacção actual aparece no feed após `📥 Descobrir` numa conversa com reacções" (`ReactionSync`)
+
+**O que se está a validar:** o feed mostra a reacção que existe na DM (não só as que enviámos via app). Após `🔍 Descobrir` ou `📥 Descobrir histórico` numa conversa onde reagiste manualmente a um Reel no IG, o chip da reacção aparece iluminado no feed correspondente.
+
+**Preparação:**
+1. `git pull`; recompilar e reinstalar o APK em `build=s49`. **Importante:** a DB v4 → v5 dispara `fallbackToDestructiveMigration` — os Reels actuais serão apagados. Aceitar (é PoC).
+2. Confirmar no logcat: `Action receiver registered (build=s49 ...)`.
+3. Escolher **uma conversa com ao menos 2 Reels recebidos, um dos quais tem uma reacção ❤ ou 😂 aplicada por ti directamente no IG** (não pela app). Se não tiveres, aplica manualmente uma agora.
+4. Abrir `logcat -s IGReaderService`.
+
+**Passos:**
+1. Abrir Friends Reels → tocar `🔍 Descobrir` (via notif ou home) OU ir à conversa no IG e tocar `🔍 Descobrir` da persistent notif.
+2. Confirmar no logcat: `DISCOVER: ... reactionsRefreshed=N ...` (N pode ser 0 se todos os Reels são novos — nesse caso o insert já traz `currentReaction`).
+3. Abrir o feed. Navegar até ao Reel com reacção manual.
+
+**O que confirmar:**
+- No feed, o chip de ❤ ou 😂 aparece iluminado no Reel onde reagiste manualmente (assumindo que a reacção é uma das 2 mapeadas por `mapPillEmojiToKind`).
+- Para Reels sem reacção, nenhum chip está iluminado.
+- Não há alterações nos Reels a que reagiste via app (as reacções DONE que enviámos continuam a valer como fallback).
+
+**Passa se:** o chip aparece correctamente no Reel com reacção manual, sem quebrar Reels a que reagimos via app.
+**Falha se:**
+- **F1:** chip nunca aparece para reacções manuais → o `matchReactionPill` provavelmente não encontra a pill. Ver logcat para `DISCOVER: ... reactionsRefreshed=0` mesmo com reacção óbvia. Fazer um dump da conversa (via botão em Definições) e confirmar que a pill tem o `resource-id` esperado (`message_reactions_pill_container`).
+- **F2:** chip aparece no Reel errado → `matchReactionPill` está a matchar por proximidade errada. Ajustar `REACTION_PILL_MAX_GAP_PX` e `REACTION_PILL_OVERLAP_TOLERANCE_PX`.
+- **F3:** Reacções que enviámos pela app deixaram de aparecer → o fallback não está a funcionar. Ver `mapPillEmojiToKind(null) ?: latestReaction?.kind` em FeedViewModel.
 
 ### 6.2 Alternativas arquitecturais
 
@@ -597,6 +626,38 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — 1614 erros totais, todos classpath. Zero erros com os novos símbolos (`discoverHistoryAllTracked`, `processHistoryBatchStep`, `cancelHistoryBatch`, `snapshotTitles`, `BatchHistorySection`, `HISTORY_BATCH_NAV_SETTLE_MS`, `HISTORY_BATCH_STEP_SPACING_MS`, `ACTION_DISCOVER_HISTORY_ALL_*`).
 - **Validação em device (esperada na próxima sessão):** bateria R (1 teste: `DiscoverAll`).
 - **Nada mudou** na chain de match (s47b), na detecção de topo (s46), no dump com delay (s45), no epoch guard (s44), no schema Room (nenhuma migration nova), na `enrichAllMissingUrls` chain PoC-9, nas prefs. A s48 é uma feature aditiva alicerçada em componentes existentes.
+
+---
+
+### 2026-08-31 — Sessão 49 (Ricardo + Copilot CLI) — sync da reacção actual (spec §7)
+
+- **Contexto:** utilizador pediu para juntar máximo de features. Feita a s48 (batch history), passei ao próximo item do ranking: **sync da reacção actual** — a spec §7 diz que o feed deve mostrar a reacção que está actualmente na DM (não só as que enviámos via app). Até agora o chip só refletia `PendingActionEntity` DONE, portanto se o utilizador reagisse ❤ manualmente no IG, o feed não mostrava.
+- **Alterações:**
+  1. **Schema Room v4 → v5** com nova coluna `currentReaction: String?` em `reels`. Migration destrutiva (matches política PoC — dados regeneráveis com `📥 Descobrir tudo` da s48).
+  2. **`ReelDao`** ganha 2 novos UPDATE queries: `updateCurrentReaction(id, reaction)` (por ID) e `updateCurrentReactionByKey(thread, author, direction, reaction)` (usado no path de skip do dedup — mantém a reacção sincronizada mesmo quando não há novo insert).
+  3. **`DmReelEntry`** ganha campo `currentReaction: String?`.
+  4. **`enumerateReels`** ganha 3 novos passos:
+     - Prefetch de todas as `message_reactions_pill_container` nodes do `messageList` no início do loop, extraindo `(bounds, emoji)` para cada. `extractReactionEmoji(pill)` faz DFS na sub-tree e devolve o primeiro descendant cuja `contentDescription` é curta (≤4 chars) e não é o `reaction_add` — matches a "no reaction" (só tem `reaction_add`, retorna null) vs "com emoji" (retorna o emoji).
+     - Para cada bubble, `matchReactionPill(bubbleBounds, pillEntries)` faz match por proximidade geométrica: pill.top precisa de estar dentro de `[-REACTION_PILL_OVERLAP_TOLERANCE_PX, +REACTION_PILL_MAX_GAP_PX]` do bubble.bottom, E precisa de sobreposição horizontal. Se múltiplas pills passam, escolhe a mais próxima verticalmente.
+     - `DmReelEntry.currentReaction` sai populado.
+  5. **`discoverReels` (fast) e `doHistoryEnumerate` (batch)** propagam `currentReaction` via novo campo em `Snapshot`, e:
+     - Insert path: `ReelEntity(currentReaction = s.currentReaction)`.
+     - Skip path: `dao.updateCurrentReactionByKey(...)` para refrescar. Log line ganha `reactionsRefreshed=N`.
+  6. **FeedViewModel** — nova helper top-level `mapPillEmojiToKind(emoji: String?): String?` traduz emoji IG (`"❤"`, `"❤️"`, `"😂"`) para os `PendingActionEntity.KIND_REACT_*` constants. Em `uiStates`, o `currentReaction` passa a ser `mapPillEmojiToKind(reel.currentReaction) ?: latestReaction?.kind` — prefere reacção real do IG, faz fallback para valor derivado quando null.
+  7. **Constantes de tolerância geométrica**: `REACTION_PILL_MAX_GAP_PX = 60`, `REACTION_PILL_OVERLAP_TOLERANCE_PX = 20`.
+- **Cobertura de emojis:** IG tem 6 preset (❤ 😂 😮 😢 😡 👍). A app só surface 2 no chip (❤, 😂). Os outros 4 são detectados e persistidos correctamente, mas `mapPillEmojiToKind` devolve `null` para eles (fallback → valor derivado das reacções que enviámos → normalmente `null` porque a app não permite enviar esses). Chip fica escondido. Notado como próximo passo (#7) em §6.1.
+- **`BUILD_TAG` bumped para `build=s49`.**
+- **Ficheiros alterados:**
+  - `data/ReelEntity.kt` — nova coluna com KDoc explicativo.
+  - `data/AppDatabase.kt` — version 4 → 5 + comentário do schema.
+  - `data/ReelDao.kt` — 2 novos UPDATE queries.
+  - `instagram/DmReelEntry.kt` — novo campo com KDoc.
+  - `service/InstagramReaderService.kt` — `enumerateReels` refactor (+3 passos), `extractReactionEmoji` e `matchReactionPill` novas privadas, `discoverReels` e `doHistoryEnumerate` reactionsRefreshed, `Snapshot` +1 campo, 2 novas constantes, `BUILD_TAG=s49`.
+  - `ui/feed/FeedViewModel.kt` — nova helper top-level `mapPillEmojiToKind`, `uiStates` prefere real sobre derivado.
+  - `PROJECT_PROGRESS.md` — Estado, quick start, limitação actualizada, §6/6.1 (bateria S), este log.
+- **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — os erros novos são todos classpath (K2 sem stdlib/androidx marca `currentReaction` como unresolved dentro do `reelList.associate { reel -> ... }` porque não consegue inferir `reel: ReelEntity`; mesma dinâmica dos `updateCurrentReactionByKey` marcados como suspend fora de coroutine — o call site está DENTRO de `serviceScope.launch { ... }` mas K2 não consegue resolver `serviceScope`).
+- **Validação em device (esperada na próxima sessão):** bateria S (Teste 2: `ReactionSync`) descrita em §6.1.
+- **Nada mudou** na s48 (batch history), s47b (seenAuthors), s46 (topo real), s45 (dump delay), s44 (epoch guard), no fluxo de PoC-9, no batch enrichment de URLs, nas prefs, no dump.
 
 ---
 

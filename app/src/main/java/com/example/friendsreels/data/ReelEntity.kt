@@ -72,4 +72,20 @@ data class ReelEntity(
 
     /** Epoch millis when the user first viewed the Reel inside the app feed. */
     val seenAt: Long? = null,
+
+    /**
+     * Emoji currently reacted on this Reel INSIDE Instagram, as read from
+     * `message_reactions_pill_container` during discovery / re-enumeration.
+     * Null when the Reel has no reaction. This is INDEPENDENT of what our
+     * app has sent — closes the spec §7 gap ("mostrar reacção actual, não
+     * só as que corremos via app"). When the column is populated, the
+     * feed UI shows it as the definitive current reaction; when null, we
+     * fall back to the derived "last DONE pending action" heuristic
+     * (pre-s49 behaviour).
+     *
+     * Introduced in s49. Kept as a plain String (single emoji character
+     * or short IG desc) to avoid over-engineering — the feed UI does a
+     * lightweight comparison against `PendingActionEntity.KIND_REACT_*`.
+     */
+    val currentReaction: String? = null,
 )

@@ -63,6 +63,42 @@ interface ReelDao {
     suspend fun markSeen(id: Long, epochMs: Long)
 
     /**
+     * s49 — Update the `currentReaction` column with the emoji observed
+     * on `message_reactions_pill_container` at enumeration time. `null`
+     * clears the reaction (matches the case where the user removed the
+     * reaction directly inside IG). Only updates if the value actually
+     * changes (avoids write amplification when re-enumerating the same
+     * bubble across successive scrolls).
+     */
+    @Query(
+        "UPDATE reels SET currentReaction = :reaction " +
+            "WHERE id = :id " +
+            "AND ((currentReaction IS NULL AND :reaction IS NOT NULL) " +
+            "     OR (currentReaction IS NOT NULL AND :reaction IS NULL) " +
+            "     OR (currentReaction != :reaction))"
+    )
+    suspend fun updateCurrentReaction(id: Long, reaction: String?): Int
+
+    /**
+     * Companion to [updateCurrentReaction] used during the discovery-time
+     * dedup path: we skip inserting a duplicate row but still want to
+     * refresh the reaction on the EXISTING row keyed by (thread, author,
+     * direction). See [countMatching] for the same key.
+     */
+    @Query(
+        "UPDATE reels SET currentReaction = :reaction " +
+            "WHERE threadTitle = :thread " +
+            "AND ((reelAuthor IS NULL AND :author IS NULL) OR reelAuthor = :author) " +
+            "AND direction = :direction"
+    )
+    suspend fun updateCurrentReactionByKey(
+        thread: String,
+        author: String?,
+        direction: String,
+        reaction: String?,
+    ): Int
+
+    /**
      * Backfill `dmSender` on a row that already has this `reelUrl`. Only
      * writes when the existing value is null so we don't clobber a good
      * name with a null.
