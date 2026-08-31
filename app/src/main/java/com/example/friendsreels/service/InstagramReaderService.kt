@@ -1630,6 +1630,7 @@ class InstagramReaderService : AccessibilityService() {
         val senderAvatarId = IgSelectors.id(IgSelectors.Thread.SENDER_AVATAR)
         val authorId = IgSelectors.id(IgSelectors.Thread.REEL_AUTHOR_USERNAME)
         val pillId = IgSelectors.id(IgSelectors.Thread.REACTIONS_PILL_CONTAINER)
+        val replyContextId = IgSelectors.id(IgSelectors.Thread.REPLY_CONTEXT_INFO_TEXT)
 
         // s49: enumerate all reactions pills upfront and match them by
         // geometric proximity to bubbles below. IG places the pill just
@@ -1644,10 +1645,24 @@ class InstagramReaderService : AccessibilityService() {
 
         val entries = mutableListOf<DmReelEntry>()
         var next = 0
+        var skippedReplyAttachments = 0
         for (bubble in bubbles) {
             val portrait = bubble.findAccessibilityNodeInfosByViewId(portraitId)?.firstOrNull()
             val generic = bubble.findAccessibilityNodeInfosByViewId(genericId)?.firstOrNull()
             val media = portrait ?: generic ?: continue
+
+            // s50: skip "reply attachment" bubbles. When a friend replies
+            // to a Reel we sent, IG wraps the whole exchange in a single
+            // `message_content` that carries BOTH the quoted Reel (theirs)
+            // AND a reply marker `direct_context_reply_context_info_text_
+            // view` + the reply text. Tapping the embedded Reel opens the
+            // reply thread, not the Reel viewer, and the copy-link chain
+            // gets stuck. Detect the marker and drop the whole bubble.
+            if (bubble.findAccessibilityNodeInfosByViewId(replyContextId).orEmpty().isNotEmpty()) {
+                skippedReplyAttachments++
+                continue
+            }
+
             val kind = if (portrait != null) "portrait" else "generic"
 
             val direction = if (bubble.findAccessibilityNodeInfosByViewId(senderAvatarId).orEmpty().isNotEmpty()) {
@@ -1668,6 +1683,13 @@ class InstagramReaderService : AccessibilityService() {
                 bounds = bounds,
                 node = media,
                 currentReaction = currentReaction,
+            )
+        }
+        if (skippedReplyAttachments > 0) {
+            Log.d(
+                TAG,
+                "ENUMERATE: skipped $skippedReplyAttachments reply-attachment bubble(s) " +
+                    "(direct_context_reply_context_info_text_view marker present)."
             )
         }
         return entries
@@ -3186,7 +3208,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s49b"
+        private const val BUILD_TAG = "build=s50"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -3362,10 +3384,28 @@ class InstagramReaderService : AccessibilityService() {
         private const val HISTORY_SCROLL_DURATION_MS = 500L
         /** Delay between the scroll landing and enumeration (RecyclerView needs a beat to settle). */
         private const val HISTORY_SCROLL_SETTLE_MS = 400L
-        /** After this many consecutive scrolls with zero new inserts we assume we're at the top. */
-        private const val HISTORY_STOP_AFTER_N_EMPTY = 5
-        /** Hard cap on scrolls per run so we never loop forever. */
-        private const val HISTORY_MAX_SCROLLS = 100
+        /**
+         * Legacy safety fallback for the "topo de conversa" detection.
+         * s50 raised this from 5 → 500 (essentially disabled): the s46
+         * `isThreadTopVisible` is now the primary stop signal. The old
+         * heuristic false-positived on 5 consecutive text messages or 5
+         * consecutive Reels sent by the user (filtered by ignoreSent),
+         * bailing halfway through a conversation. User feedback after
+         * s49b: "prefiro que funcione direito e que seja preciso chegar
+         * ao topo do chat de anos". If IG rewrites the header IDs and
+         * `isThreadTopVisible` breaks, this fallback + [HISTORY_MAX_SCROLLS]
+         * ultimate cap still prevent infinite loops.
+         */
+        private const val HISTORY_STOP_AFTER_N_EMPTY = 500
+        /**
+         * Hard cap on scrolls per run so we never loop forever. Bumped
+         * s50 from 100 → 2000 so long-lived conversations can actually
+         * reach the top even if IG's UI has a lot of empty stretches.
+         * At the current settle+action time this is roughly ~15 minutes
+         * worst case for a single thread. Real conversations reach the
+         * top via `isThreadTopVisible` far earlier.
+         */
+        private const val HISTORY_MAX_SCROLLS = 2000
 
         /**
          * Small settle delay between finishing navigation to a thread

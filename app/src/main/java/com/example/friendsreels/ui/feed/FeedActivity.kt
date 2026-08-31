@@ -5,11 +5,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.Modifier
 import com.example.friendsreels.service.InstagramReaderService
+import com.example.friendsreels.ui.theme.FriendsReelsTheme
 
 class FeedActivity : ComponentActivity() {
 
@@ -21,7 +20,7 @@ class FeedActivity : ComponentActivity() {
             InstagramReaderService.PREF_INVERT_SWIPE_DEFAULT,
         )
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            FriendsReelsTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     FeedScreen(invertSwipe = invertSwipe)
                 }

@@ -26,7 +26,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,6 +38,7 @@ import androidx.core.content.ContextCompat
 import com.example.friendsreels.data.AppDatabase
 import com.example.friendsreels.service.InstagramReaderService
 import com.example.friendsreels.ui.settings.SettingsActivity
+import com.example.friendsreels.ui.theme.FriendsReelsTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
             flowOf(0)
         }
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            FriendsReelsTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val missingUrlCount by missingUrlCountFlow.collectAsState(initial = 0)
                     HomeScreen(

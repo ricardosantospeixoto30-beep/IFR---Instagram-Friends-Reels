@@ -8,52 +8,52 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-08-31 (sessão 49b — fix compile: leftover `val candidates` da s47b em `locateReelWithScroll`).
+**Última actualização:** 2026-08-31 (sessão 50 — 4 correcções do feedback do utilizador + tema IG-like).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s49b`.
+**HEAD actual:** `build=s50`.
 
-**Recap sessões 41-47 (as validadas ou próximas de validação):**
+**Recap sessões 46-50 (as próximas do estado corrente):**
 
-- **s41-s42** (validadas): Cancelar apply pending, auto-enrich após descoberta, fail-fast quando enrichment falha, `locateReelWithForwardScroll` como fallback ao backward, heads-up notifications no canal `friends_reels_status_v2` (IMPORTANCE_HIGH).
-- **s43** (validada, mas expôs 2 bugs): budgets 5x maiores (100 backward + 5 forward × 300ms settle), `runInInstagram` entre steps para trazer IG à frente se utilizador saiu para outra app. Bugs: stall detection falsa positiva, callbacks stale de steps antigos a interleaving.
-- **s44** (validada em parte): remove stall detection, adiciona epoch guard (`enrichmentStepEpoch`) para callbacks stale, e traz botão de Dump em Diagnóstico. Bug do dump: capturava sempre a UI das Definições porque tocar rouba foco ao IG.
-- **s45** (validada): dump adiado com Toast countdown ("🌳 Muda para o IG! Dump em 5s"). Dump em `docs/screen-dumps/dump.txt` capturou o header start-of-conversation da DM `astrid_gutierrez` com 4 selectors estáveis (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username`).
-- **s46** (validada em parte — `TopStop-History` OK, `TopStop-Batch` inconclusivo por falta de Reel apropriado): `isThreadTopVisible(root)` usa esses 4 selectors para substituir a stall detection removida na s44. Integrada em `locateReelWithScroll` e `doHistoryScroll`.
-- **s47** (superseded pela s47b): tentei instrumentar mas usei `candidates` (pós-filtro) como source do `seenAuthors`. Utilizador apanhou (esta ronda): dado que o match é `.firstOrNull { reelAuthor == wantedAuthor }`, se o autor está em `candidates` o match acontece sempre — logo o warning nunca disparava. Bug de design.
-- **s47b** (aguarda validação — não bloqueia): `seenAuthors` agora acumula-se a partir de `allReels.filter { direction == RECEIVED }.mapNotNull { reelAuthor }` — ANTES do filtro `bounds.width() > 0 && bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX`. Isto captura autores de bubbles mid-layout que a s47 perdia. `BATCH_MAX_FORWARD_SCROLLS` continua 15 (era 5 em ≤s46).
-- **s48** (aguarda validação): **`📥 Descobrir tudo` — batch de history-scroll em todas as conversas seleccionadas em Definições**. Utilizador tem 20 amigos seleccionados em "Filtrar conversas", carrega no novo botão em Definições e a app itera cada conversa, navega para lá, faz scroll até ao topo, guarda os Reels novos, e passa à próxima. Notificação única de conclusão no final ("N Reels novos em M conversas"). Reutiliza a chain PoC-9 (`navigateToThreadAsync`) + `discoverReelsHistory` (com `overrideThreadTitle` + callback `onFinish` novo para não spamar notifs por thread).
-- **s49** (aguarda validação): **sync da reacção actual (spec §7)**. Room DB v5 com nova coluna `currentReaction: String?` em `reels`. `enumerateReels` procura por todos os `message_reactions_pill_container` no `message_list` e faz match por proximidade geométrica (pill.top ≈ bubble.bottom com tolerância) — extrai o emoji do descendant com `contentDescription` curta e não vazia (skipping o `reaction_add`). Populada em `discoverReels` (fast) e `doHistoryEnumerate` (histórico). O feed prefere `reel.currentReaction` (mapeado via `mapPillEmojiToKind`) sobre o valor derivado das "últimas reacções DONE que enviámos", fazendo fallback quando a coluna é null.
+- **s46:** `isThreadTopVisible(root)` detecta o header start-of-conversation via 4 selectors (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username` — capturados no dump da s45). Integrada em `locateReelWithScroll` (aborta backward budget cedo) e `doHistoryScroll` (para no topo real).
+- **s47/s47b:** instrumentação `seenAuthors` pré-filtro para expor o "Reel skipped mid-sweep" no log. `BATCH_MAX_FORWARD_SCROLLS` 5 → 15.
+- **s48:** **`📥 Descobrir tudo`** — batch history-scroll em todas as conversas seleccionadas em Definições. Notif única de conclusão no fim.
+- **s49/s49b:** sync da reacção actual (spec §7). Room v5 com `currentReaction: String?`. `enumerateReels` extrai emoji da `message_reactions_pill_container` via match geométrico. Feed prefere o emoji real da DM sobre o valor derivado das reacções que enviámos. Fix compile leftover de s47b.
+- **s50 — 4 correcções + tema IG-like:**
+  - **Fix 1:** `HISTORY_STOP_AFTER_N_EMPTY` 5 → 500 (essencialmente desactivada) + `HISTORY_MAX_SCROLLS` 100 → 2000. História pára só quando `isThreadTopVisible` == true. Correcção: batch já não pára cedo demais em conversas com sequências de mensagens texto ou Reels enviados.
+  - **Fix 2:** `IgSelectors.Thread.REPLY_CONTEXT_INFO_TEXT = "direct_context_reply_context_info_text_view"` — nova constante. `enumerateReels` filtra bubbles com este marcador (respostas de terceiros ao meu Reel enviado). Antes clicava no Reel embebido na resposta e ficava preso.
+  - **Fix 4:** `data_extraction_rules.xml` + `backup_rules.xml` — regras exhaustivas de exclusão (`root`, `database`, `sharedpref`, `file`, `external`) para garantir que uninstall + backup não deixam dados. `allowBackup=false` no manifest já estava.
+  - **Fix 5:** novo `ui/theme/FriendsReelsTheme.kt` com paleta IG (background preto, superfícies `#121212`/`#1F1F1F`/`#262626`, primário `#E1306C` pink, gradient IG amarelo→laranja→rosa→roxo→azul, tipografia SemiBold para títulos com `letterSpacing` tightened). As 4 activities (Main, Feed, Settings, Player) passam de `MaterialTheme(darkColorScheme())` para `FriendsReelsTheme { ... }`.
+  - **Fix 3 (pendente):** enrichment de URL é lento (~7s/Reel) porque cada Reel faz nav + locate + viewer + copy + back. Utilizador pediu checkpoint / speedup. Refactor "single-pass enrichment por thread" (uma única scroll por thread, abrir viewer conforme encontra Reels) fica para s51.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s49b ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s50 ...)`.
 2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
-    - `instagram/IgSelectors.kt` — objecto `Thread` tem `HEADER_VIEW_PROFILE_BUTTON` + 3 fallbacks (s46), e as constantes `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` foram reutilizadas na s49.
-    - `service/InstagramReaderService.kt` — `isThreadTopVisible(root)` (s46), `seenAuthors` pré-filtro (s47b), batch history (s48), e **s49**: `enumerateReels` agora extrai `currentReaction` via novas helpers `extractReactionEmoji(pill)` + `matchReactionPill(bubbleBounds, pillEntries)`; `discoverReels` e `doHistoryEnumerate` persistem via `dao.updateCurrentReactionByKey` (skips) ou `insert com currentReaction` (novos).
-    - `data/*.kt` — `ReelEntity` nova coluna, `ReelDao` 2 novos UPDATE queries, `AppDatabase` v5. `fallbackToDestructiveMigration` mantém-se (dados são regeneráveis).
-    - `instagram/DmReelEntry.kt` — campo `currentReaction: String?`.
-    - `ui/feed/FeedViewModel.kt` — nova helper `mapPillEmojiToKind` (top-level); `uiStates` prefere `reel.currentReaction` mapeado sobre o valor derivado.
-    - `ui/settings/SettingsActivity.kt` — `BatchHistorySection` (s48), sem alterações na s49.
-    - Dumps: `docs/screen-dumps/dump.txt` (s45).
+    - `instagram/IgSelectors.kt` — `Thread` tem os 4 selectors do header (s46), `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` (s49), **s50:** `REPLY_CONTEXT_INFO_TEXT`.
+    - `service/InstagramReaderService.kt` — `isThreadTopVisible` (s46), `seenAuthors` pré-filtro (s47b), batch history (s48), reacção actual (s49), **s50:** filtro de reply-attachment em `enumerateReels`, constantes de history desactivadas na prática.
+    - `data/*.kt` — Room v5 (s49). `fallbackToDestructiveMigration` — dados regeneráveis.
+    - `ui/theme/FriendsReelsTheme.kt` — **s50**: tema IG dark aplicado em Main/Feed/Settings/Player.
+    - `res/xml/data_extraction_rules.xml` + `res/xml/backup_rules.xml` — **s50**: exclusão total (uninstall clean).
+    - Dumps: `docs/screen-dumps/dump.txt` (s45 header + s49b logs de reply-attachment + histórico slow).
 4. **Constraints:**
     - Testes só no OnePlus Nord 5 / Android 16.
     - macOS deste ambiente não tem Android SDK, só validar sintaxe com kotlinc.
     - Cada refactor visível deve bumpar `BUILD_TAG`.
 5. **UX actual em device:**
     - **Home:** protagonismo ao `▶ Abrir o meu feed`. Descoberta (🔍, 📥, 🔗 Preparar URLs (N) condicional). Configuração.
-    - **Feed:** full-screen VerticalPager. Auto-play inline. Chip único de reacção. Menu ⋮.
-    - **Definições:** 3 toggles + Filtrar conversas + Preparar URLs em lote + **s48: "📥 Descobrir tudo"** (secção nova entre Preparar URLs e Diagnóstico) + Diagnóstico com botão "🌳 Dump" com 5s de delay.
+    - **Feed:** full-screen VerticalPager, background preto. Auto-play inline. Chip único de reacção. Menu ⋮.
+    - **Definições:** 3 toggles + Filtrar conversas + Preparar URLs em lote + "📥 Descobrir tudo" + Diagnóstico ("🌳 Dump" com 5s delay).
     - **Notificação persistente:** 3 botões (🔍 🔗 ▶) + progresso + Cancelar durante lotes.
-    - **Notificação de conclusão:** heads-up individual, ou uma única no fim do batch "📥 Descobrir tudo".
+    - **Notificação de conclusão:** heads-up individual, ou uma única no fim do batch.
+    - **Cores:** paleta IG (s50) — background preto, primário pink `#E1306C`, tipografia SemiBold títulos.
 6. **Limitações conhecidas:**
     - Matching por `reelAuthor` — 2 Reels do mesmo criador na mesma conversa colidem.
-    - **Reel skipped mid-backward-sweep (reportado na s46, instrumentado s47/s47b):** durante o backward-scroll dentro de `locateReelWithScroll`, o Reel-alvo pode aparecer brevemente em vista mas com `bounds.height() < MIN_REEL_BUBBLE_HEIGHT_PX` (200px) — o bubble está mid-layout durante uma transição do RecyclerView. O filtro de altura remove-o de `candidates` (correcto, para não tentar tap num bubble que ainda não está pronto). Mas o autor ficaria perdido. **s47b** captura estes autores num set `seenAuthors` que é enumerado ANTES do filtro; se o batch acabar sem match e `wantedAuthor in seenAuthors`, dispara warning `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched — Reel likely skipped due to layout timing.` **s47** subiu `BATCH_MAX_FORWARD_SCROLLS` 5 → 15 para dar retracement suficiente. **Não é uma correcção total** — a fix estrutural implicaria (a) enumerar 2× por scroll com pequena separação de tempo para captar bubbles transientes, ou (b) retracement dinâmico ilimitado. Fica pendente até Q1 mostrar frequência real.
-    - Locate com 100 backward × 300ms + 15 forward × 300ms = ~35s worst case por Reel; `isThreadTopVisible` corta em conversas curtas.
-    - Enrichment success ~5-8s; fail depende do tamanho da conversa.
+    - **Reel skipped mid-backward-sweep (reportado na s46, instrumentado s47/s47b):** durante o backward-scroll dentro de `locateReelWithScroll`, o Reel-alvo pode aparecer brevemente em vista mas com `bounds.height() < MIN_REEL_BUBBLE_HEIGHT_PX` (200px) — o bubble está mid-layout durante uma transição do RecyclerView. `seenAuthors` captura o autor mesmo assim; se o batch acabar sem match dispara warning `LOCATE: wanted author '$X' was observed mid-backward-sweep but no bubble matched`. Não bloqueia — utilizador aceitou que "este teste não parece ser o suficiente para impedir de continuares a desenvolver".
+    - **URL enrichment lento (Fix 3 pendente da s50):** utilizador reportou "só ao apanhar 69 está a demorar imenso para povoar". Cada Reel gasta ~7s (nav + locate + viewer + copy + back). Refactor "single-pass por thread" (scrollar 1× por thread, abrir viewer conforme encontra Reels) planeado para s51. Alternativa: checkpoint por URL já preenchido durante o scroll.
     - Batch enrichment partilha `pendingCopy` com o fluxo on-demand.
     - Consulta de respostas anteriores dentro da app (spec §5) — não temos sync.
-    - Reacção "actual" no feed **(s49):** agora prefere o emoji lido de `message_reactions_pill_container` durante o discovery / history-scroll (Room `reels.currentReaction`), com fallback para o valor derivado das reacções DONE que enviámos pela app. Emojis suportados no chip: ❤ e 😂 (`PendingActionEntity.KIND_REACT_HEART`/`KIND_REACT_LAUGH`). Outros emojis do IG (😮 😢 😡 👍) são detectados e persistidos mas não têm chip próprio na UI — ficam invisíveis até uma futura secção multi-emoji.
+    - Reacção "actual" no feed **(s49):** agora prefere o emoji lido de `message_reactions_pill_container`. Emojis com chip: ❤ e 😂. Os outros 4 IG (😮 😢 😡 👍) são persistidos mas ficam invisíveis até secção multi-emoji.
     - `threadTitle` como chave — se o utilizador renomear um grupo, a selecção perde-se.
     - Heads-up completion depende do canal `friends_reels_status_v2` em IMPORTANCE_HIGH.
 
@@ -285,41 +285,66 @@ Já entregue no primeiro commit:
 
 ---
 
-**Priorização depois de R e S validados:**
+**Priorização depois de T validado:**
 
-1. ~~**Sync de reacção actual (spec §7)**~~ — **feito na s49**, aguarda validação (bateria S).
+1. **Fix 3 — refactor single-pass URL enrichment (s51 planeada).** Cada thread scrolla 1× e enriquece Reels conforme encontra, em vez do actual nav + locate + viewer + back por Reel. Deve baixar de ~7s/Reel para ~2-3s.
 2. **Match estrito por Reel URL no `locateReelWithScroll`** — para colisões de mesmo autor. Precisa investigar disambiguation por posição/timestamp.
-3. **Cosmético:** thumbnails / preview no feed; indicador visual de direcção de swipe.
+3. **Cosmético:** thumbnails / preview no feed; indicador visual de direcção de swipe; usar `InstagramGradient` em hero buttons.
 4. **Deep-link `instagram://direct/t/<thread_id>`** — investigar em dump da inbox.
-5. **Tuning de latência de scroll.**
-6. **Bateria Q (`SeenSkipped` da s47b)** — quando for oportuno, para saber a frequência do "Reel skipped mid-sweep".
-7. **Suporte a mais emojis no chip do feed** — actualmente só ❤ e 😂. Adicionar 😮 😢 😡 👍 (as 6 preset do IG). Simples: expandir `mapPillEmojiToKind` + adicionar chips ao FeedScreen.
+5. **Bateria Q (`SeenSkipped` da s47b)** — quando for oportuno, saber a frequência do "Reel skipped mid-sweep".
+6. **Suporte a mais emojis no chip do feed** — actualmente só ❤ e 😂. Adicionar 😮 😢 😡 👍.
 
-#### Teste 2 — "Reacção actual aparece no feed após `📥 Descobrir` numa conversa com reacções" (`ReactionSync`)
+**Bateria proposta — Sessão 50 (formato §8.1). 2 testes independentes:**
 
-**O que se está a validar:** o feed mostra a reacção que existe na DM (não só as que enviámos via app). Após `🔍 Descobrir` ou `📥 Descobrir histórico` numa conversa onde reagiste manualmente a um Reel no IG, o chip da reacção aparece iluminado no feed correspondente.
+#### Teste 1 — "History-scroll chega ao topo real, sem parar em 5 empty scrolls" (`HistoryTop`)
+
+**O que se está a validar:** a s50 baixou o gatilho `HISTORY_STOP_AFTER_N_EMPTY` de 5 → 500 (essencialmente desactivado). O único critério de stop passa a ser `isThreadTopVisible` (s46). Também valida Fix 2 (skip reply-attachment).
 
 **Preparação:**
-1. `git pull`; recompilar e reinstalar o APK em `build=s49b`. **Importante:** a DB v4 → v5 dispara `fallbackToDestructiveMigration` — os Reels actuais serão apagados. Aceitar (é PoC).
-2. Confirmar no logcat: `Action receiver registered (build=s49b ...)`.
-3. Escolher **uma conversa com ao menos 2 Reels recebidos, um dos quais tem uma reacção ❤ ou 😂 aplicada por ti directamente no IG** (não pela app). Se não tiveres, aplica manualmente uma agora.
-4. Abrir `logcat -s IGReaderService`.
+1. `git pull`; recompilar em `build=s50`. **Confirma no logcat:** `Action receiver registered (build=s50 ...)`.
+2. Escolher **uma conversa com respostas ao teu envio de Reels** (bubble com marcador "Respondeu-te" contendo Reel embebido) para provocar Fix 2.
+3. Idealmente a mesma conversa tem stretches de mensagens só de texto ou Reels enviados por ti — para provocar Fix 1.
+4. Definições → "Filtrar conversas" — seleccionar só ESSA conversa.
+5. `adb shell pm clear com.example.friendsreels` (opcional, para limpar rows antigas e ver apenas as novas).
+6. `logcat -s IGReaderService`.
 
 **Passos:**
-1. Abrir Friends Reels → tocar `🔍 Descobrir` (via notif ou home) OU ir à conversa no IG e tocar `🔍 Descobrir` da persistent notif.
-2. Confirmar no logcat: `DISCOVER: ... reactionsRefreshed=N ...` (N pode ser 0 se todos os Reels são novos — nesse caso o insert já traz `currentReaction`).
-3. Abrir o feed. Navegar até ao Reel com reacção manual.
+1. Definições → **"📥 Descobrir tudo"**.
+2. Deixar correr até `HISTORY_ALL: finished`.
 
-**O que confirmar:**
-- No feed, o chip de ❤ ou 😂 aparece iluminado no Reel onde reagiste manualmente (assumindo que a reacção é uma das 2 mapeadas por `mapPillEmojiToKind`).
-- Para Reels sem reacção, nenhum chip está iluminado.
-- Não há alterações nos Reels a que reagiste via app (as reacções DONE que enviámos continuam a valer como fallback).
+**O que confirmar no logcat:**
+- **NENHUMA** ocorrência de `HISTORY: stopping — 5 consecutive empty scrolls.` — o gatilho de 5 já não existe.
+- Uma ocorrência de `HISTORY: thread top reached (view_profile_button visible) after N scrolls — stopping.` para cada thread coberta.
+- Ocorrências de `ENUMERATE: skipped M reply-attachment bubble(s) ...` sempre que houver bubbles "Respondeu-te".
+- N (número de scrolls até topo) muito maior que 5 para conversas de anos.
 
-**Passa se:** o chip aparece correctamente no Reel com reacção manual, sem quebrar Reels a que reagimos via app.
+**Passa se:** cada thread chega ao topo real (`view_profile_button` visível), sem parar cedo demais. Reply-attachments logadas como skipped.
 **Falha se:**
-- **F1:** chip nunca aparece para reacções manuais → o `matchReactionPill` provavelmente não encontra a pill. Ver logcat para `DISCOVER: ... reactionsRefreshed=0` mesmo com reacção óbvia. Fazer um dump da conversa (via botão em Definições) e confirmar que a pill tem o `resource-id` esperado (`message_reactions_pill_container`).
-- **F2:** chip aparece no Reel errado → `matchReactionPill` está a matchar por proximidade errada. Ajustar `REACTION_PILL_MAX_GAP_PX` e `REACTION_PILL_OVERLAP_TOLERANCE_PX`.
-- **F3:** Reacções que enviámos pela app deixaram de aparecer → o fallback não está a funcionar. Ver `mapPillEmojiToKind(null) ?: latestReaction?.kind` em FeedViewModel.
+- **F1:** ainda aparece `5 consecutive empty scrolls` → constante não foi actualizada. Ver `HISTORY_STOP_AFTER_N_EMPTY`.
+- **F2:** `HISTORY: stopping — safety cap 2000 scrolls hit.` → conversa é gigante. Aumentar `HISTORY_MAX_SCROLLS` mais.
+- **F3:** `ENUMERATE: skipped ...` nunca aparece mesmo com bubbles óbvias de reply → `REPLY_CONTEXT_INFO_TEXT` selector pode ter mudado. Fazer dump manual e ajustar.
+
+---
+
+#### Teste 2 — "Design IG-like aplicado consistentemente" (`ThemeIG`)
+
+**O que se está a validar:** o novo `FriendsReelsTheme` aparece nas 4 activities e o design está mais próximo do IG.
+
+**Preparação:**
+1. Recompilar em `build=s50`. Fresh install se possível para ver o app com o novo tema desde o início.
+
+**Passos:**
+1. Abrir a app → confirmar background preto + tipografia SemiBold nos títulos.
+2. Definições → confirmar mesma paleta.
+3. Feed → confirmar background preto + chips com o pink `#E1306C`.
+4. Player de Reel (se aplicável) → mesma paleta.
+
+**Passa se:** as 4 activities partilham a mesma paleta (preto + surface variants + pink primário) e o feel geral está mais próximo do IG do que na s49b.
+**Falha se:**
+- **F1:** alguma activity ainda mostra o teal/roxo default do Material 3 dark → verificar se `FriendsReelsTheme { ... }` foi aplicado nessa activity.
+- **F2:** cores estão certas mas letras estão "grandes" ou com espaçamento estranho → typography não activou. Ver import de `Typography`.
+
+---
 
 ### 6.2 Alternativas arquitecturais
 
@@ -673,6 +698,68 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Validação em ambiente do agente:** kotlinc grep para "Conflicting declarations|redeclaration|already defined" — zero matches (antes fix davam 1 match a menos que o utilizador viu no build real, porque a análise K2 sem-Android-SDK cortava a árvore antes de detectar). Confirmado que o único bug era este.
 - **Reconhecimento:** falha do meu processo de validação — kotlinc + JDK 21 sem Android SDK dá alguns "false negatives" para bugs como este porque o compilador aborta muito cedo por erros classpath. Deixado como lição: sempre que fizer um edit que substitui um bloco, deveria fazer um `grep` de sanidade a seguir para confirmar que os símbolos únicos (nomes de variáveis) não aparecem duas vezes.
 - **Nada mais mudou.** Todas as features da s49 (sync de reacção, mapeamento emoji → chip, updateCurrentReactionByKey em skips) mantêm-se intactas.
+
+---
+
+### 2026-08-31 — Sessão 50 (Ricardo + Copilot CLI) — 4 correcções do feedback + tema IG-like
+
+- **Feedback do utilizador (após validar em device com o `dump.txt` com 963 linhas):**
+  1. `📥 Descobrir tudo` **pára em 5 scrolls sem Reels recebidos** — pode ser sequência de mensagens texto ou Reels enviados. Utilizador prefere que chegue ao topo real do chat de anos.
+  2. **Reply-to-Reel**: quando um amigo responde ao meu Reel enviado, a bubble tem o Reel embebido + a resposta. `enumerateReels` estava a tratar o Reel embebido como partilha nova; clicar nele abre a thread de reply, não o viewer, e o copy-link chain fica preso.
+  3. **URL enrichment lento (~7s/Reel)** — 69 Reels ainda pouco perto de conversas antigas. Pediu checkpoint: "quando chega a uma parte já scaneada, deve parar".
+  4. **Clean uninstall** — quer que desinstalar apague tudo, sem lixo.
+  5. **Design + cores longe do IG** — melhorar UI.
+- **Investigação do dump.txt:**
+  - Linhas 237, 390: `HISTORY: stopping — 5 consecutive empty scrolls.` para André Pinto (4 scrolls, 0 inserted) e Pedro Sardoeira (71 scrolls, 67 inserted). Ambos interrompidos por `HISTORY_STOP_AFTER_N_EMPTY=5`, não pelo topo real. Confirma problema 1.
+  - Linhas 86, 196, 475: `direct_context_reply_context_info_text_view desc="Respondeu-te"` dentro de bubbles que também contêm `message_content_portrait_xma_container` (o Reel citado). Confirma problema 2 e dá o selector.
+  - Linha 398: `ENRICH_ALL: starting batch for 69 reel(s)` — cada step ~7s, bottleneck é o viewer + share sheet + copy link chain por Reel. Confirma problema 3.
+- **Correcções (Fix 1, 2, 4, 5). Fix 3 documentado como planeado para s51:**
+
+  1. **Fix 1 (topo real como único sinal de stop no history-scroll):**
+     - `HISTORY_STOP_AFTER_N_EMPTY` bumped 5 → 500 (essencialmente desactivado). Só serve como safety fallback se `isThreadTopVisible` (s46) partir num futuro build IG.
+     - `HISTORY_MAX_SCROLLS` bumped 100 → 2000. Ao settle time actual (~800ms por scroll) isto é ~15 minutos worst case, mais que suficiente para conversas de anos. Real conversations reach top via `isThreadTopVisible` far earlier.
+     - Comentários das constantes actualizados com rationale do utilizador ("prefiro que funcione direito e que seja preciso chegar ao topo do chat de anos").
+
+  2. **Fix 2 (skip reply-attachment bubbles no `enumerateReels`):**
+     - Nova constante `IgSelectors.Thread.REPLY_CONTEXT_INFO_TEXT = "direct_context_reply_context_info_text_view"` com comentário largo referenciando o dump da s50.
+     - `enumerateReels` — para cada bubble, se `bubble.findAccessibilityNodeInfosByViewId(replyContextId).isNotEmpty()`, incrementa `skippedReplyAttachments` e `continue`. No fim do loop, se `skippedReplyAttachments > 0`, log `Log.d(TAG, "ENUMERATE: skipped N reply-attachment bubble(s) ...")`.
+     - Isto tira do enumeration os Reels embebidos em respostas de outros ao meu envio. Tanto o batch de descoberta como o de URL enrichment passam a saltar estes bubbles.
+
+  3. **Fix 4 (uninstall clean):**
+     - `res/xml/data_extraction_rules.xml` — exclusão TOTAL (`root`, `database`, `sharedpref`, `file`, `external`) em `cloud-backup` e `device-transfer`. Antes só `sharedpref`.
+     - `res/xml/backup_rules.xml` — mesma exclusão total para `full-backup-content` (Android 6-11 legacy path).
+     - `AndroidManifest.xml` já tinha `android:allowBackup="false"` (não alterado).
+     - Efeito: uninstall apaga `/data/data/com.example.friendsreels` automaticamente (Room DB, SharedPrefs, cache). E se algum utilizador fizer `adb backup`, nada de Friends Reels é capturado — nunca há snapshot para restaurar num reinstall.
+
+  4. **Fix 5 (design IG-like via `FriendsReelsTheme`):**
+     - Novo ficheiro `ui/theme/FriendsReelsTheme.kt` com uma paleta IG dark:
+       - Background: `#000000` (matches Reels player + DM inbox).
+       - Superfícies: `#121212`, `#1F1F1F`, `#262626` (elevações).
+       - Texto secundário: `#A8A8A8`.
+       - Primário: pink `#E1306C`.
+       - `InstagramGradient`: amarelo → laranja → rosa → roxo → azul (para hero buttons futuros).
+     - Typography SemiBold para títulos, `letterSpacing` tightened para parecer SF Pro / Instagram Sans (que não podemos shipar).
+     - Todas as 4 activities (`MainActivity`, `FeedActivity`, `SettingsActivity`, `ReelPlayerActivity`) trocam `MaterialTheme(colorScheme = darkColorScheme()) { ... }` por `FriendsReelsTheme { ... }`. Imports de `darkColorScheme` removidos.
+
+  5. **Fix 3 (URL enrichment slow — pendente s51):**
+     - Documentado em §6 "Limitações conhecidas". Arquitectura actual: cada Reel → `navigateToThreadAsync` + `locateReelWithScroll` + viewer + share + copy link + back. Bottleneck é o viewer chain (~7s).
+     - Plano para s51: refactor `enrichAllMissingUrls` para "single-pass per thread". Para cada thread, uma única scroll longa, e ao enumerar cada Reel visível, se estiver na DB com `reelUrl IS NULL` → tap viewer → copy link → back → continua scroll. Elimina o navegate + locate overhead por Reel.
+     - Alternativa complementar (também s51): checkpoint por proximidade — se durante o scroll o `enumerateReels` encontra 3+ Reels consecutivos com URL já preenchido, sabemos que essa parte da conversa já foi processada e paramos.
+
+- **`BUILD_TAG` bumped para `build=s50`.**
+- **Ficheiros alterados:**
+  - `service/InstagramReaderService.kt` — constantes de history bumped + comentários, `enumerateReels` skip reply-attachment, `BUILD_TAG=s50`.
+  - `instagram/IgSelectors.kt` — nova constante `REPLY_CONTEXT_INFO_TEXT` com comentário largo.
+  - `ui/theme/FriendsReelsTheme.kt` — novo ficheiro (paleta IG, tipografia, `InstagramGradient` público).
+  - `MainActivity.kt`, `ui/feed/FeedActivity.kt`, `ui/settings/SettingsActivity.kt`, `ui/player/ReelPlayerActivity.kt` — todos trocam para `FriendsReelsTheme { ... }`, imports actualizados.
+  - `res/xml/data_extraction_rules.xml`, `res/xml/backup_rules.xml` — exclusão total.
+  - `PROJECT_PROGRESS.md` — Estado, quick start, §6/6.1 (bateria T), este log.
+- **Validação em ambiente do agente:** kotlinc compile-check com JDK 21 — zero erros novos de sintaxe. Ver especificamente que:
+  - `REPLY_CONTEXT_INFO_TEXT`, `skippedReplyAttachments`, `HISTORY_STOP_AFTER_N_EMPTY = 500`, `HISTORY_MAX_SCROLLS = 2000` — todas resolvidas.
+  - `InstagramGradient`, `FriendsReelsTheme`, `InstagramColorScheme` — sem erros (androidx unresolved = classpath baseline).
+  - Grep de sanidade a `MaterialTheme(colorScheme = darkColorScheme` — 0 matches remanescentes; `FriendsReelsTheme {` — 4 matches (uma por activity). Fix aplicada consistentemente.
+- **Validação em device (esperada na próxima sessão):** bateria T (2 testes) descrita em §6.1.
+- **Nada mudou** na chain de match (s47b), no `isThreadTopVisible` (s46), no `seenAuthors` (s47b), no batch history orchestrator (s48), na sync de reacção (s49), no schema Room. A s50 é 100% aditiva: fixes cirúrgicas + tema paralelo.
 
 ---
 

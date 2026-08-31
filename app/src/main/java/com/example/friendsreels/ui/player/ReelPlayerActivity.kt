@@ -23,7 +23,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.friendsreels.R
+import com.example.friendsreels.ui.theme.FriendsReelsTheme
 
 /**
  * Full-screen fallback Reel player. Kept around from session 30-32 so
@@ -53,7 +53,7 @@ class ReelPlayerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val url = intent.getStringExtra(EXTRA_URL)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            FriendsReelsTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     PlayerScreen(url)
                 }

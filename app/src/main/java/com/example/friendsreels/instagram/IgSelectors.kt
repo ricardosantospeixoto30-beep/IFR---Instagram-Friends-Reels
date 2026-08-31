@@ -108,6 +108,26 @@ object IgSelectors {
         // Forward shortcut visible while the message is highlighted.
         const val FORWARD_SHORTCUT = "forwarding_shortcut_button"
 
+        // ---------------------------------------------------------------
+        // Reply-context marker (s50).
+        //
+        // When a friend REPLIES to a Reel we sent, IG renders the whole
+        // exchange as a SINGLE `message_content` bubble containing:
+        //   - Button id=direct_context_reply_context_info_text_view
+        //     desc="Respondeu-te" (localized)
+        //   - FrameLayout id=message_content_portrait_xma_container
+        //     (the Reel we sent that they replied TO)
+        //   - TextView id=direct_text_message_text_view (their reply text)
+        //
+        // Pre-s50 `enumerateReels` treated the embedded portrait as a
+        // shared Reel to enrich — but tapping it opens their reply
+        // thread instead of the Reel viewer, breaking the copy-link
+        // chain. Reported by the user via `docs/screen-dumps/dump.txt`.
+        // s50 detects this marker inside a bubble and SKIPS the bubble
+        // entirely from enumeration.
+        // ---------------------------------------------------------------
+        const val REPLY_CONTEXT_INFO_TEXT = "direct_context_reply_context_info_text_view"
+
         // Composer (text field to send messages back into the DM)
         const val COMPOSER_BAR = "message_composer_bar"
         const val COMPOSER_EDITTEXT = "row_thread_composer_edittext"

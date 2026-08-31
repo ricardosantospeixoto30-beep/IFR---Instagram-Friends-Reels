@@ -33,7 +33,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -49,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import com.example.friendsreels.R
 import com.example.friendsreels.service.InstagramReaderService
+import com.example.friendsreels.ui.theme.FriendsReelsTheme
 
 /**
  * Settings screen (spec §11). Currently exposes:
@@ -72,7 +72,7 @@ class SettingsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences(InstagramReaderService.PREFS_NAME, Context.MODE_PRIVATE)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            FriendsReelsTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     SettingsScreen(
                         vm = vm,
