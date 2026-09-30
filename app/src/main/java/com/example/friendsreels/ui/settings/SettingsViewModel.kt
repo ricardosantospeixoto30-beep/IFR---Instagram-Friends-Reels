@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.friendsreels.data.AppDatabase
+import com.example.friendsreels.data.PendingActionDao
 import com.example.friendsreels.data.ReelDao
 import com.example.friendsreels.data.ThreadCount
 import com.example.friendsreels.data.TrackedThreadDao
@@ -16,6 +17,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -29,6 +31,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val trackedDao: TrackedThreadDao = AppDatabase.get(app).trackedThreadDao()
     private val reelDao: ReelDao = AppDatabase.get(app).reelDao()
+    private val pendingDao: PendingActionDao = AppDatabase.get(app).pendingActionDao()
     private val prefs: SharedPreferences = app.getSharedPreferences(
         InstagramReaderService.PREFS_NAME,
         android.content.Context.MODE_PRIVATE,
@@ -96,6 +99,19 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     /** State of the batch URL enrichment run in the service. */
     val batchEnrichmentState: StateFlow<BatchEnrichmentBus.State> = BatchEnrichmentBus.state
 
+    /**
+     * Total number of Reels currently stored, regardless of URL state.
+     * Drives the "Apagar dados descobertos" section (s51): the button is
+     * disabled at 0 and the confirmation dialog shows this count.
+     */
+    val totalReelCount: StateFlow<Int> = reelDao.observeAll()
+        .map { it.size }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            0,
+        )
+
     fun setSelectionMode(mode: String) {
         prefs.edit().putString(InstagramReaderService.PREF_SELECTION_MODE, mode).apply()
     }
@@ -136,5 +152,20 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             Intent(InstagramReaderService.ACTION_ENRICH_ALL_CANCEL)
                 .setPackage(context.packageName)
         )
+    }
+
+    /**
+     * s51 — wipe all discovered content so the user can start a fresh
+     * discovery/test run. Clears the `reels` table and the
+     * `pending_actions` queue. Intentionally KEEPS `tracked_threads`
+     * (the conversation selection preference) and SharedPreferences so
+     * the user doesn't have to reconfigure after every reset. Does not
+     * touch Instagram in any way.
+     */
+    fun clearAllDiscoveredData() {
+        viewModelScope.launch {
+            reelDao.clearAll()
+            pendingDao.clearAll()
+        }
     }
 }

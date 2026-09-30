@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -220,6 +222,10 @@ private fun SettingsScreen(
             HorizontalDivider()
 
             BatchHistorySection()
+
+            HorizontalDivider()
+
+            DataResetSection(vm = vm)
 
             HorizontalDivider()
 
@@ -485,6 +491,56 @@ private fun BatchHistorySection() {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(stringResource(R.string.settings_history_all_start))
+    }
+}
+
+@Composable
+private fun DataResetSection(vm: SettingsViewModel) {
+    val context = LocalContext.current
+    val total by vm.totalReelCount.collectAsState()
+    var showConfirm by remember { mutableStateOf(false) }
+
+    Text(
+        text = stringResource(R.string.settings_reset_title),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+    )
+    Text(
+        text = stringResource(R.string.settings_reset_subtitle),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    OutlinedButton(
+        onClick = { showConfirm = true },
+        enabled = total > 0,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.settings_reset_button))
+    }
+
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text(stringResource(R.string.settings_reset_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_reset_confirm_message, total)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        vm.clearAllDiscoveredData()
+                        showConfirm = false
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.settings_reset_done_toast),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    },
+                ) { Text(stringResource(R.string.settings_reset_confirm_yes)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) {
+                    Text(stringResource(R.string.settings_reset_confirm_no))
+                }
+            },
+        )
     }
 }
 

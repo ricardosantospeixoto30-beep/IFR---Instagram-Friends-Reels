@@ -8,11 +8,11 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-08-31 (sessão 50 — 4 correcções do feedback do utilizador + tema IG-like).
+**Última actualização:** 2026-09-30 (sessão 51 — botão de reset dos dados descobertos + correcções de documentação).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s50`.
+**HEAD actual:** `build=s51`.
 
-**Recap sessões 46-50 (as próximas do estado corrente):**
+**Recap sessões 46-51 (as próximas do estado corrente):**
 
 - **s46:** `isThreadTopVisible(root)` detecta o header start-of-conversation via 4 selectors (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username` — capturados no dump da s45). Integrada em `locateReelWithScroll` (aborta backward budget cedo) e `doHistoryScroll` (para no topo real).
 - **s47/s47b:** instrumentação `seenAuthors` pré-filtro para expor o "Reel skipped mid-sweep" no log. `BATCH_MAX_FORWARD_SCROLLS` 5 → 15.
@@ -23,11 +23,12 @@
   - **Fix 2:** `IgSelectors.Thread.REPLY_CONTEXT_INFO_TEXT = "direct_context_reply_context_info_text_view"` — nova constante. `enumerateReels` filtra bubbles com este marcador (respostas de terceiros ao meu Reel enviado). Antes clicava no Reel embebido na resposta e ficava preso.
   - **Fix 4:** `data_extraction_rules.xml` + `backup_rules.xml` — regras exhaustivas de exclusão (`root`, `database`, `sharedpref`, `file`, `external`) para garantir que uninstall + backup não deixam dados. `allowBackup=false` no manifest já estava.
   - **Fix 5:** novo `ui/theme/FriendsReelsTheme.kt` com paleta IG (background preto, superfícies `#121212`/`#1F1F1F`/`#262626`, primário `#E1306C` pink, gradient IG amarelo→laranja→rosa→roxo→azul, tipografia SemiBold para títulos com `letterSpacing` tightened). As 4 activities (Main, Feed, Settings, Player) passam de `MaterialTheme(darkColorScheme())` para `FriendsReelsTheme { ... }`.
-  - **Fix 3 (pendente):** enrichment de URL é lento (~7s/Reel) porque cada Reel faz nav + locate + viewer + copy + back. Utilizador pediu checkpoint / speedup. Refactor "single-pass enrichment por thread" (uma única scroll por thread, abrir viewer conforme encontra Reels) fica para s51.
+  - **Fix 3 (pendente):** enrichment de URL é lento (~7s/Reel) porque cada Reel faz nav + locate + viewer + copy + back. Utilizador pediu checkpoint / speedup. Refactor "single-pass enrichment por thread" (uma única scroll por thread, abrir viewer conforme encontra Reels) fica para s52 (ver §6.1).
+- **s51 — reset + docs + investigação de identidade:** botão **🗑 Apagar todos os Reels guardados** em Definições (limpa `reels` + `pending_actions`; mantém a selecção de conversas e as preferências) para testar/descobrir do zero sem esperar pelo enrichment lento. Correcções de documentação (refs partidas, staleness — ver §7). **Investigação-chave:** bolhas de Reel *portrait* na árvore a11y só expõem o autor (`title_text`), sem URL/media-id/caption (só os `generic` têm `caption_title`) → **a única identidade estável por Reel é o URL** (via viewer). É a causa-raiz do dedup `(thread,autor,direção)` colapsar Reels do mesmo autor e de Reels se "perderem". Fix lossless (single-pass Descobrir+Preparar, dedup por URL) → s52.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s50 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s51 ...)`.
 2. **Ler primeiro:** `AGENTS.md` na raiz (regras de trabalho: commits, autoria, autonomia, testes), esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `instagram/IgSelectors.kt` — `Thread` tem os 4 selectors do header (s46), `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` (s49), **s50:** `REPLY_CONTEXT_INFO_TEXT`.
@@ -245,8 +246,42 @@ Já entregue no primeiro commit:
 - ✅ **s48 — `📥 Descobrir tudo`: history-scroll batch em todas as conversas seleccionadas em Definições, com notif única de conclusão.**
 - ✅ **s49 / s49b — sync da reacção actual da DM (Room v5 `currentReaction`, lida de `message_reactions_pill_container`); fix de compilação de leftover da s47b.**
 - 🟡 **s50 — stop-early do history desactivado (`HISTORY_STOP_AFTER_N_EMPTY` 5→500, `HISTORY_MAX_SCROLLS` 100→2000; stop real via `isThreadTopVisible`), skip de bubbles reply-attachment (`REPLY_CONTEXT_INFO_TEXT`), tema IG-like nas 4 activities. Fix 3 (single-pass enrichment) fica pendente.**
+- ✅ **s51 — botão de reset (🗑 apagar `reels` + fila) em Definições; correcções de documentação; AGENTS.md. Investigação: portrait reels não têm id estável na árvore a11y → URL é a única identidade (motiva o single-pass da s52).**
 
 ### 6.1 Próxima sessão — arranque
+
+> **Actualização s51 (2026-09-30):** as baterias mais abaixo (s48, s50) são **históricas**. O estado corrente e o arranque da próxima sessão estão aqui.
+
+**Feito na s51:** botão de reset (🗑) em Definições + correcções de documentação + `AGENTS.md`. (Ver §7.)
+
+**Próxima sessão (s52) — prioridade máxima: NÃO PERDER Reels.**
+- **Causa-raiz confirmada:** dedup por `(thread, autor, direção)` no `ReelDao` colapsa vários Reels do mesmo autor. Investigação da s51: portrait reels não expõem URL/id/caption na árvore a11y (só `title_text`=autor) → a única identidade estável por Reel é o **URL** do viewer.
+- **Plano (lossless):** nova acção **"Descobrir + Preparar"** — UMA passagem por thread (do mais recente para o topo); abre cada Reel conforme o encontra, copia o URL e insere/dedup por `reelUrl` (índice único já existe). Sem matching por autor → nunca colapsa nem perde. **Paragem incremental:** em re-runs, ao chegar a um Reel cujo URL já está na BD, parar (território já coberto).
+- **Depois:** capturar as mensagens de texto enviadas junto ao Reel (texto do amigo logo a seguir + as minhas respostas — spec §5) e mostrá-las no feed por baixo do Reel. (Decidido com o utilizador.)
+
+#### Teste — "Reset apaga todos os Reels descobertos" (`ResetData`) [s51]
+
+**O que se está a validar:** o botão novo em Definições limpa a BD local (`reels` + fila de acções) sem tocar no Instagram nem na selecção de conversas/preferências.
+
+**Preparação:**
+1. `git pull`; recompilar e reinstalar em `build=s51`. Confirmar no logcat `Action receiver registered (build=s51 ...)`.
+2. Ter alguns Reels descobertos (feed não vazio) e, idealmente, 1-2 conversas marcadas em "Filtrar conversas".
+
+**Passos:**
+1. Abrir Friends Reels → **⚙ Definições** → secção **"Apagar dados descobertos"**.
+2. Tocar **"🗑 Apagar todos os Reels guardados"** → no diálogo, confirmar com **"Apagar"**.
+
+**O que confirmar na UI:**
+- Toast: **"Dados apagados. O feed está agora vazio."**
+- Voltar ao feed → aparece **"Feed vazio"**.
+- Em Definições, "Preparar URLs em lote" passa a **0 Reels sem URL**.
+
+**O que NÃO deve aparecer:** nenhuma acção no Instagram (a app nem o abre).
+
+**Passa se:** feed fica vazio + toast, sem crash; as preferências mantêm-se; o botão fica desactivado quando já não há Reels (contador 0).
+**Falha se:** o feed ainda mostra Reels; a app crasha; ou o botão continua activo/clicável com 0 Reels.
+
+---
 
 **Estado no fim da s48:** feature nova + instrumentação da s47b ainda por validar (não bloqueia).
 
@@ -785,6 +820,21 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
   - Grep de sanidade a `MaterialTheme(colorScheme = darkColorScheme` — 0 matches remanescentes; `FriendsReelsTheme {` — 4 matches (uma por activity). Fix aplicada consistentemente.
 - **Validação em device (esperada na próxima sessão):** bateria T (2 testes) descrita em §6.1.
 - **Nada mudou** na chain de match (s47b), no `isThreadTopVisible` (s46), no `seenAuthors` (s47b), no batch history orchestrator (s48), na sync de reacção (s49), no schema Room. A s50 é 100% aditiva: fixes cirúrgicas + tema paralelo.
+
+### 2026-09-30 — Sessão 51 (Ricardo + Copilot CLI) — reset dos dados + correcções de docs + AGENTS.md
+
+- **Setup do repo (pedido do utilizador):**
+  - Criado `AGENTS.md` na raiz (carregado automaticamente pelo Copilot CLI) com as regras: commits autorados por `ricardosantospeixoto30-beep` (já no `.git/config` local) + co-author Copilot; commits reduzidos; convenção `sessão NN`; bump de `BUILD_TAG`; push sem login por SSH (`github-ricardo` → `~/.ssh/id_ed25519_ricardo`, confirmado a funcionar) com PAT como alternativa; disciplina de documentação; formato de testes §8.1.
+  - Confirmado: autoria já correcta no config local; o push SSH autentica como a conta certa sem login → o PAT que o utilizador tinha **não é necessário**.
+- **Correcções de documentação (commit `docs:` à parte):** ref `§6.4` inexistente → `§6.3`; README "sessões 1-32" → "1-40" e "Resumo (fim s37)" → s51; checklist §6 "após sessão 34" → histórico + s48/s49/s50; comentário do history-scroll "three consecutive scrolls" → `isThreadTopVisible`/500.
+- **Feature s51 — botão de reset:**
+  - `SettingsViewModel`: novo `totalReelCount: StateFlow<Int>` (de `reelDao.observeAll().map { it.size }`) e `clearAllDiscoveredData()` que corre `reelDao.clearAll()` + `pendingDao.clearAll()`. **Mantém** `tracked_threads` (selecção de conversas) e SharedPreferences.
+  - `SettingsActivity`: nova secção "Apagar dados descobertos" com `OutlinedButton` (desactivado a 0 Reels) + `AlertDialog` de confirmação (mostra a contagem). Toast no fim.
+  - `strings.xml`: 8 strings novas (`settings_reset_*`).
+  - `BUILD_TAG` → `build=s51`.
+- **Investigação-chave (motiva a s52):** dumps (`2025-08-28-initial-mapping.txt`, `feed.txt`, etc.) confirmam que a bolha de Reel *portrait* na árvore a11y só expõe `title_text` (autor) — sem URL, media-id nem caption (só os `generic` têm `caption_title`). Logo **a única identidade estável por Reel é o URL** (obtido abrindo o viewer). É a causa-raiz do dedup `(thread,autor,direção)` colapsar Reels do mesmo autor e de Reels se "perderem". Fix lossless (single-pass Descobrir+Preparar com dedup por URL) planeado para s52 (§6.1).
+- **Validação em ambiente do agente:** kotlinc (JDK 21) parse-check dos ficheiros alterados — 0 erros de sintaxe (os restantes são unresolved androidx/`R`/classes do projeto = baseline sem classpath, esperado; kotlinc só corre com JDK ≤21, o ambiente tem JDK 25 por default). Build/run e teste `ResetData` (§6.1) no device pelo utilizador.
+- **Nada mudou** na descoberta / enrichment / schema Room — a s51 é aditiva (UI de reset + docs).
 
 ---
 
