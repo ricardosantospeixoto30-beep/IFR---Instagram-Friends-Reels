@@ -1,0 +1,450 @@
+---------------------------- PROCESS STARTED (17946) for package com.example.friendsreels ----------------------------
+---------------------------- PROCESS ENDED (17946) for package com.example.friendsreels ----------------------------
+---------------------------- PROCESS STARTED (19851) for package com.example.friendsreels ----------------------------
+2026-09-30 20:27:15.088 19851-19851 IGReaderService         com.example.friendsreels             I  InstagramReaderService connected
+2026-09-30 20:27:15.090 19851-19851 IGReaderService         com.example.friendsreels             I  Action receiver registered (build=s56 heart=com.example.friendsreels.ACTION_REACT_HEART, laugh=com.example.friendsreels.ACTION_REACT_LAUGH, reply=com.example.friendsreels.ACTION_REPLY_FIRST_REEL_MOCK, copyUrl=com.example.friendsreels.ACTION_COPY_REEL_URL, discover=com.example.friendsreels.ACTION_DISCOVER_REELS, history=com.example.friendsreels.ACTION_DISCOVER_REELS_HISTORY, historyAll=com.example.friendsreels.ACTION_DISCOVER_HISTORY_ALL_TRACKED, historyAllCancel=com.example.friendsreels.ACTION_DISCOVER_HISTORY_ALL_CANCEL, applyPending=com.example.friendsreels.ACTION_APPLY_PENDING, applyCancel=com.example.friendsreels.ACTION_APPLY_PENDING_CANCEL, enrichUrl=com.example.friendsreels.ACTION_ENRICH_REEL_URL, enrichAll=com.example.friendsreels.ACTION_ENRICH_ALL_MISSING_URLS, enrichCancel=com.example.friendsreels.ACTION_ENRICH_ALL_CANCEL, discoverPrepare=com.example.friendsreels.ACTION_DISCOVER_PREPARE_ALL, dumpTree=com.example.friendsreels.ACTION_DUMP_TREE)
+2026-09-30 20:27:15.106 19851-19851 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-09-30 20:27:15.119 19851-19851 IGReaderService         com.example.friendsreels             I  restorePersistedBatchEnrichResult: restored LastResult(succeeded=0, failed=2, cancelled=true) to bus.
+2026-09-30 20:27:27.516 19851-19851 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
+2026-09-30 20:27:29.002 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-09-30 20:27:29.869 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-09-30 20:27:29.877 19851-19851 IGReaderService         com.example.friendsreels             I  KNOW_CONVERSATION: remembered 'Pedro Sardoeira'.
+2026-09-30 20:27:35.393 19851-19851 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Restos de Chernobil'
+2026-09-30 20:27:36.831 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-09-30 20:27:37.702 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-09-30 20:27:37.712 19851-19851 IGReaderService         com.example.friendsreels             I  KNOW_CONVERSATION: remembered 'Restos de Chernobil'.
+2026-09-30 20:27:41.222 19851-19851 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Rodrigo Santos'
+2026-09-30 20:27:43.124 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-09-30 20:27:43.976 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-09-30 20:27:43.981 19851-19851 IGReaderService         com.example.friendsreels             I  KNOW_CONVERSATION: remembered 'Rodrigo Santos'.
+2026-09-30 20:27:49.660 19851-19851 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Rafa'
+2026-09-30 20:29:31.176 19851-21169 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: starting batch for 2 thread(s).
+2026-09-30 20:29:31.195 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-09-30 20:29:32.163 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-09-30 20:29:32.163 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: step 1/2 thread='Pedro Sardoeira'
+2026-09-30 20:29:32.302 19851-19851 IGReaderService         com.example.friendsreels             I  NAV: attempt 1 stage=open-direct-tab dispatched=true target='Pedro Sardoeira'
+2026-09-30 20:29:33.899 19851-19851 IGReaderService         com.example.friendsreels             I  NAV: click inbox row 'Pedro Sardoeira' returned true
+2026-09-30 20:29:33.899 19851-19851 IGReaderService         com.example.friendsreels             I  NAV: attempt 2 stage=inbox-click dispatched=true target='Pedro Sardoeira'
+2026-09-30 20:29:34.055 19851-19851 IGReaderService         com.example.friendsreels             D  Tracked last conversation title='Pedro Sardoeira'
+2026-09-30 20:29:34.917 19851-19851 IGReaderService         com.example.friendsreels             I  NAV: arrived at 'Pedro Sardoeira' (attemptsLeft=8).
+2026-09-30 20:29:36.153 19851-21167 IGReaderService         com.example.friendsreels             I  SINGLEPASS: starting thread='Pedro Sardoeira' knownUrls=0
+2026-09-30 20:29:36.276 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #1 author=null top=1123 thread='Pedro Sardoeira'
+2026-09-30 20:29:36.284 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:29:36.370 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:29:38.387 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:29:38.525 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1536][1059,1652]
+2026-09-30 20:29:40.500 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:29:40.502 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:29:40.588 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:29:41.228 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:29:41.329 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/p/DdGFSLACkyX/?stkn=MW9qdWhpOXhqOHRsYw=='
+2026-09-30 20:29:41.355 19851-21167 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=1 thread='Pedro Sardoeira' author=null dmSender=Pedro Sardoeira totalInDb=1.
+2026-09-30 20:29:41.432 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#1 this run) — https://www.instagram.com/p/DdGFSLACkyX/?stkn=MW9qdWhpOXhqOHRsYw==
+2026-09-30 20:29:43.525 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 1/500
+2026-09-30 20:29:45.727 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 2/500
+2026-09-30 20:29:47.129 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #2 author=null top=267 thread='Pedro Sardoeira'
+2026-09-30 20:29:47.131 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:29:47.214 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:29:49.238 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:29:49.377 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1536][1059,1652]
+2026-09-30 20:29:51.430 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:29:51.432 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:29:51.515 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:29:52.148 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:29:52.225 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/p/Dd1bvu-OR9p/?stkn=eXVzODA4b3Q2emJ0'
+2026-09-30 20:29:52.253 19851-21167 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=2 thread='Pedro Sardoeira' author=null dmSender=Pedro Sardoeira totalInDb=2.
+2026-09-30 20:29:52.282 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#2 this run) — https://www.instagram.com/p/Dd1bvu-OR9p/?stkn=eXVzODA4b3Q2emJ0
+2026-09-30 20:29:53.476 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #3 author=cs2rushs top=609 thread='Pedro Sardoeira'
+2026-09-30 20:29:53.482 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:29:53.564 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:29:55.586 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:29:55.734 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:29:57.645 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:29:57.646 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:29:57.731 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:29:58.367 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:29:58.454 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/Dd3BQOHSIJ1/?stkn=MWw3Mml4Z2luYjFsdA=='
+2026-09-30 20:29:58.464 19851-22741 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=3 thread='Pedro Sardoeira' author=cs2rushs dmSender=Pedro Sardoeira totalInDb=3.
+2026-09-30 20:29:58.644 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#3 this run) — https://www.instagram.com/reel/Dd3BQOHSIJ1/?stkn=MWw3Mml4Z2luYjFsdA==
+2026-09-30 20:30:00.597 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 3/500
+2026-09-30 20:30:02.061 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #4 author=tashytb top=322 thread='Pedro Sardoeira'
+2026-09-30 20:30:02.062 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:30:02.158 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:30:04.184 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:30:04.295 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:30:06.177 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:30:06.179 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:30:06.261 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:30:06.906 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:30:07.002 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/Dd19eYQxrMB/?stkn=NHZrNDFqa2RqY3lk'
+2026-09-30 20:30:07.065 19851-21169 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=4 thread='Pedro Sardoeira' author=tashytb dmSender=Pedro Sardoeira totalInDb=4.
+2026-09-30 20:30:07.200 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#4 this run) — https://www.instagram.com/reel/Dd19eYQxrMB/?stkn=NHZrNDFqa2RqY3lk
+2026-09-30 20:30:08.367 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #5 author=null top=1266 thread='Pedro Sardoeira'
+2026-09-30 20:30:08.376 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:30:08.455 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:30:10.478 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:30:10.614 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1536][1059,1652]
+2026-09-30 20:30:12.497 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:30:12.499 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:30:12.583 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:30:13.223 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:30:13.303 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/p/Dd1bvu-OR9p/?stkn=eXVzODA4b3Q2emJ0'
+2026-09-30 20:30:13.351 19851-21169 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:30:13.512 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already captured this run (overlap re-open) — https://www.instagram.com/p/Dd1bvu-OR9p/?stkn=eXVzODA4b3Q2emJ0
+2026-09-30 20:30:15.539 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 4/500
+2026-09-30 20:30:16.939 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #6 author=this_is_me_mochi top=935 thread='Pedro Sardoeira'
+2026-09-30 20:30:16.941 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:30:17.047 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:30:19.051 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:30:19.246 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:30:21.296 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:30:21.297 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:30:21.383 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:30:22.015 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:30:22.127 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdtgUqyyxSm/?stkn=OWJ5cmV5NmE0Z2o2'
+2026-09-30 20:30:22.143 19851-21167 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=6 thread='Pedro Sardoeira' author=this_is_me_mochi dmSender=Pedro Sardoeira totalInDb=5.
+2026-09-30 20:30:22.391 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#5 this run) — https://www.instagram.com/reel/DdtgUqyyxSm/?stkn=OWJ5cmV5NmE0Z2o2
+2026-09-30 20:30:25.655 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 5/500
+2026-09-30 20:30:28.764 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 6/500
+2026-09-30 20:30:30.930 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 7/500
+2026-09-30 20:30:32.352 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #7 author=flats_ow top=267 thread='Pedro Sardoeira'
+2026-09-30 20:30:32.354 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:30:32.447 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:30:34.470 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:30:34.631 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:30:36.638 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:30:36.643 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:30:36.724 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:30:37.358 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:30:37.443 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/Ddxn_LvjmfL/?stkn=MW03ZWVxMHl6aDk3cA=='
+2026-09-30 20:30:37.511 19851-21167 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=7 thread='Pedro Sardoeira' author=flats_ow dmSender=Pedro Sardoeira totalInDb=6.
+2026-09-30 20:30:37.553 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#6 this run) — https://www.instagram.com/reel/Ddxn_LvjmfL/?stkn=MW03ZWVxMHl6aDk3cA==
+2026-09-30 20:30:39.621 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 8/500
+2026-09-30 20:30:41.006 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #8 author=null top=280 thread='Pedro Sardoeira'
+2026-09-30 20:30:41.008 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:30:41.092 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:30:43.118 19851-19851 IGReaderService         com.example.friendsreels             W  COPY_LINK: sender_username_or_fullname not found in viewer.
+2026-09-30 20:30:43.204 19851-19851 IGReaderService         com.example.friendsreels             W  SHARE_IN_VIEWER: 'direct_share_button' not found. Viewer failed to open?
+2026-09-30 20:30:43.438 19851-19851 IGReaderService         com.example.friendsreels             W  SINGLEPASS: step failed (settled=true gotUrl=false) failures=1 — recovering to thread and continuing.
+2026-09-30 20:30:44.579 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #9 author=chrishrestha top=687 thread='Pedro Sardoeira'
+2026-09-30 20:30:44.582 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:30:44.668 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:30:46.691 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:30:46.835 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:30:48.807 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:30:48.811 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:30:48.898 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:30:49.540 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:30:49.639 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/Ddy8vvJSIlN/?stkn=OWh4NWphY2hzcWh4'
+2026-09-30 20:30:49.662 19851-21168 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=8 thread='Pedro Sardoeira' author=chrishrestha dmSender=Pedro Sardoeira totalInDb=7.
+2026-09-30 20:30:49.735 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#7 this run) — https://www.instagram.com/reel/Ddy8vvJSIlN/?stkn=OWh4NWphY2hzcWh4
+2026-09-30 20:30:51.769 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 9/500
+2026-09-30 20:30:53.165 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #10 author=daytonmodderman top=267 thread='Pedro Sardoeira'
+2026-09-30 20:30:53.167 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:30:53.268 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:30:55.274 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:30:55.469 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:30:57.466 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:30:57.470 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:30:57.561 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:30:58.206 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:30:58.308 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdxP_ecJYz1/?stkn=MWY4eTJvcnNmNG5jNg=='
+2026-09-30 20:30:58.322 19851-21169 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=9 thread='Pedro Sardoeira' author=daytonmodderman dmSender=Pedro Sardoeira totalInDb=8.
+2026-09-30 20:30:58.401 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#8 this run) — https://www.instagram.com/reel/DdxP_ecJYz1/?stkn=MWY4eTJvcnNmNG5jNg==
+2026-09-30 20:30:59.625 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #11 author=ricardoweezy top=1013 thread='Pedro Sardoeira'
+2026-09-30 20:30:59.630 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:30:59.714 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:31:01.735 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:31:01.925 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:31:03.969 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:31:03.975 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:31:04.055 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:31:04.691 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:31:04.798 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdyoETitsRA/?stkn=MXI5aHdieWY0dGR2cg=='
+2026-09-30 20:31:04.811 19851-21167 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=10 thread='Pedro Sardoeira' author=ricardoweezy dmSender=Pedro Sardoeira totalInDb=9.
+2026-09-30 20:31:04.824 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#9 this run) — https://www.instagram.com/reel/DdyoETitsRA/?stkn=MXI5aHdieWY0dGR2cg==
+2026-09-30 20:31:06.850 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 10/500
+2026-09-30 20:31:08.257 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #12 author=spidy__gaming01 top=267 thread='Pedro Sardoeira'
+2026-09-30 20:31:08.259 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:31:08.342 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:31:10.379 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:31:10.574 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:31:12.624 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:31:12.627 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:31:12.714 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:31:13.350 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:31:13.440 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdyO_IGzjDY/?stkn=Y3hiNHlyM3JpbTEx'
+2026-09-30 20:31:13.456 19851-24130 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=11 thread='Pedro Sardoeira' author=spidy__gaming01 dmSender=Pedro Sardoeira totalInDb=10.
+2026-09-30 20:31:13.707 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#10 this run) — https://www.instagram.com/reel/DdyO_IGzjDY/?stkn=Y3hiNHlyM3JpbTEx
+2026-09-30 20:31:15.685 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 11/500
+2026-09-30 20:31:17.135 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #13 author=null top=267 thread='Pedro Sardoeira'
+2026-09-30 20:31:17.136 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:31:17.221 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:31:19.253 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:31:19.427 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1657][1059,1773]
+2026-09-30 20:31:21.402 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:31:21.406 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:31:21.495 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:31:22.137 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:31:22.232 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/p/Ddw0j93iF9d/?stkn=bzB2bndna3M3bm41'
+2026-09-30 20:31:22.244 19851-21169 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=12 thread='Pedro Sardoeira' author=null dmSender=Pedro Sardoeira totalInDb=11.
+2026-09-30 20:31:22.295 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#11 this run) — https://www.instagram.com/p/Ddw0j93iF9d/?stkn=bzB2bndna3M3bm41
+2026-09-30 20:31:23.454 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #14 author=migueljoker13 top=547 thread='Pedro Sardoeira'
+2026-09-30 20:31:23.456 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:31:23.543 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:31:25.565 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:31:25.782 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:31:27.754 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:31:27.758 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:31:27.840 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:31:28.476 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:31:28.583 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdwpSCJtXNg/?stkn=bXllcWw0Y283eG0y'
+2026-09-30 20:31:28.594 19851-21169 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=13 thread='Pedro Sardoeira' author=migueljoker13 dmSender=Pedro Sardoeira totalInDb=12.
+2026-09-30 20:31:28.614 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#12 this run) — https://www.instagram.com/reel/DdwpSCJtXNg/?stkn=bXllcWw0Y283eG0y
+2026-09-30 20:31:29.802 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #15 author=spidy__gaming01 top=1381 thread='Pedro Sardoeira'
+2026-09-30 20:31:29.807 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:31:29.891 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:31:31.911 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:31:32.103 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:31:34.032 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:31:34.033 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:31:34.117 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:31:34.756 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:31:34.846 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdyO_IGzjDY/?stkn=Y3hiNHlyM3JpbTEx'
+2026-09-30 20:31:34.868 19851-21169 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:31:34.961 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already captured this run (overlap re-open) — https://www.instagram.com/reel/DdyO_IGzjDY/?stkn=Y3hiNHlyM3JpbTEx
+2026-09-30 20:31:36.957 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 12/500
+2026-09-30 20:31:38.369 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #16 author=x1yzr top=267 thread='Pedro Sardoeira'
+2026-09-30 20:31:38.371 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:31:38.466 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:31:40.479 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:31:40.642 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1531][1059,1647]
+2026-09-30 20:31:42.711 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:31:42.714 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:31:42.800 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:31:43.431 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:31:43.521 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DduFNR7xcAC/?stkn=bHp0dmU0NmR4Mjhh'
+2026-09-30 20:31:43.533 19851-21167 IGReaderService         com.example.friendsreels             I  COPY_LINK: inserted row id=15 thread='Pedro Sardoeira' author=x1yzr dmSender=Pedro Sardoeira totalInDb=13.
+2026-09-30 20:31:43.545 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: captured new URL (#13 this run) — https://www.instagram.com/reel/DduFNR7xcAC/?stkn=bHp0dmU0NmR4Mjhh
+2026-09-30 20:31:44.717 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #17 author=null top=1159 thread='Pedro Sardoeira'
+2026-09-30 20:31:44.720 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:31:44.804 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:31:46.856 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:31:47.040 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1657][1059,1773]
+2026-09-30 20:31:48.997 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:31:49.000 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:31:49.089 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:31:49.731 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:31:49.805 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/p/Ddw0j93iF9d/?stkn=bzB2bndna3M3bm41'
+2026-09-30 20:31:49.817 19851-24131 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:31:49.882 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already captured this run (overlap re-open) — https://www.instagram.com/p/Ddw0j93iF9d/?stkn=bzB2bndna3M3bm41
+2026-09-30 20:31:51.920 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 13/500
+2026-09-30 20:31:53.299 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #18 author=jacobweeby top=267 thread='Pedro Sardoeira'
+2026-09-30 20:31:53.301 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:31:53.385 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:31:55.413 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:31:55.559 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:31:57.498 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:31:57.500 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:31:57.582 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:31:58.231 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:31:58.330 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/p/Ddw0j93iF9d/?stkn=bzB2bndna3M3bm41'
+2026-09-30 20:31:58.353 19851-21169 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:31:58.431 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already captured this run (overlap re-open) — https://www.instagram.com/p/Ddw0j93iF9d/?stkn=bzB2bndna3M3bm41
+2026-09-30 20:31:59.662 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #19 author=null top=705 thread='Pedro Sardoeira'
+2026-09-30 20:31:59.664 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:31:59.754 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:32:01.767 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:32:01.908 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1536][1059,1652]
+2026-09-30 20:32:03.884 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:32:03.886 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:32:03.968 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:32:04.611 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:32:11.411 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: cancel requested — will stop after the current Reel/thread.
+2026-09-30 20:32:11.457 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: finished thread='Pedro Sardoeira' opened=19 new=13 scrolls=13 cancelled=true reachedTop=false reachedKnown=false
+2026-09-30 20:32:11.457 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: thread 'Pedro Sardoeira' done new=13 opened=19 scrolls=13 — batch running total=13
+2026-09-30 20:32:12.060 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: cancelled — totalNew=13 across 1/2 thread(s).
+2026-09-30 20:32:12.088 19851-19851 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-09-30 20:32:12.100 19851-19851 IGReaderService         com.example.friendsreels             I  Completion notification posted: '🔎 Descobrir + Preparar terminado' — Cancelado: 13 novo(s) em 1/2 conversa(s).
+2026-09-30 20:32:12.100 19851-19851 IGReaderService         com.example.friendsreels             I  returnToAppIfEnabled: pref disabled — staying on IG.
+2026-09-30 20:34:24.877 19851-21167 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: starting batch for 1 thread(s).
+2026-09-30 20:34:24.888 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-09-30 20:34:25.767 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-09-30 20:34:25.767 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: step 1/1 thread='Pedro Sardoeira'
+2026-09-30 20:34:25.779 19851-19851 IGReaderService         com.example.friendsreels             I  NAV: arrived at 'Pedro Sardoeira' (attemptsLeft=10).
+2026-09-30 20:34:27.009 19851-24130 IGReaderService         com.example.friendsreels             I  SINGLEPASS: starting thread='Pedro Sardoeira' knownUrls=13
+2026-09-30 20:34:27.136 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #1 author=daytonmodderman top=1327 thread='Pedro Sardoeira'
+2026-09-30 20:34:27.139 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:34:27.226 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:34:29.259 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:34:29.447 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:34:31.493 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:34:31.494 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:34:31.576 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:34:32.211 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:34:32.311 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdxP_ecJYz1/?stkn=MWY4eTJvcnNmNG5jNg=='
+2026-09-30 20:34:32.341 19851-21169 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:34:32.589 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already known before run (knownInARow=1) — https://www.instagram.com/reel/DdxP_ecJYz1/?stkn=MWY4eTJvcnNmNG5jNg==
+2026-09-30 20:34:34.669 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 1/500
+2026-09-30 20:34:36.031 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #2 author=migueljoker13 top=267 thread='Pedro Sardoeira'
+2026-09-30 20:34:36.032 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:34:36.117 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:34:38.142 19851-19851 IGReaderService         com.example.friendsreels             W  COPY_LINK: sender_username_or_fullname not found in viewer.
+2026-09-30 20:34:38.293 19851-19851 IGReaderService         com.example.friendsreels             W  SHARE_IN_VIEWER: 'direct_share_button' not found. Viewer failed to open?
+2026-09-30 20:34:38.455 19851-19851 IGReaderService         com.example.friendsreels             W  SINGLEPASS: step failed (settled=true gotUrl=false) failures=1 — recovering to thread and continuing.
+2026-09-30 20:34:38.490 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: recovery BACK (backsLeft=2, not on thread yet).
+2026-09-30 20:34:39.210 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: recovery BACK (backsLeft=1, not on thread yet).
+2026-09-30 20:34:40.950 19851-19851 IGReaderService         com.example.friendsreels             W  SINGLEPASS: IG no longer foreground, stopping thread='Pedro Sardoeira'.
+2026-09-30 20:34:40.951 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: finished thread='Pedro Sardoeira' opened=2 new=0 scrolls=1 cancelled=false reachedTop=false reachedKnown=false
+2026-09-30 20:34:40.951 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: thread 'Pedro Sardoeira' done new=0 opened=2 scrolls=1 — batch running total=0
+2026-09-30 20:34:41.553 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: finished — totalNew=0 across 1/1 thread(s).
+2026-09-30 20:34:41.563 19851-19851 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-09-30 20:34:41.569 19851-19851 IGReaderService         com.example.friendsreels             I  Completion notification posted: '🔎 Descobrir + Preparar terminado' — 0 Reel(s) novo(s) preparado(s) em 1 conversa(s).
+2026-09-30 20:34:41.569 19851-19851 IGReaderService         com.example.friendsreels             I  returnToAppIfEnabled: pref disabled — staying on IG.
+2026-09-30 20:34:44.466 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: cancel requested but nothing running.
+2026-09-30 20:35:20.827 19851-21169 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: starting batch for 1 thread(s).
+2026-09-30 20:35:20.838 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-09-30 20:35:21.705 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-09-30 20:35:21.706 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: step 1/1 thread='Pedro Sardoeira'
+2026-09-30 20:35:21.713 19851-19851 IGReaderService         com.example.friendsreels             I  NAV: arrived at 'Pedro Sardoeira' (attemptsLeft=10).
+2026-09-30 20:35:22.939 19851-24130 IGReaderService         com.example.friendsreels             I  SINGLEPASS: starting thread='Pedro Sardoeira' knownUrls=13
+2026-09-30 20:35:23.054 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #1 author=daytonmodderman top=1297 thread='Pedro Sardoeira'
+2026-09-30 20:35:23.056 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:35:23.144 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:35:25.170 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:35:25.337 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:35:27.351 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:35:27.352 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:35:27.441 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:35:28.072 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:35:28.171 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdxP_ecJYz1/?stkn=MWY4eTJvcnNmNG5jNg=='
+2026-09-30 20:35:28.192 19851-21167 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:35:28.244 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already known before run (knownInARow=1) — https://www.instagram.com/reel/DdxP_ecJYz1/?stkn=MWY4eTJvcnNmNG5jNg==
+2026-09-30 20:35:30.251 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 1/500
+2026-09-30 20:35:31.663 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #2 author=spidy__gaming01 top=267 thread='Pedro Sardoeira'
+2026-09-30 20:35:31.665 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:35:31.813 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:35:33.778 19851-19851 IGReaderService         com.example.friendsreels             W  COPY_LINK: sender_username_or_fullname not found in viewer.
+2026-09-30 20:35:33.863 19851-19851 IGReaderService         com.example.friendsreels             W  SHARE_IN_VIEWER: 'direct_share_button' not found. Viewer failed to open?
+2026-09-30 20:35:34.086 19851-19851 IGReaderService         com.example.friendsreels             W  SINGLEPASS: step failed (settled=true gotUrl=false) failures=1 — recovering to thread and continuing.
+2026-09-30 20:35:35.239 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #3 author=daytonmodderman top=1495 thread='Pedro Sardoeira'
+2026-09-30 20:35:35.240 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:35:35.324 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:35:37.355 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:35:37.526 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:35:39.444 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:35:39.447 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:35:39.531 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:35:40.171 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:35:40.267 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdxP_ecJYz1/?stkn=MWY4eTJvcnNmNG5jNg=='
+2026-09-30 20:35:40.279 19851-24131 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:35:40.392 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already known before run (knownInARow=2) — https://www.instagram.com/reel/DdxP_ecJYz1/?stkn=MWY4eTJvcnNmNG5jNg==
+2026-09-30 20:35:42.403 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 2/500
+2026-09-30 20:35:43.842 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #4 author=migueljoker13 top=299 thread='Pedro Sardoeira'
+2026-09-30 20:35:43.843 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:35:43.927 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:35:45.974 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:35:46.167 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:35:48.291 19851-19851 IGReaderService         com.example.friendsreels             W  COPY_LINK: 'Copiar ligação' not found in share sheet (labels=[Copiar link, Copiar ligação, Copy link]).
+2026-09-30 20:35:48.382 19851-19851 IGReaderService         com.example.friendsreels             W  SINGLEPASS: step failed (settled=true gotUrl=false) failures=1 — recovering to thread and continuing.
+2026-09-30 20:35:50.421 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 3/500
+2026-09-30 20:35:51.871 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #5 author=daytonmodderman top=370 thread='Pedro Sardoeira'
+2026-09-30 20:35:51.872 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:35:51.956 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:35:53.985 19851-19851 IGReaderService         com.example.friendsreels             W  COPY_LINK: sender_username_or_fullname not found in viewer.
+2026-09-30 20:35:54.084 19851-19851 IGReaderService         com.example.friendsreels             W  SHARE_IN_VIEWER: 'direct_share_button' not found. Viewer failed to open?
+2026-09-30 20:35:54.315 19851-19851 IGReaderService         com.example.friendsreels             W  SINGLEPASS: step failed (settled=true gotUrl=false) failures=2 — recovering to thread and continuing.
+2026-09-30 20:35:55.471 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #6 author=ricardoweezy top=1204 thread='Pedro Sardoeira'
+2026-09-30 20:35:55.473 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:35:55.562 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:35:57.601 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:35:57.801 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:35:59.745 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:35:59.747 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:35:59.828 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:36:00.469 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:36:00.565 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdyoETitsRA/?stkn=MXI5aHdieWY0dGR2cg=='
+2026-09-30 20:36:00.589 19851-21169 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:36:00.643 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already known before run (knownInARow=3) — https://www.instagram.com/reel/DdyoETitsRA/?stkn=MXI5aHdieWY0dGR2cg==
+2026-09-30 20:36:02.750 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 4/500
+2026-09-30 20:36:04.133 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #7 author=spidy__gaming01 top=267 thread='Pedro Sardoeira'
+2026-09-30 20:36:04.135 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:36:04.221 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:36:06.247 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:36:06.386 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:36:08.413 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:36:08.417 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:36:08.509 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:36:09.147 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:36:09.236 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdyO_IGzjDY/?stkn=Y3hiNHlyM3JpbTEx'
+2026-09-30 20:36:09.256 19851-21169 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:36:09.296 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already known before run (knownInARow=4) — https://www.instagram.com/reel/DdyO_IGzjDY/?stkn=Y3hiNHlyM3JpbTEx
+2026-09-30 20:36:09.296 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: reached already-scanned territory (4 known in a row) — stopping thread='Pedro Sardoeira' early.
+2026-09-30 20:36:09.296 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: finished thread='Pedro Sardoeira' opened=7 new=0 scrolls=4 cancelled=false reachedTop=false reachedKnown=true
+2026-09-30 20:36:09.296 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: thread 'Pedro Sardoeira' done new=0 opened=7 scrolls=4 — batch running total=0
+2026-09-30 20:36:09.912 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: finished — totalNew=0 across 1/1 thread(s).
+2026-09-30 20:36:09.920 19851-19851 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-09-30 20:36:09.929 19851-19851 IGReaderService         com.example.friendsreels             I  Completion notification posted: '🔎 Descobrir + Preparar terminado' — 0 Reel(s) novo(s) preparado(s) em 1 conversa(s).
+2026-09-30 20:36:09.929 19851-19851 IGReaderService         com.example.friendsreels             I  returnToAppIfEnabled: pref disabled — staying on IG.
+2026-09-30 20:36:27.413 19851-24131 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: starting batch for 1 thread(s).
+2026-09-30 20:36:27.427 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: foreground is 'com.example.friendsreels', bringing Instagram to front.
+2026-09-30 20:36:28.295 19851-19851 IGReaderService         com.example.friendsreels             I  runInInstagram: Instagram now foreground + window settled, running action.
+2026-09-30 20:36:28.295 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: step 1/1 thread='Pedro Sardoeira'
+2026-09-30 20:36:28.305 19851-19851 IGReaderService         com.example.friendsreels             I  NAV: arrived at 'Pedro Sardoeira' (attemptsLeft=10).
+2026-09-30 20:36:29.532 19851-22741 IGReaderService         com.example.friendsreels             I  SINGLEPASS: starting thread='Pedro Sardoeira' knownUrls=13
+2026-09-30 20:36:29.653 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #1 author=spidy__gaming01 top=267 thread='Pedro Sardoeira'
+2026-09-30 20:36:29.655 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:36:29.744 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:36:31.776 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:36:31.933 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:36:33.873 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:36:33.880 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:36:33.965 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:36:34.599 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:36:34.689 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdyO_IGzjDY/?stkn=Y3hiNHlyM3JpbTEx'
+2026-09-30 20:36:34.706 19851-24131 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:36:34.803 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already known before run (knownInARow=1) — https://www.instagram.com/reel/DdyO_IGzjDY/?stkn=Y3hiNHlyM3JpbTEx
+2026-09-30 20:36:35.969 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #2 author=daytonmodderman top=1759 thread='Pedro Sardoeira'
+2026-09-30 20:36:35.971 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:36:36.052 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:36:38.077 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:36:38.273 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:36:40.230 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:36:40.232 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:36:40.320 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:36:40.957 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:36:41.052 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/reel/DdxP_ecJYz1/?stkn=MWY4eTJvcnNmNG5jNg=='
+2026-09-30 20:36:41.063 19851-22741 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:36:41.127 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already known before run (knownInARow=2) — https://www.instagram.com/reel/DdxP_ecJYz1/?stkn=MWY4eTJvcnNmNG5jNg==
+2026-09-30 20:36:43.120 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: scrolled up page 1/500
+2026-09-30 20:36:44.545 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #3 author=null top=267 thread='Pedro Sardoeira'
+2026-09-30 20:36:44.547 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:36:44.633 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:36:46.663 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:36:46.834 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1657][1059,1773]
+2026-09-30 20:36:48.769 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:36:48.772 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:36:48.856 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:36:49.494 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:36:49.573 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/p/Ddw0j93iF9d/?stkn=bzB2bndna3M3bm41'
+2026-09-30 20:36:49.587 19851-21167 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:36:49.707 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already known before run (knownInARow=3) — https://www.instagram.com/p/Ddw0j93iF9d/?stkn=bzB2bndna3M3bm41
+2026-09-30 20:36:50.911 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: opening reel #4 author=migueljoker13 top=571 thread='Pedro Sardoeira'
+2026-09-30 20:36:50.916 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: dispatchGesture accepted=true duration=80ms
+2026-09-30 20:36:51.000 19851-19851 IGReaderService         com.example.friendsreels             I  OPEN_REEL: tap gesture completed
+2026-09-30 20:36:53.021 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: enriched pendingCopy with dmSender='Pedro Sardoeira' from viewer.
+2026-09-30 20:36:53.170 19851-19851 IGReaderService         com.example.friendsreels             I  SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned true bounds=[943,1474][1059,1590]
+2026-09-30 20:36:55.108 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: performAction(ACTION_CLICK) returned false bounds=[49,1994][186,2131]
+2026-09-30 20:36:55.111 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback accepted=true
+2026-09-30 20:36:55.199 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: dispatchGesture fallback completed
+2026-09-30 20:36:55.839 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: launched ClipboardCaptureActivity to bridge the read.
+2026-09-30 20:36:55.936 19851-19851 IGReaderService         com.example.friendsreels             I  COPY_LINK: Reel URL = 'https://www.instagram.com/p/Ddw0j93iF9d/?stkn=bzB2bndna3M3bm41'
+2026-09-30 20:36:55.951 19851-24131 IGReaderService         com.example.friendsreels             I  COPY_LINK: URL already in DB — backfilled dmSender rows=0 (dmSender=Pedro Sardoeira).
+2026-09-30 20:36:56.077 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: URL already known before run (knownInARow=4) — https://www.instagram.com/p/Ddw0j93iF9d/?stkn=bzB2bndna3M3bm41
+2026-09-30 20:36:56.077 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: reached already-scanned territory (4 known in a row) — stopping thread='Pedro Sardoeira' early.
+2026-09-30 20:36:56.077 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS: finished thread='Pedro Sardoeira' opened=4 new=0 scrolls=1 cancelled=false reachedTop=false reachedKnown=true
+2026-09-30 20:36:56.077 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: thread 'Pedro Sardoeira' done new=0 opened=4 scrolls=1 — batch running total=0
+2026-09-30 20:36:56.680 19851-19851 IGReaderService         com.example.friendsreels             I  SINGLEPASS_ALL: finished — totalNew=0 across 1/1 thread(s).
+2026-09-30 20:36:56.694 19851-19851 IGReaderService         com.example.friendsreels             I  Control notification posted (id=1001).
+2026-09-30 20:36:56.721 19851-19851 IGReaderService         com.example.friendsreels             I  Completion notification posted: '🔎 Descobrir + Preparar terminado' — 0 Reel(s) novo(s) preparado(s) em 1 conversa(s).
+2026-09-30 20:36:56.721 19851-19851 IGReaderService         com.example.friendsreels             I  returnToAppIfEnabled: pref disabled — staying on IG.
