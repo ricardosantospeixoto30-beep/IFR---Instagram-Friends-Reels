@@ -8,11 +8,11 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-09-30 (sessão 51 — botão de reset dos dados descobertos + correcções de documentação).
+**Última actualização:** 2026-09-30 (sessão 52 — single-pass "Descobrir + Preparar" para não perder Reels).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s51`.
+**HEAD actual:** `build=s52`.
 
-**Recap sessões 46-51 (as próximas do estado corrente):**
+**Recap sessões 46-52 (as próximas do estado corrente):**
 
 - **s46:** `isThreadTopVisible(root)` detecta o header start-of-conversation via 4 selectors (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username` — capturados no dump da s45). Integrada em `locateReelWithScroll` (aborta backward budget cedo) e `doHistoryScroll` (para no topo real).
 - **s47/s47b:** instrumentação `seenAuthors` pré-filtro para expor o "Reel skipped mid-sweep" no log. `BATCH_MAX_FORWARD_SCROLLS` 5 → 15.
@@ -25,10 +25,11 @@
   - **Fix 5:** novo `ui/theme/FriendsReelsTheme.kt` com paleta IG (background preto, superfícies `#121212`/`#1F1F1F`/`#262626`, primário `#E1306C` pink, gradient IG amarelo→laranja→rosa→roxo→azul, tipografia SemiBold para títulos com `letterSpacing` tightened). As 4 activities (Main, Feed, Settings, Player) passam de `MaterialTheme(darkColorScheme())` para `FriendsReelsTheme { ... }`.
   - **Fix 3 (pendente):** enrichment de URL é lento (~7s/Reel) porque cada Reel faz nav + locate + viewer + copy + back. Utilizador pediu checkpoint / speedup. Refactor "single-pass enrichment por thread" (uma única scroll por thread, abrir viewer conforme encontra Reels) fica para s52 (ver §6.1).
 - **s51 — reset + docs + investigação de identidade:** botão **🗑 Apagar todos os Reels guardados** em Definições (limpa `reels` + `pending_actions`; mantém a selecção de conversas e as preferências) para testar/descobrir do zero sem esperar pelo enrichment lento. Correcções de documentação (refs partidas, staleness — ver §7). **Investigação-chave:** bolhas de Reel *portrait* na árvore a11y só expõem o autor (`title_text`), sem URL/media-id/caption (só os `generic` têm `caption_title`) → **a única identidade estável por Reel é o URL** (via viewer). É a causa-raiz do dedup `(thread,autor,direção)` colapsar Reels do mesmo autor e de Reels se "perderem". Fix lossless (single-pass Descobrir+Preparar, dedup por URL) → s52.
+- **s52 — single-pass "Descobrir + Preparar" (não perder Reels):** nova acção `ACTION_DISCOVER_PREPARE_ALL` + botão em Definições **"🔎 Descobrir + Preparar tudo"**. Varre cada conversa seleccionada e ABRE cada Reel recebido para capturar o URL, reutilizando a cadeia validada viewer→Partilhar→Copiar→`persistCopiedReel` (dedup por `reelUrl`). Como cada Reel fica com URL, N Reels do mesmo autor = N linhas — **não colapsa nem perde**. Varre de baixo (mais recente) para cima por "páginas" de viewport (cutoff por página evita reabrir a sobreposição), pára no topo real (`isThreadTopVisible`) e tem **paragem incremental** (pára após `SINGLEPASS_INCREMENTAL_STOP=4` URLs seguidos já conhecidos). Instrumentado (`SINGLEPASS:` no log). **⚠ Assume que fechar o viewer restaura a posição de scroll da conversa — a validar no device (§6.1).** A correcção (não perder) é garantida pelo dedup-por-URL mesmo que a eficiência precise de afinação.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s51 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s52 ...)`.
 2. **Ler primeiro:** `AGENTS.md` na raiz (regras de trabalho: commits, autoria, autonomia, testes), esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `instagram/IgSelectors.kt` — `Thread` tem os 4 selectors do header (s46), `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` (s49), **s50:** `REPLY_CONTEXT_INFO_TEXT`.
@@ -247,17 +248,52 @@ Já entregue no primeiro commit:
 - ✅ **s49 / s49b — sync da reacção actual da DM (Room v5 `currentReaction`, lida de `message_reactions_pill_container`); fix de compilação de leftover da s47b.**
 - 🟡 **s50 — stop-early do history desactivado (`HISTORY_STOP_AFTER_N_EMPTY` 5→500, `HISTORY_MAX_SCROLLS` 100→2000; stop real via `isThreadTopVisible`), skip de bubbles reply-attachment (`REPLY_CONTEXT_INFO_TEXT`), tema IG-like nas 4 activities. Fix 3 (single-pass enrichment) fica pendente.**
 - ✅ **s51 — botão de reset (🗑 apagar `reels` + fila) em Definições; correcções de documentação; AGENTS.md. Investigação: portrait reels não têm id estável na árvore a11y → URL é a única identidade (motiva o single-pass da s52).**
+- ✅ **s52 — single-pass "Descobrir + Preparar" (`ACTION_DISCOVER_PREPARE_ALL` + botão em Definições): varre cada conversa, abre cada Reel recebido, captura o URL e dedup por `reelUrl` → não colapsa nem perde Reels do mesmo autor. Instrumentado; a validar no device (§6.1, teste `SinglePassNoLoss`).**
 
 ### 6.1 Próxima sessão — arranque
 
-> **Actualização s51 (2026-09-30):** as baterias mais abaixo (s48, s50) são **históricas**. O estado corrente e o arranque da próxima sessão estão aqui.
+> **Actualização s52 (2026-09-30):** as baterias mais abaixo (s48, s50) são **históricas**. O estado corrente e o arranque da próxima sessão estão aqui.
 
-**Feito na s51:** botão de reset (🗑) em Definições + correcções de documentação + `AGENTS.md`. (Ver §7.)
+**Feito na s51:** botão de reset (🗑) + correcções de documentação + `AGENTS.md`.
+**Feito na s52:** single-pass **"🔎 Descobrir + Preparar tudo"** (Definições) — varre cada conversa seleccionada, abre cada Reel recebido, captura o URL e faz dedup por `reelUrl`. Não perde Reels do mesmo autor. Ver §7 + bateria abaixo.
 
-**Próxima sessão (s52) — prioridade máxima: NÃO PERDER Reels.**
-- **Causa-raiz confirmada:** dedup por `(thread, autor, direção)` no `ReelDao` colapsa vários Reels do mesmo autor. Investigação da s51: portrait reels não expõem URL/id/caption na árvore a11y (só `title_text`=autor) → a única identidade estável por Reel é o **URL** do viewer.
-- **Plano (lossless):** nova acção **"Descobrir + Preparar"** — UMA passagem por thread (do mais recente para o topo); abre cada Reel conforme o encontra, copia o URL e insere/dedup por `reelUrl` (índice único já existe). Sem matching por autor → nunca colapsa nem perde. **Paragem incremental:** em re-runs, ao chegar a um Reel cujo URL já está na BD, parar (território já coberto).
-- **Depois:** capturar as mensagens de texto enviadas junto ao Reel (texto do amigo logo a seguir + as minhas respostas — spec §5) e mostrá-las no feed por baixo do Reel. (Decidido com o utilizador.)
+**Próxima sessão (s53) — capturar as mensagens junto ao Reel (spec §5).**
+- Capturar as mensagens de texto enviadas com o Reel (texto do amigo logo a seguir + as minhas respostas) e mostrá-las no feed por baixo do Reel. (Decidido com o utilizador.)
+- Selector confirmado nos dumps: `direct_text_message_text_view` (bolha de texto); direção via `sender_avatar`. Guardar como campo na `ReelEntity` (Room v6, migração destrutiva — dados regeneráveis).
+
+#### Teste — "Descobrir + Preparar não perde Reels do mesmo amigo" (`SinglePassNoLoss`) [s52]
+
+**O que se está a validar:** a nova acção abre cada Reel recebido de uma conversa, captura o URL e cria UMA linha por Reel (dedup por `reelUrl`), incluindo vários Reels do mesmo autor — sem colapsar nem perder. E que chega ao topo real da conversa.
+
+**Preparação:**
+1. `git pull`; recompilar e reinstalar em `build=s52`. Confirmar no logcat `Action receiver registered (build=s52 ... discoverPrepare=...)`.
+2. Definições → **🗑 Apagar todos os Reels guardados** (reset, para contar do zero).
+3. Definições → **Filtrar conversas** → seleccionar **1 conversa** com ≥2 Reels do MESMO amigo/autor (para provar que não colapsa). Curta de preferência (o varrimento é lento).
+4. `adb logcat -s IGReaderService`.
+
+**Passos:**
+1. Definições → **"🔎 Descobrir + Preparar tudo"**. Toast confirma arranque.
+2. Deixar o telemóvel em paz — o IG abre, navega para a conversa e, para cada Reel, abre o viewer, copia o link e volta (~5-8s por Reel).
+3. Esperar pela notif **"🔎 Descobrir + Preparar terminado"**.
+
+**O que confirmar no logcat:**
+- `SINGLEPASS: starting thread='<titulo>' knownUrls=0`.
+- Vários `SINGLEPASS: opening reel #N ...` e `COPY_LINK: Reel URL = 'https://...'` intercalados.
+- `SINGLEPASS: captured new URL (#N this run)` — N deve igualar o nº real de Reels recebidos na conversa (incluindo repetidos do mesmo autor).
+- `SINGLEPASS: thread top reached (view_profile_button visible) after M scrolls` (1ª execução) **OU** `reached already-scanned territory` (2ª execução).
+- No fim: `SINGLEPASS_ALL: finished — totalNew=...`.
+
+**O que confirmar na app:** feed → aparecem TODOS os Reels da conversa, incluindo os vários do mesmo autor, já com vídeo (URL preparado). Contar vs o nº real na conversa do IG.
+
+**O que NÃO deve aparecer:** `SINGLEPASS: step timed out` repetido; a app presa numa resposta-a-Reel.
+
+**Passa se:** nº de Reels no feed dessa conversa == nº real (sem colapsar os do mesmo autor); o varrimento chega ao topo; sem crash.
+**Falha se:**
+- **F1 (loop — o teste crítico):** o log mostra o varrimento a reabrir sempre os mesmos Reels e **nunca** `thread top reached` → o viewer do IG **não** restaura a posição de scroll ao fechar. Reporta isto: muda-se a estratégia do varrimento na s52b.
+- **F2:** faltam Reels do mesmo autor no feed → dedup/persist a colapsar; ver `COPY_LINK: promoted/inserted` nos logs.
+- **F3:** `SINGLEPASS: step timed out` em quase todos → a cadeia viewer→share→copy partiu (selector mudou); fazer dump.
+
+---
 
 #### Teste — "Reset apaga todos os Reels descobertos" (`ResetData`) [s51]
 
@@ -835,6 +871,23 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Investigação-chave (motiva a s52):** dumps (`2025-08-28-initial-mapping.txt`, `feed.txt`, etc.) confirmam que a bolha de Reel *portrait* na árvore a11y só expõe `title_text` (autor) — sem URL, media-id nem caption (só os `generic` têm `caption_title`). Logo **a única identidade estável por Reel é o URL** (obtido abrindo o viewer). É a causa-raiz do dedup `(thread,autor,direção)` colapsar Reels do mesmo autor e de Reels se "perderem". Fix lossless (single-pass Descobrir+Preparar com dedup por URL) planeado para s52 (§6.1).
 - **Validação em ambiente do agente:** kotlinc (JDK 21) parse-check dos ficheiros alterados — 0 erros de sintaxe (os restantes são unresolved androidx/`R`/classes do projeto = baseline sem classpath, esperado; kotlinc só corre com JDK ≤21, o ambiente tem JDK 25 por default). Build/run e teste `ResetData` (§6.1) no device pelo utilizador.
 - **Nada mudou** na descoberta / enrichment / schema Room — a s51 é aditiva (UI de reset + docs).
+
+### 2026-09-30 — Sessão 52 (Ricardo + Copilot CLI) — single-pass "Descobrir + Preparar" (não perder Reels)
+
+- **Problema (utilizador):** "avançar os Reels e depois ficarem perdidos e nunca preparados". Causa-raiz (s51): dedup por `(thread,autor,direção)` colapsa Reels do mesmo autor; portrait reels não têm id estável na árvore a11y → só o URL identifica cada Reel.
+- **Solução — varrimento lossless por conversa:** nova acção `ACTION_DISCOVER_PREPARE_ALL` (+ `_CANCEL`) e botão em Definições **"🔎 Descobrir + Preparar tudo"** (secção nova `SinglePassSection`). Orquestrador `discoverAndPrepareAllTracked` → `singlePassBatchStep` itera as `tracked_threads` (como `📥 Descobrir tudo`), navega a cada (`navigateToThreadAsync`) e corre `discoverAndPrepareThread`.
+- **Máquina de estados por conversa (`singlePassStep`):**
+  - Enumera Reels recebidos visíveis (reutiliza `enumerateReels`), ordena por `bounds.top`.
+  - Processa a página do viewport de cima para baixo (high-water `processedTopThisPage`); abre cada Reel com `openReelForSinglePass` → `dispatchOpenReelViewerTap` (cadeia validada viewer→Partilhar→Copiar→`persistCopiedReel`, dedup por `reelUrl`).
+  - Sinal de settle: `handleClipboardCaptured` põe `singlePassStepSettled`/`singlePassStepUrl` em modo single-pass; a coroutine de `openReelForSinglePass` faz poll (timeout `SINGLEPASS_STEP_TIMEOUT_MS=20s`, recupera com 2× BACK).
+  - Fim de página → scroll up controlado (drag lento ~0.6·H) + `cutoff` (`SINGLEPASS_KEEP_FRACTION=0.7`) para saltar a sobreposição já processada.
+  - Stop: `isThreadTopVisible` (topo real, s46) OU paragem incremental (`SINGLEPASS_INCREMENTAL_STOP=4` URLs seguidos já na BD) OU cap (`SINGLEPASS_MAX_SCROLLS=500`) OU falhas (`SINGLEPASS_MAX_FAILURES=6`).
+- **Porque é lossless:** cada Reel é aberto e persistido por URL (índice único). `persistCopiedReel` promove a 1ª row URL-less do autor e INSERE novas para os restantes → N Reels do mesmo autor = N linhas. Sem matching por autor.
+- **DAO:** novo `ReelDao.urlsForThread(thread)` (dedup this-run + paragem incremental).
+- **Suppressão:** `handleClipboardCaptured` não posta a notif por-Reel durante o single-pass (`&& !singlePassInProgress`).
+- **Ficheiros:** `service/InstagramReaderService.kt` (bloco single-pass + constantes `SINGLEPASS_*` + 2 acções + registo + hook de settle + `BUILD_TAG=s52`), `data/ReelDao.kt` (`urlsForThread`), `ui/settings/SettingsActivity.kt` (`SinglePassSection`), `res/values/strings.xml` (settings_singlepass_* + notif_singlepass_* + notif_completion_singlepass_*).
+- **⚠ Suposição a validar no device:** a EFICIÊNCIA assume que fechar o viewer restaura a posição de scroll da conversa. Se não restaurar, o varrimento faz loop no fundo e nunca chega ao topo (teste `SinglePassNoLoss` F1, §6.1) → muda-se a estratégia (s52b). A **correcção** (não perder Reels) é garantida pelo dedup-por-URL de qualquer forma.
+- **Validação no ambiente do agente:** kotlinc (JDK 21) parse-check dos ficheiros alterados — 0 erros de sintaxe; símbolos novos resolvem; `strings.xml` XML válido. Comportamento no device pelo utilizador.
 
 ---
 

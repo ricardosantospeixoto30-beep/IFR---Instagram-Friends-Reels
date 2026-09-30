@@ -173,6 +173,8 @@ class InstagramReaderService : AccessibilityService() {
                     }
                     ACTION_ENRICH_ALL_MISSING_URLS -> enrichAllMissingUrls()
                     ACTION_ENRICH_ALL_CANCEL -> cancelBatchEnrichment()
+                    ACTION_DISCOVER_PREPARE_ALL -> discoverAndPrepareAllTracked()
+                    ACTION_DISCOVER_PREPARE_CANCEL -> cancelSinglePass()
                     ACTION_DUMP_TREE -> handleDumpTreeBroadcast(intent)
                 }
             }
@@ -192,6 +194,8 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_ENRICH_REEL_URL)
             addAction(ACTION_ENRICH_ALL_MISSING_URLS)
             addAction(ACTION_ENRICH_ALL_CANCEL)
+            addAction(ACTION_DISCOVER_PREPARE_ALL)
+            addAction(ACTION_DISCOVER_PREPARE_CANCEL)
             addAction(ACTION_DUMP_TREE)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -212,7 +216,8 @@ class InstagramReaderService : AccessibilityService() {
                 "applyPending=$ACTION_APPLY_PENDING, " +
                 "applyCancel=$ACTION_APPLY_PENDING_CANCEL, " +
                 "enrichUrl=$ACTION_ENRICH_REEL_URL, enrichAll=$ACTION_ENRICH_ALL_MISSING_URLS, " +
-                "enrichCancel=$ACTION_ENRICH_ALL_CANCEL, dumpTree=$ACTION_DUMP_TREE)"
+                "enrichCancel=$ACTION_ENRICH_ALL_CANCEL, " +
+                "discoverPrepare=$ACTION_DISCOVER_PREPARE_ALL, dumpTree=$ACTION_DUMP_TREE)"
         )
     }
 
@@ -712,6 +717,14 @@ class InstagramReaderService : AccessibilityService() {
                 Log.w(TAG, "COPY_LINK: no pendingCopy context — URL not persisted to DB.")
             }
         }
+        // s52 — single-pass sweep settle signal. The "Descobrir + Preparar"
+        // sweep coroutine polls these to learn that the per-Reel viewer
+        // round-trip finished (success OR empty clipboard) and to read the
+        // captured URL so it can dedup / decide the incremental stop.
+        if (singlePassInProgress) {
+            singlePassStepUrl = url?.takeIf { it.isNotBlank() }
+            singlePassStepSettled = true
+        }
         // Close the share sheet + the Reel viewer so the user is back on
         // the conversation. Two BACKs: first closes whatever is on top,
         // second closes the viewer.
@@ -722,7 +735,7 @@ class InstagramReaderService : AccessibilityService() {
         // enrichment. We only post when the row is safely persisted AND
         // we're not part of a batch (the batch handles its own aggregate
         // completion notification once all Reels are done).
-        if (success && !batchEnrichmentInProgress && pending != null) {
+        if (success && !batchEnrichmentInProgress && !singlePassInProgress && pending != null) {
             val body = if (!pending.reelAuthor.isNullOrBlank())
                 getString(R.string.notif_completion_copy_url_body, pending.reelAuthor, pending.threadTitle)
             else
@@ -2752,6 +2765,441 @@ class InstagramReaderService : AccessibilityService() {
         batchEnrichmentCancelled = true
     }
 
+    // =====================================================================
+    // Single-pass "Descobrir + Preparar" (s52)
+    //
+    // Lossless discovery+enrichment. Fast discovery dedups by
+    // (thread, author, direction) and COLLAPSES multiple Reels from the same
+    // author (ReelDao.countMatching) — those extra Reels never get a row and
+    // are lost. s51 confirmed portrait Reel bubbles expose no stable
+    // id/URL/caption in the a11y tree, so the ONLY stable per-Reel identity is
+    // the share URL from the viewer. This sweep therefore OPENS every received
+    // Reel it meets, in document order, and persists by URL (reelUrl unique
+    // index) — N Reels from the same author become N rows and nothing is lost.
+    //
+    // Reuses the validated viewer -> Partilhar -> Copiar ligação -> clipboard
+    // bridge -> persistCopiedReel chain (dedup by URL) and isThreadTopVisible
+    // (s46). Sweeps from the bottom (newest) upward one viewport "page" at a
+    // time: process received Reels visible in the page top->bottom, then
+    // scroll up one controlled page, until the thread top. URL dedup keeps it
+    // CORRECT even if a Reel is opened twice across overlapping pages; the
+    // per-page cutoff skips the already-processed overlap band for speed.
+    // Incremental stop: on a re-run, after SINGLEPASS_INCREMENTAL_STOP
+    // consecutive Reels whose URL was already in the DB before this run, stop.
+    //
+    // NEEDS DEVICE VALIDATION: efficiency assumes IG restores the thread
+    // scroll position after the viewer closes. The logs below let the first
+    // run confirm it (watch for "thread top reached" vs looping). Correctness
+    // holds regardless of scroll behaviour.
+    // =====================================================================
+
+    @Volatile private var singlePassInProgress = false
+    @Volatile private var singlePassCancelled = false
+    @Volatile private var singlePassStepSettled = false
+    @Volatile private var singlePassStepUrl: String? = null
+
+    private var singlePassBatchInProgress = false
+    @Volatile private var singlePassBatchCancelled = false
+
+    private data class SinglePassState(
+        val threadTitle: String,
+        val knownBeforeRun: Set<String>,
+        val onFinish: ((SinglePassState) -> Unit)?,
+        var scrolls: Int = 0,
+        var opened: Int = 0,
+        var newReels: Int = 0,
+        var knownInARow: Int = 0,
+        var failures: Int = 0,
+        var processedTopThisPage: Int = Int.MIN_VALUE,
+        var scrolledAtLeastOnce: Boolean = false,
+        val capturedThisRun: MutableSet<String> = mutableSetOf(),
+    )
+
+    /**
+     * Entry point for `ACTION_DISCOVER_PREPARE_ALL`: run the single-pass
+     * sweep across every tracked thread (same selection used by
+     * `📥 Descobrir tudo`). Navigates to each, sweeps it, chains to the
+     * next, and posts one aggregate completion notification at the end.
+     */
+    private fun discoverAndPrepareAllTracked() {
+        if (singlePassBatchInProgress) {
+            Log.i(TAG, "SINGLEPASS_ALL: batch already in progress, ignoring.")
+            return
+        }
+        singlePassBatchInProgress = true
+        singlePassBatchCancelled = false
+        serviceScope.launch {
+            val titles = AppDatabase.get(this@InstagramReaderService).trackedThreadDao().snapshotTitles()
+            if (titles.isEmpty()) {
+                Log.i(TAG, "SINGLEPASS_ALL: no tracked threads — nothing to do.")
+                mainHandler.post {
+                    singlePassBatchInProgress = false
+                    postCompletionNotification(
+                        title = getString(R.string.notif_completion_singlepass_title),
+                        body = getString(R.string.notif_completion_history_all_empty),
+                    )
+                }
+                return@launch
+            }
+            Log.i(TAG, "SINGLEPASS_ALL: starting batch for ${titles.size} thread(s).")
+            mainHandler.post {
+                runInInstagram { singlePassBatchStep(titles, index = 0, totalNew = 0, threadsCovered = 0) }
+            }
+        }
+    }
+
+    private fun singlePassBatchStep(
+        titles: List<String>,
+        index: Int,
+        totalNew: Int,
+        threadsCovered: Int,
+    ) {
+        if (singlePassBatchCancelled || index >= titles.size) {
+            val done = index >= titles.size
+            Log.i(
+                TAG,
+                "SINGLEPASS_ALL: ${if (done) "finished" else "cancelled"} — totalNew=$totalNew " +
+                    "across $threadsCovered/${titles.size} thread(s)."
+            )
+            singlePassBatchInProgress = false
+            postControlNotification()
+            postCompletionNotification(
+                title = getString(R.string.notif_completion_singlepass_title),
+                body = if (done)
+                    getString(R.string.notif_completion_singlepass_body, totalNew, titles.size)
+                else
+                    getString(R.string.notif_completion_singlepass_cancelled, totalNew, threadsCovered, titles.size),
+            )
+            returnToAppIfEnabled()
+            return
+        }
+        val title = titles[index]
+        Log.i(TAG, "SINGLEPASS_ALL: step ${index + 1}/${titles.size} thread='$title'")
+        navigateToThreadAsync(title, attemptsLeft = NAV_MAX_ATTEMPTS) { navOk ->
+            if (!navOk) {
+                Log.w(TAG, "SINGLEPASS_ALL: nav failed for '$title', skipping.")
+                mainHandler.postDelayed({
+                    singlePassBatchStep(titles, index + 1, totalNew, threadsCovered)
+                }, HISTORY_BATCH_STEP_SPACING_MS)
+                return@navigateToThreadAsync
+            }
+            mainHandler.postDelayed({
+                discoverAndPrepareThread(overrideThreadTitle = title) { state ->
+                    val nextNew = totalNew + state.newReels
+                    Log.i(
+                        TAG,
+                        "SINGLEPASS_ALL: thread '$title' done new=${state.newReels} opened=${state.opened} " +
+                            "scrolls=${state.scrolls} — batch running total=$nextNew"
+                    )
+                    mainHandler.postDelayed({
+                        singlePassBatchStep(titles, index + 1, nextNew, threadsCovered + 1)
+                    }, HISTORY_BATCH_STEP_SPACING_MS)
+                }
+            }, HISTORY_BATCH_NAV_SETTLE_MS)
+        }
+    }
+
+    /**
+     * Sweep the currently-open thread once, opening every received Reel to
+     * capture its URL. Caller must already be on the thread (or pass
+     * [overrideThreadTitle] after navigating). [onFinish] is invoked with
+     * the final state (batch use); when null we post our own completion
+     * notification.
+     */
+    private fun discoverAndPrepareThread(
+        overrideThreadTitle: String? = null,
+        onFinish: ((SinglePassState) -> Unit)? = null,
+    ) {
+        if (singlePassInProgress) {
+            Log.i(TAG, "SINGLEPASS: already in progress, ignoring.")
+            onFinish?.invoke(SinglePassState(overrideThreadTitle ?: "?", emptySet(), null))
+            return
+        }
+        val root = findIgApplicationWindow()?.root ?: rootInActiveWindow
+        if (root == null || root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
+            Log.w(TAG, "SINGLEPASS: Instagram is not foreground, aborting.")
+            onFinish?.invoke(SinglePassState(overrideThreadTitle ?: "?", emptySet(), null))
+            return
+        }
+        val thread = overrideThreadTitle?.takeIf { it.isNotBlank() }
+            ?: lastKnownConversationTitle?.takeIf { it.isNotBlank() }
+            ?: "?"
+        singlePassInProgress = true
+        singlePassCancelled = false
+        serviceScope.launch {
+            val known = AppDatabase.get(this@InstagramReaderService).reelDao().urlsForThread(thread).toSet()
+            val state = SinglePassState(thread, known, onFinish)
+            Log.i(TAG, "SINGLEPASS: starting thread='$thread' knownUrls=${known.size}")
+            mainHandler.post {
+                updateSinglePassNotification(state)
+                singlePassStep(state)
+            }
+        }
+    }
+
+    private fun singlePassStep(state: SinglePassState) {
+        if (singlePassCancelled) {
+            finishSinglePass(state, cancelled = true)
+            return
+        }
+        val root = findIgApplicationWindow()?.root ?: rootInActiveWindow
+        if (root == null || root.packageName?.toString() != IgSelectors.IG_PACKAGE) {
+            Log.w(TAG, "SINGLEPASS: IG no longer foreground, stopping thread='${state.threadTitle}'.")
+            finishSinglePass(state, cancelled = false)
+            return
+        }
+        val messageList = root
+            .findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
+            .firstOrNull()
+        if (messageList == null) {
+            Log.w(TAG, "SINGLEPASS: no message_list, stopping.")
+            finishSinglePass(state, cancelled = false)
+            return
+        }
+        val mlBounds = Rect().also { messageList.getBoundsInScreen(it) }
+        val atTop = isThreadTopVisible(root)
+
+        val reels = enumerateReels(messageList)
+            .filter { it.bounds.width() > 0 && it.bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX }
+            .filter { it.direction == Direction.RECEIVED }
+            .sortedBy { it.bounds.top }
+
+        // Per-page cutoff: after a scroll, the newly-revealed Reels sit in the
+        // top band; the bottom band is the overlap we already processed last
+        // page. Skip it to avoid reopening. On the first page (no scroll yet)
+        // or at the very top (can't scroll further) process everything.
+        val cutoff = if (state.scrolledAtLeastOnce && !atTop)
+            mlBounds.top + (mlBounds.height() * SINGLEPASS_KEEP_FRACTION).toInt()
+        else
+            Int.MAX_VALUE
+        val next = reels.firstOrNull {
+            it.bounds.top > state.processedTopThisPage && it.bounds.top < cutoff
+        }
+        if (next != null) {
+            state.processedTopThisPage = next.bounds.top
+            openReelForSinglePass(state, next)
+            return
+        }
+
+        // Page drained.
+        if (atTop) {
+            Log.i(
+                TAG,
+                "SINGLEPASS: thread top reached (view_profile_button visible) after ${state.scrolls} " +
+                    "scrolls — thread='${state.threadTitle}' opened=${state.opened} new=${state.newReels}."
+            )
+            finishSinglePass(state, cancelled = false, reachedTop = true)
+            return
+        }
+        if (state.scrolls >= SINGLEPASS_MAX_SCROLLS) {
+            Log.i(TAG, "SINGLEPASS: safety cap $SINGLEPASS_MAX_SCROLLS scrolls hit, stopping.")
+            finishSinglePass(state, cancelled = false)
+            return
+        }
+        singlePassScrollUpPage(messageList, mlBounds, state)
+    }
+
+    private fun openReelForSinglePass(state: SinglePassState, entry: DmReelEntry) {
+        val windowBounds = findIgApplicationWindow()?.let { w -> Rect().also { w.getBoundsInScreen(it) } }
+        if (windowBounds != null && !windowBounds.contains(entry.bounds.centerX(), entry.bounds.centerY())) {
+            Log.w(TAG, "SINGLEPASS: reel center off-window, skipping this bubble.")
+            mainHandler.postDelayed({ singlePassStep(state) }, 250)
+            return
+        }
+        singlePassStepSettled = false
+        singlePassStepUrl = null
+        pendingCopy = PendingCopy(
+            threadTitle = state.threadTitle,
+            direction = entry.direction,
+            reelAuthor = entry.reelAuthor,
+            kind = entry.kind,
+            bubbleIndex = entry.index,
+        )
+        state.opened++
+        Log.i(
+            TAG,
+            "SINGLEPASS: opening reel #${state.opened} author=${entry.reelAuthor} " +
+                "top=${entry.bounds.top} thread='${state.threadTitle}'"
+        )
+        dispatchOpenReelViewerTap(Rect(entry.bounds))
+        // Poll for the clipboard-bridge settle signal (set in
+        // handleClipboardCaptured). Times out if the viewer never opened.
+        serviceScope.launch {
+            val deadline = System.currentTimeMillis() + SINGLEPASS_STEP_TIMEOUT_MS
+            var settled = false
+            while (System.currentTimeMillis() < deadline) {
+                kotlinx.coroutines.delay(SINGLEPASS_POLL_INTERVAL_MS)
+                if (singlePassCancelled) break
+                if (singlePassStepSettled) { settled = true; break }
+            }
+            val url = singlePassStepUrl
+            mainHandler.post { onSinglePassReelDone(state, settled, url) }
+        }
+    }
+
+    private fun onSinglePassReelDone(state: SinglePassState, settled: Boolean, url: String?) {
+        if (singlePassCancelled) {
+            finishSinglePass(state, cancelled = true)
+            return
+        }
+        if (!settled) {
+            state.failures++
+            Log.w(
+                TAG,
+                "SINGLEPASS: step timed out (viewer/share/copy failed) failures=${state.failures} — " +
+                    "recovering with BACK."
+            )
+            performGlobalAction(GLOBAL_ACTION_BACK)
+            mainHandler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, BACK_AFTER_COPY_DELAY_MS)
+            pendingCopy = null
+            if (state.failures >= SINGLEPASS_MAX_FAILURES) {
+                Log.w(TAG, "SINGLEPASS: too many consecutive failures, stopping thread='${state.threadTitle}'.")
+                finishSinglePass(state, cancelled = false)
+                return
+            }
+            mainHandler.postDelayed({ singlePassStep(state) }, SINGLEPASS_RETURN_SETTLE_MS)
+            return
+        }
+        state.failures = 0
+        if (url != null) {
+            when {
+                url in state.knownBeforeRun -> {
+                    state.knownInARow++
+                    Log.i(
+                        TAG,
+                        "SINGLEPASS: URL already known before run (knownInARow=${state.knownInARow}) — $url"
+                    )
+                    if (state.knownInARow >= SINGLEPASS_INCREMENTAL_STOP) {
+                        Log.i(
+                            TAG,
+                            "SINGLEPASS: reached already-scanned territory (${state.knownInARow} known in a " +
+                                "row) — stopping thread='${state.threadTitle}' early."
+                        )
+                        finishSinglePass(state, cancelled = false, reachedKnown = true)
+                        return
+                    }
+                }
+                state.capturedThisRun.add(url) -> {
+                    state.newReels++
+                    state.knownInARow = 0
+                    Log.i(TAG, "SINGLEPASS: captured new URL (#${state.newReels} this run) — $url")
+                }
+                else -> {
+                    // Same URL seen twice this run (overlap re-open) — dedup no-op.
+                    state.knownInARow = 0
+                    Log.i(TAG, "SINGLEPASS: URL already captured this run (overlap re-open) — $url")
+                }
+            }
+        } else {
+            Log.w(TAG, "SINGLEPASS: step settled with empty URL — skipping.")
+        }
+        updateSinglePassNotification(state)
+        // Wait for the 2x BACK (scheduled by handleClipboardCaptured) to
+        // return us to the thread before enumerating again.
+        mainHandler.postDelayed({ singlePassStep(state) }, SINGLEPASS_RETURN_SETTLE_MS)
+    }
+
+    private fun singlePassScrollUpPage(
+        messageList: AccessibilityNodeInfo,
+        mlBounds: Rect,
+        state: SinglePassState,
+    ) {
+        if (mlBounds.width() <= 0 || mlBounds.height() <= 0) {
+            Log.w(TAG, "SINGLEPASS: message_list empty bounds, stopping.")
+            finishSinglePass(state, cancelled = false)
+            return
+        }
+        // Controlled, slow drag DOWN (reveals older content) — minimal fling
+        // so the scroll distance is predictable (needed for the per-page
+        // cutoff to line up).
+        val startX = mlBounds.exactCenterX()
+        val startY = mlBounds.top + mlBounds.height() * SINGLEPASS_DRAG_START_FRAC
+        val endY = mlBounds.top + mlBounds.height() * SINGLEPASS_DRAG_END_FRAC
+        val path = Path().apply {
+            moveTo(startX, startY)
+            lineTo(startX, endY)
+        }
+        val stroke = GestureDescription.StrokeDescription(path, 0L, SINGLEPASS_DRAG_DURATION_MS)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+        val accepted = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(g: GestureDescription?) {
+                if (singlePassCancelled) { finishSinglePass(state, cancelled = true); return }
+                state.scrolls++
+                state.scrolledAtLeastOnce = true
+                state.processedTopThisPage = Int.MIN_VALUE
+                Log.i(TAG, "SINGLEPASS: scrolled up page ${state.scrolls}/$SINGLEPASS_MAX_SCROLLS")
+                mainHandler.postDelayed({ singlePassStep(state) }, SINGLEPASS_SCROLL_SETTLE_MS)
+            }
+            override fun onCancelled(g: GestureDescription?) {
+                Log.w(TAG, "SINGLEPASS: scroll gesture cancelled, stopping.")
+                finishSinglePass(state, cancelled = false)
+            }
+        }, mainHandler)
+        if (!accepted) {
+            Log.w(TAG, "SINGLEPASS: dispatchGesture refused, stopping.")
+            finishSinglePass(state, cancelled = false)
+        }
+    }
+
+    private fun finishSinglePass(
+        state: SinglePassState,
+        cancelled: Boolean,
+        reachedTop: Boolean = false,
+        reachedKnown: Boolean = false,
+    ) {
+        Log.i(
+            TAG,
+            "SINGLEPASS: finished thread='${state.threadTitle}' opened=${state.opened} new=${state.newReels} " +
+                "scrolls=${state.scrolls} cancelled=$cancelled reachedTop=$reachedTop reachedKnown=$reachedKnown"
+        )
+        singlePassInProgress = false
+        pendingCopy = null
+        val onFinish = state.onFinish
+        if (onFinish != null) {
+            onFinish(state)
+            return
+        }
+        postControlNotification()
+        postCompletionNotification(
+            title = getString(R.string.notif_completion_singlepass_title),
+            body = getString(R.string.notif_completion_singlepass_body, state.newReels, 1),
+        )
+        returnToAppIfEnabled()
+    }
+
+    private fun cancelSinglePass() {
+        if (!singlePassInProgress && !singlePassBatchInProgress) {
+            Log.i(TAG, "SINGLEPASS: cancel requested but nothing running.")
+            return
+        }
+        Log.i(TAG, "SINGLEPASS: cancel requested — will stop after the current Reel/thread.")
+        singlePassCancelled = true
+        singlePassBatchCancelled = true
+    }
+
+    private fun updateSinglePassNotification(state: SinglePassState) {
+        val builder = NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.notif_title))
+            .setContentText(
+                getString(R.string.notif_singlepass_progress, state.newReels, state.opened, state.scrolls)
+            )
+            .setOngoing(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setShowWhen(false)
+            .setContentIntent(
+                pendingActivity(com.example.friendsreels.ui.feed.FeedActivity::class.java, requestCode = 0)
+            )
+        try {
+            NotificationManagerCompat.from(this).notify(NOTIF_ID, builder.build())
+        } catch (e: SecurityException) {
+            Log.w(TAG, "updateSinglePassNotification: missing POST_NOTIFICATIONS", e)
+        }
+    }
+
     /**
      * Ask the running `applyPendingActions` drain to stop after the
      * current step finishes. No-op if no drain is running. See
@@ -3210,7 +3658,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s51"
+        private const val BUILD_TAG = "build=s52"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -3424,6 +3872,26 @@ class InstagramReaderService : AccessibilityService() {
          */
         private const val HISTORY_BATCH_STEP_SPACING_MS = 600L
 
+        // --- Single-pass "Descobrir + Preparar" (s52) ---
+        private const val SINGLEPASS_STEP_TIMEOUT_MS = 20_000L
+        private const val SINGLEPASS_POLL_INTERVAL_MS = 300L
+        // Wait after the 2x BACK (scheduled by handleClipboardCaptured) so the
+        // thread is restored before we enumerate/scroll again.
+        private const val SINGLEPASS_RETURN_SETTLE_MS = 1_000L
+        private const val SINGLEPASS_SCROLL_SETTLE_MS = 700L
+        // Slow drag so the scroll distance is predictable (minimal fling).
+        private const val SINGLEPASS_DRAG_DURATION_MS = 800L
+        private const val SINGLEPASS_DRAG_START_FRAC = 0.2f
+        private const val SINGLEPASS_DRAG_END_FRAC = 0.8f
+        // Per-page cutoff: process Reels in the top KEEP_FRACTION of the
+        // viewport after a scroll; the bottom band is the already-processed
+        // overlap. Must be >= the actual scroll movement fraction to avoid
+        // skipping a Reel (URL dedup keeps it correct either way).
+        private const val SINGLEPASS_KEEP_FRACTION = 0.7f
+        private const val SINGLEPASS_MAX_SCROLLS = 500
+        private const val SINGLEPASS_MAX_FAILURES = 6
+        private const val SINGLEPASS_INCREMENTAL_STOP = 4
+
         /**
          * s49 — geometric tolerance for matching a
          * `message_reactions_pill_container` to the bubble it belongs
@@ -3570,6 +4038,16 @@ class InstagramReaderService : AccessibilityService() {
          */
         const val ACTION_ENRICH_ALL_CANCEL =
             "com.example.friendsreels.ACTION_ENRICH_ALL_CANCEL"
+
+        /**
+         * s52 — single-pass "Descobrir + Preparar": sweep every tracked
+         * thread, opening each received Reel to capture its URL (lossless,
+         * dedup by URL). Cancel via [ACTION_DISCOVER_PREPARE_CANCEL].
+         */
+        const val ACTION_DISCOVER_PREPARE_ALL =
+            "com.example.friendsreels.ACTION_DISCOVER_PREPARE_ALL"
+        const val ACTION_DISCOVER_PREPARE_CANCEL =
+            "com.example.friendsreels.ACTION_DISCOVER_PREPARE_CANCEL"
 
         /**
          * Diagnostic broadcast — dumps every accessibility window's node

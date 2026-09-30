@@ -53,6 +53,15 @@ interface ReelDao {
     @Query("SELECT COUNT(*) FROM reels WHERE reelUrl IS NULL")
     fun observeMissingUrlCount(): Flow<Int>
 
+    /**
+     * Every non-null `reelUrl` already stored for a thread. Used by the
+     * single-pass "Descobrir + Preparar" sweep (s52) to (a) dedup against
+     * what we already captured and (b) stop early on a re-run once it hits
+     * already-known URLs (incremental sync).
+     */
+    @Query("SELECT reelUrl FROM reels WHERE threadTitle = :thread AND reelUrl IS NOT NULL")
+    suspend fun urlsForThread(thread: String): List<String>
+
     @Query("SELECT COUNT(*) FROM reels")
     suspend fun count(): Int
 

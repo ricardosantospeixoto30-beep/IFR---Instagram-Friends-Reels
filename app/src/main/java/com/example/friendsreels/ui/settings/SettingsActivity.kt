@@ -225,6 +225,10 @@ private fun SettingsScreen(
 
             HorizontalDivider()
 
+            SinglePassSection()
+
+            HorizontalDivider()
+
             DataResetSection(vm = vm)
 
             HorizontalDivider()
@@ -491,6 +495,46 @@ private fun BatchHistorySection() {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(stringResource(R.string.settings_history_all_start))
+    }
+}
+
+@Composable
+private fun SinglePassSection() {
+    val context = LocalContext.current
+    Text(
+        text = stringResource(R.string.settings_singlepass_title),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+    )
+    Text(
+        text = stringResource(R.string.settings_singlepass_subtitle),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    Button(
+        onClick = {
+            sendServiceBroadcast(context, InstagramReaderService.ACTION_DISCOVER_PREPARE_ALL)
+            Toast.makeText(
+                context,
+                context.getString(R.string.settings_singlepass_start_toast),
+                Toast.LENGTH_LONG,
+            ).show()
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.settings_singlepass_start))
+    }
+    OutlinedButton(
+        onClick = {
+            sendServiceBroadcast(context, InstagramReaderService.ACTION_DISCOVER_PREPARE_CANCEL)
+            Toast.makeText(
+                context,
+                context.getString(R.string.settings_singlepass_cancel_toast),
+                Toast.LENGTH_SHORT,
+            ).show()
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.settings_singlepass_cancel))
     }
 }
 

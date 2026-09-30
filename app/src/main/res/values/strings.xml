@@ -36,6 +36,7 @@
     <string name="notif_apply_progress">A aplicar %1$d/%2$d…</string>
     <string name="notif_history_progress">A descobrir histórico… scroll %1$d/%2$d, %3$d novos Reels</string>
     <string name="notif_enrich_all_progress">A preparar URLs %1$d/%2$d…</string>
+    <string name="notif_singlepass_progress">A descobrir + preparar… %1$d novos (%2$d abertos, %3$d scrolls)</string>
 
     <!-- Completion feedback (s39) — transient notifications posted when
          a long-running action finishes. Separate channel so users see them
@@ -58,6 +59,9 @@
     <string name="notif_completion_history_all_body">%1$d Reel(s) novo(s) em %2$d conversa(s).</string>
     <string name="notif_completion_history_all_cancelled">Cancelado após %1$d Reel(s) em %2$d/%3$d conversa(s).</string>
     <string name="notif_completion_history_all_empty">Nenhuma conversa seleccionada em Definições → Filtrar conversas.</string>
+    <string name="notif_completion_singlepass_title">🔎 Descobrir + Preparar terminado</string>
+    <string name="notif_completion_singlepass_body">%1$d Reel(s) novo(s) preparado(s) em %2$d conversa(s).</string>
+    <string name="notif_completion_singlepass_cancelled">Cancelado: %1$d novo(s) em %2$d/%3$d conversa(s).</string>
     <string name="notif_completion_copy_url_title">🔗 URL do Reel guardado</string>
     <string name="notif_completion_copy_url_body">de @%1$s em \'%2$s\'.</string>
     <string name="notif_completion_copy_url_body_no_author">Reel em \'%1$s\'.</string>
@@ -111,6 +115,14 @@
     <string name="settings_history_all_start">📥 Descobrir tudo</string>
     <string name="settings_history_all_start_toast">Descoberta em lote iniciada. O Instagram vai abrir e percorrer as conversas seleccionadas.</string>
     <string name="settings_history_all_cancel_toast">Cancelamento pedido. Vai parar depois da conversa actual.</string>
+
+    <!-- Single-pass "Descobrir + Preparar" (s52) -->
+    <string name="settings_singlepass_title">Descobrir + Preparar tudo (novo)</string>
+    <string name="settings_singlepass_subtitle">Faz UMA passagem por cada conversa seleccionada e, para cada Reel, vai logo buscar o link ao Instagram. Ao contrário do \"📥 Descobrir tudo\", NÃO perde Reels do mesmo amigo na mesma conversa (identifica cada Reel pelo link). É mais lento (abre cada Reel ~5-8s) mas fica tudo pronto a ver. Em nova execução, pára assim que chega a Reels que já tinha. Mantém o telemóvel livre enquanto corre.</string>
+    <string name="settings_singlepass_start">🔎 Descobrir + Preparar tudo</string>
+    <string name="settings_singlepass_start_toast">Descobrir + Preparar iniciado. O Instagram vai abrir e percorrer as conversas seleccionadas, abrindo cada Reel.</string>
+    <string name="settings_singlepass_cancel">Cancelar Descobrir + Preparar</string>
+    <string name="settings_singlepass_cancel_toast">Cancelamento pedido. Vai parar depois do Reel/conversa actual.</string>
 
     <!-- Data reset (s51) -->
     <string name="settings_reset_title">Apagar dados descobertos</string>
