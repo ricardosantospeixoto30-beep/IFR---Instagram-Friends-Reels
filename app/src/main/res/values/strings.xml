@@ -121,6 +121,9 @@
     <string name="settings_singlepass_subtitle">Faz UMA passagem por cada conversa seleccionada e, para cada Reel, vai logo buscar o link ao Instagram. Ao contrário do \"📥 Descobrir tudo\", NÃO perde Reels do mesmo amigo na mesma conversa (identifica cada Reel pelo link). É mais lento (abre cada Reel ~5-8s) mas fica tudo pronto a ver. Em nova execução, pára assim que chega a Reels que já tinha. Mantém o telemóvel livre enquanto corre.</string>
     <string name="settings_singlepass_start">🔎 Descobrir + Preparar tudo</string>
     <string name="settings_singlepass_start_toast">Descobrir + Preparar iniciado. O Instagram vai abrir e percorrer as conversas seleccionadas, abrindo cada Reel.</string>
+    <string name="settings_singlepass_current_hint">Ou, para testar só uma conversa sem a seleccionar em cima: abre-a no Instagram, volta aqui e toca no botão abaixo.</string>
+    <string name="settings_singlepass_current_start">🔎 Preparar só a conversa aberta no IG</string>
+    <string name="settings_singlepass_current_toast">A preparar a conversa aberta no Instagram… mantém-te por perto.</string>
     <string name="settings_singlepass_cancel">Cancelar Descobrir + Preparar</string>
     <string name="settings_singlepass_cancel_toast">Cancelamento pedido. Vai parar depois do Reel/conversa actual.</string>
 

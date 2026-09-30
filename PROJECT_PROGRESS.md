@@ -8,11 +8,11 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-09-30 (sessão 53 — captura das mensagens enviadas junto ao Reel).
+**Última actualização:** 2026-09-30 (sessão 54 — atalho "Descobrir + Preparar" para a conversa aberta).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s53`.
+**HEAD actual:** `build=s54`.
 
-**Recap sessões 46-53 (as próximas do estado corrente):**
+**Recap sessões 46-54 (as próximas do estado corrente):**
 
 - **s46:** `isThreadTopVisible(root)` detecta o header start-of-conversation via 4 selectors (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username` — capturados no dump da s45). Integrada em `locateReelWithScroll` (aborta backward budget cedo) e `doHistoryScroll` (para no topo real).
 - **s47/s47b:** instrumentação `seenAuthors` pré-filtro para expor o "Reel skipped mid-sweep" no log. `BATCH_MAX_FORWARD_SCROLLS` 5 → 15.
@@ -27,10 +27,11 @@
 - **s51 — reset + docs + investigação de identidade:** botão **🗑 Apagar todos os Reels guardados** em Definições (limpa `reels` + `pending_actions`; mantém a selecção de conversas e as preferências) para testar/descobrir do zero sem esperar pelo enrichment lento. Correcções de documentação (refs partidas, staleness — ver §7). **Investigação-chave:** bolhas de Reel *portrait* na árvore a11y só expõem o autor (`title_text`), sem URL/media-id/caption (só os `generic` têm `caption_title`) → **a única identidade estável por Reel é o URL** (via viewer). É a causa-raiz do dedup `(thread,autor,direção)` colapsar Reels do mesmo autor e de Reels se "perderem". Fix lossless (single-pass Descobrir+Preparar, dedup por URL) → s52.
 - **s52 — single-pass "Descobrir + Preparar" (não perder Reels):** nova acção `ACTION_DISCOVER_PREPARE_ALL` + botão em Definições **"🔎 Descobrir + Preparar tudo"**. Varre cada conversa seleccionada e ABRE cada Reel recebido para capturar o URL, reutilizando a cadeia validada viewer→Partilhar→Copiar→`persistCopiedReel` (dedup por `reelUrl`). Como cada Reel fica com URL, N Reels do mesmo autor = N linhas — **não colapsa nem perde**. Varre de baixo (mais recente) para cima por "páginas" de viewport (cutoff por página evita reabrir a sobreposição), pára no topo real (`isThreadTopVisible`) e tem **paragem incremental** (pára após `SINGLEPASS_INCREMENTAL_STOP=4` URLs seguidos já conhecidos). Instrumentado (`SINGLEPASS:` no log). **⚠ Assume que fechar o viewer restaura a posição de scroll da conversa — a validar no device (§6.1).** A correcção (não perder) é garantida pelo dedup-por-URL mesmo que a eficiência precise de afinação.
 - **s53 — mensagens junto ao Reel (spec §5):** `enumerateReels` passa a capturar as mensagens de texto (`direct_text_message_text_view`) logo abaixo de cada Reel — o que o amigo enviou com o Reel + as minhas respostas — com direção via `sender_avatar`. Guardadas em `ReelEntity.contextMessages` (JSON; Room v5→**v6**, migração destrutiva — dados regeneráveis) e mostradas no feed por baixo do Reel (`ContextMessagesBlock`). Threaded por todos os caminhos: descoberta (`Snapshot`), enrichment on-demand/batch e single-pass (via `PendingCopy`→`persistCopiedReel`). Caps: `CONTEXT_MSG_MAX_PER_REEL=8`, `CONTEXT_MSG_MAX_LEN=400`.
+- **s54 — atalho single-pass para a conversa aberta:** nova acção `ACTION_DISCOVER_PREPARE_CURRENT` + botão em Definições **"🔎 Preparar só a conversa aberta no IG"** → corre `discoverAndPrepareThread()` na conversa actual (via `runInInstagram`), **sem precisar de a seleccionar** em "Filtrar conversas". Resolve a lacuna de teste: depois de um reset a lista de conversas está vazia, e agora dá para preparar/testar uma conversa directamente.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s53 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s54 ...)`.
 2. **Ler primeiro:** `AGENTS.md` na raiz (regras de trabalho: commits, autoria, autonomia, testes), esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `instagram/IgSelectors.kt` — `Thread` tem os 4 selectors do header (s46), `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` (s49), **s50:** `REPLY_CONTEXT_INFO_TEXT`.
@@ -251,6 +252,7 @@ Já entregue no primeiro commit:
 - ✅ **s51 — botão de reset (🗑 apagar `reels` + fila) em Definições; correcções de documentação; AGENTS.md. Investigação: portrait reels não têm id estável na árvore a11y → URL é a única identidade (motiva o single-pass da s52).**
 - ✅ **s52 — single-pass "Descobrir + Preparar" (`ACTION_DISCOVER_PREPARE_ALL` + botão em Definições): varre cada conversa, abre cada Reel recebido, captura o URL e dedup por `reelUrl` → não colapsa nem perde Reels do mesmo autor. Instrumentado; a validar no device (§6.1, teste `SinglePassNoLoss`).**
 - ✅ **s53 — mensagens junto ao Reel (spec §5): `enumerateReels` captura o texto (`direct_text_message_text_view`) abaixo de cada Reel (amigo + minhas respostas) → `ReelEntity.contextMessages` (Room v6) → mostrado no feed (`ContextMessagesBlock`). A validar no device.**
+- ✅ **s54 — atalho "🔎 Preparar só a conversa aberta no IG" (`ACTION_DISCOVER_PREPARE_CURRENT`) em Definições: corre o single-pass na conversa actual sem a seleccionar (facilita testar 1 conversa). A validar no device.**
 
 ### 6.1 Próxima sessão — arranque
 
@@ -258,10 +260,11 @@ Já entregue no primeiro commit:
 
 **Feito na s51:** botão de reset (🗑) + correcções de documentação + `AGENTS.md`.
 **Feito na s52:** single-pass **"🔎 Descobrir + Preparar tudo"** — não perde Reels do mesmo autor (dedup por `reelUrl`).
-**Feito na s53:** captura das mensagens junto ao Reel (`direct_text_message_text_view` abaixo de cada Reel) → `ReelEntity.contextMessages` (Room v6) → mostradas no feed (`ContextMessagesBlock`).
+**Feito na s53:** captura das mensagens junto ao Reel → `ReelEntity.contextMessages` (Room v6) → mostradas no feed.
+**Feito na s54:** atalho **"🔎 Preparar só a conversa aberta no IG"** (corre o single-pass na conversa actual sem a seleccionar).
 
-**Próxima sessão (s54) — validar s52/s53 no device e afinar.**
-- Prioridade: correr `SinglePassNoLoss` (abaixo) e reportar sobretudo a **F1**: o varrimento chega ao topo, ou faz loop no fundo? Se faz loop → o viewer do IG não restaura a posição de scroll; muda-se a estratégia do varrimento (s52b — p.ex. re-localizar por posição/âncora em vez de assumir restauração).
+**Próxima etapa (s55+) — validar no device e afinar.**
+- Prioridade: correr `SinglePassNoLoss` (abaixo) e reportar sobretudo a **F1**: o varrimento chega ao topo, ou faz loop no fundo? Se faz loop → o viewer do IG não restaura a posição de scroll; muda-se a estratégia do varrimento (s55 — p.ex. re-localizar por posição/âncora em vez de assumir restauração).
 - Confirmar a captura de mensagens (`ContextMessages`, abaixo) e afinar constantes (`SINGLEPASS_KEEP_FRACTION`, drag, settles).
 
 #### Teste — "Descobrir + Preparar não perde Reels do mesmo amigo" (`SinglePassNoLoss`) [s52]
@@ -269,15 +272,15 @@ Já entregue no primeiro commit:
 **O que se está a validar:** a nova acção abre cada Reel recebido de uma conversa, captura o URL e cria UMA linha por Reel (dedup por `reelUrl`), incluindo vários Reels do mesmo autor — sem colapsar nem perder. E que chega ao topo real da conversa.
 
 **Preparação:**
-1. `git pull`; recompilar e reinstalar em `build=s52`. Confirmar no logcat `Action receiver registered (build=s52 ... discoverPrepare=...)`.
-2. Definições → **🗑 Apagar todos os Reels guardados** (reset, para contar do zero).
-3. Definições → **Filtrar conversas** → seleccionar **1 conversa** com ≥2 Reels do MESMO amigo/autor (para provar que não colapsa). Curta de preferência (o varrimento é lento).
+1. `git pull`; recompilar e reinstalar em `build=s54`. Confirmar no logcat `Action receiver registered (build=s54 ...)`.
+2. (opcional) Definições → **🗑 Apagar todos os Reels guardados** (reset, para contar do zero).
+3. No Instagram, **abrir uma conversa** com ≥2 Reels do MESMO amigo/autor (para provar que não colapsa). Curta de preferência (o varrimento é lento).
 4. `adb logcat -s IGReaderService`.
 
 **Passos:**
-1. Definições → **"🔎 Descobrir + Preparar tudo"**. Toast confirma arranque.
-2. Deixar o telemóvel em paz — o IG abre, navega para a conversa e, para cada Reel, abre o viewer, copia o link e volta (~5-8s por Reel).
-3. Esperar pela notif **"🔎 Descobrir + Preparar terminado"**.
+1. Com essa conversa aberta no IG, ir a Friends Reels → **⚙ Definições** → **"🔎 Preparar só a conversa aberta no IG"**. (Alternativa: seleccionar a conversa em "Filtrar conversas" e usar **"🔎 Descobrir + Preparar tudo"**.)
+2. Deixar o telemóvel em paz — o IG volta à frente na conversa e, para cada Reel, abre o viewer, copia o link e volta (~5-8s por Reel).
+3. Esperar pela notif de conclusão.
 
 **O que confirmar no logcat:**
 - `SINGLEPASS: starting thread='<titulo>' knownUrls=0`.
@@ -927,6 +930,14 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Ficheiros:** `data/ContextMessages.kt` (novo), `data/ReelEntity.kt` (+campo), `data/AppDatabase.kt` (v6), `instagram/IgSelectors.kt` (`TEXT_MESSAGE`), `instagram/DmReelEntry.kt` (+campo), `service/InstagramReaderService.kt` (captura + Snapshot/PendingCopy/persist + constantes + `BUILD_TAG=s53`), `ui/feed/FeedScreen.kt` (`ContextMessagesBlock`), `res/values/strings.xml` (`feed_context_*`).
 - **Validação no ambiente do agente:** kotlinc (JDK 21) parse-check — 0 erros de sintaxe; símbolos novos resolvem (os únicos "erros" são `org.json`/androidx unresolved = classpath, nativos no build Android); `strings.xml` XML válido. Comportamento no device pelo utilizador (bateria `ContextMessages`, §6.1).
 - **Limitação conhecida (v1):** captura o texto visível no viewport durante a enumeração; mensagens muito abaixo do Reel podem não ser apanhadas numa só passagem (aceitável — re-descobrir apanha mais). O bloco no feed mostra até 8 mensagens.
+
+### 2026-09-30 — Sessão 54 (Ricardo + Copilot CLI) — atalho single-pass para a conversa aberta
+
+- **Motivo (melhoria proactiva):** o single-pass "tudo" (s52) corre sobre as `tracked_threads` seleccionadas em "Filtrar conversas". Mas essa lista vem dos `reels` já descobertos — depois de um **reset** (s51) fica vazia, criando um chicken-and-egg para testar 1 conversa.
+- **Solução:** nova acção `ACTION_DISCOVER_PREPARE_CURRENT` → `runInInstagram { discoverAndPrepareThread() }` (usa `lastKnownConversationTitle`). Botão em Definições **"🔎 Preparar só a conversa aberta no IG"** (em `SinglePassSection`). Fluxo: abrir a conversa no IG → Definições → tocar; o `runInInstagram` traz o IG de volta à conversa e o varrimento corre só nessa.
+- **Reutilização total:** zero lógica nova de varrimento — apenas um novo ponto de entrada para `discoverAndPrepareThread()` (que já posta a notif de conclusão quando `onFinish==null`).
+- **Ficheiros:** `service/InstagramReaderService.kt` (acção + registo + handler, `BUILD_TAG=s54`), `ui/settings/SettingsActivity.kt` (botão + hint), `res/values/strings.xml` (`settings_singlepass_current_*`).
+- **Validação no ambiente do agente:** kotlinc (JDK 21) parse-check — 0 erros de sintaxe; símbolos resolvem; `strings.xml` válido. Device pelo utilizador.
 
 ---
 

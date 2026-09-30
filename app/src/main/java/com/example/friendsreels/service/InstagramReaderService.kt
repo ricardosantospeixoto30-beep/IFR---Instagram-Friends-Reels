@@ -175,6 +175,7 @@ class InstagramReaderService : AccessibilityService() {
                     ACTION_ENRICH_ALL_MISSING_URLS -> enrichAllMissingUrls()
                     ACTION_ENRICH_ALL_CANCEL -> cancelBatchEnrichment()
                     ACTION_DISCOVER_PREPARE_ALL -> discoverAndPrepareAllTracked()
+                    ACTION_DISCOVER_PREPARE_CURRENT -> runInInstagram { discoverAndPrepareThread() }
                     ACTION_DISCOVER_PREPARE_CANCEL -> cancelSinglePass()
                     ACTION_DUMP_TREE -> handleDumpTreeBroadcast(intent)
                 }
@@ -196,6 +197,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_ENRICH_ALL_MISSING_URLS)
             addAction(ACTION_ENRICH_ALL_CANCEL)
             addAction(ACTION_DISCOVER_PREPARE_ALL)
+            addAction(ACTION_DISCOVER_PREPARE_CURRENT)
             addAction(ACTION_DISCOVER_PREPARE_CANCEL)
             addAction(ACTION_DUMP_TREE)
         }
@@ -3698,7 +3700,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s53"
+        private const val BUILD_TAG = "build=s54"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -4090,6 +4092,9 @@ class InstagramReaderService : AccessibilityService() {
          */
         const val ACTION_DISCOVER_PREPARE_ALL =
             "com.example.friendsreels.ACTION_DISCOVER_PREPARE_ALL"
+        /** s54 — single-pass on the currently-open conversation only. */
+        const val ACTION_DISCOVER_PREPARE_CURRENT =
+            "com.example.friendsreels.ACTION_DISCOVER_PREPARE_CURRENT"
         const val ACTION_DISCOVER_PREPARE_CANCEL =
             "com.example.friendsreels.ACTION_DISCOVER_PREPARE_CANCEL"
 

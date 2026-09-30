@@ -523,6 +523,23 @@ private fun SinglePassSection() {
     ) {
         Text(stringResource(R.string.settings_singlepass_start))
     }
+    Text(
+        text = stringResource(R.string.settings_singlepass_current_hint),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    OutlinedButton(
+        onClick = {
+            sendServiceBroadcast(context, InstagramReaderService.ACTION_DISCOVER_PREPARE_CURRENT)
+            Toast.makeText(
+                context,
+                context.getString(R.string.settings_singlepass_current_toast),
+                Toast.LENGTH_LONG,
+            ).show()
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.settings_singlepass_current_start))
+    }
     OutlinedButton(
         onClick = {
             sendServiceBroadcast(context, InstagramReaderService.ACTION_DISCOVER_PREPARE_CANCEL)
