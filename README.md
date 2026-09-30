@@ -42,8 +42,9 @@ Se precisares dos primitivos directos (reagir com ❤/😂, responder com 👀, 
 
 1. Abrir uma conversa com Reels no Instagram.
 2. Puxar a barra de notificações → tocar **🔍** (só Reels visíveis) OU abrir a app e tocar **"📥 Descobrir histórico (scroll auto)"**. A app persiste em BD tudo o que encontrar.
+   - **Recomendado, não perde Reels: ⚙ Definições → "🔎 Descobrir + Preparar tudo"** (ou **"🔎 Preparar só a conversa aberta no IG"**). Abre cada Reel para capturar o link — é mais lento, mas **não colapsa vários Reels do mesmo amigo** (identifica cada um pelo link) e já deixa tudo pronto a ver.
 3. Abrir a app → **"▶ Abrir o meu feed"**. Feed vertical full-screen com auto-play (WebView embed por página). Se algum Reel ainda não tem URL, aparece um placeholder com **"🔗 Preparar Reel"** — tocar dispara enrichment automático (IG abre, encontra o Reel, copia o URL, volta) e o vídeo passa a fazer auto-play.
-4. Swipe up/down entre Reels. Chips mostram estado (`recebido/enviado`, `visto`, reacção actual, `respondido`). Menu **⋮**: "Abrir Reel no Instagram nativo", "Cancelar pendentes", "Definições".
+4. Swipe up/down entre Reels. Chips mostram estado (`recebido/enviado`, `visto`, reacção actual, `respondido`). **Por baixo de cada Reel aparecem as mensagens que o amigo enviou com ele + as tuas respostas** (bloco "💬 Mensagens com o Reel"). Menu **⋮**: "Abrir Reel no Instagram nativo", "Cancelar pendentes", "Definições".
 5. Tocar em **❤ / 😂** → enfileira a reacção (IG só permite uma reacção por mensagem; se enfileirares outra, a antiga é substituída). Tocar em **💬** → dialog editável para escrever a resposta.
 6. Baixar notif → **▶ Aplicar fila**. O executor agrupa por conversa, navega **sozinho** (mesmo partindo da Home do IG), scrolla para trás se preciso e aplica reacção/resposta ao Reel correcto.
 
@@ -55,6 +56,8 @@ Se precisares dos primitivos directos (reagir com ❤/😂, responder com 👀, 
   - **Apenas as selecionadas**: feed só mostra Reels das threads escolhidas.
   - **Todas EXCEPTO as selecionadas**: feed esconde Reels das threads escolhidas.
   A lista de threads descobertas aparece com checkboxes e contagem de Reels por thread.
+- **🔎 Descobrir + Preparar** (tudo / só a conversa aberta) — varre a conversa e abre cada Reel para capturar o link; **não perde Reels do mesmo amigo** (identifica cada um pelo link). Mais lento mas lossless.
+- **🗑 Apagar dados descobertos** — limpa todos os Reels guardados + a fila de acções (mantém a selecção de conversas e as preferências), para testar/descobrir do zero.
 - **Ferramentas de diagnóstico** — broadcasts directos para debug.
 
 ## Broadcasts (opcional — testes via `adb`)
@@ -64,6 +67,8 @@ Todas as acções são disparáveis por broadcast:
 ```bash
 adb shell am broadcast -a com.example.friendsreels.ACTION_DISCOVER_REELS
 adb shell am broadcast -a com.example.friendsreels.ACTION_DISCOVER_REELS_HISTORY
+adb shell am broadcast -a com.example.friendsreels.ACTION_DISCOVER_PREPARE_ALL
+adb shell am broadcast -a com.example.friendsreels.ACTION_DISCOVER_PREPARE_CURRENT
 adb shell am broadcast -a com.example.friendsreels.ACTION_COPY_REEL_URL
 adb shell am broadcast -a com.example.friendsreels.ACTION_APPLY_PENDING
 adb shell am broadcast -a com.example.friendsreels.ACTION_ENRICH_REEL_URL --el reel_id 1
