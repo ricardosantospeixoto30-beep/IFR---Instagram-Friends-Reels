@@ -1124,9 +1124,11 @@ class InstagramReaderService : AccessibilityService() {
     // PoC-8 iteration 3 part B — history discovery (auto scroll)
     //
     // Same enumeration as `discoverReels()` but repeats after auto-scrolling
-    // the conversation upward. Stops when three consecutive scrolls fail
-    // to insert new rows (heuristic for "reached the top of the DM") or
-    // after HISTORY_MAX_SCROLLS scrolls (safety cap).
+    // the conversation upward. The real stop condition is
+    // `isThreadTopVisible` (s46, `view_profile_button` at the top of the
+    // DM). The "N consecutive empty scrolls" heuristic is kept only as a
+    // fallback but is effectively disabled (HISTORY_STOP_AFTER_N_EMPTY =
+    // 500, s50). Hard safety cap is HISTORY_MAX_SCROLLS (= 2000, s50).
     //
     // Direction of scroll: in Instagram DMs the newest message is at the
     // bottom. Older content sits above; to bring it into view we need the

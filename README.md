@@ -78,6 +78,6 @@ Todos os dumps de referência estão em `docs/screen-dumps/`.
 
 ## Estado atual
 
-Ver `PROJECT_PROGRESS.md` — secção **"Estado atual"** e o último log de sessão. Log histórico das sessões 1-32 em `docs/session-log-archive.md`.
+Ver `PROJECT_PROGRESS.md` — secção **"Estado atual"** e o último log de sessão. Log histórico das sessões 1-40 em `docs/session-log-archive.md`.
 
-**Resumo (fim s37):** MVP tem todos os pilares da spec cobertos e validados em device — feed vertical com auto-play (§3), reagir (§4), responder com texto real (§5), estados por Reel (§7), seleção de conversas (§8), menu 3-pontinhos (§12), definições (§11), descoberta manual + histórico (§9 da spec), enrichment automático de URL. Próxima sessão arranca da §6.1 do PROJECT_PROGRESS.
+**Resumo (HEAD `build=s50`):** o MVP cobre os pilares da spec — feed vertical com auto-play (§3), reagir (§4), responder com texto real (§5), estados por Reel (§7), seleção de conversas (§8), menu 3-pontinhos (§12), definições (§11), descoberta manual + histórico + `📥 Descobrir tudo` (§9 da spec), enrichment de URL on-demand e em lote, e sync da reacção actual da DM (s49). O estado detalhado e sempre-actual está em `PROJECT_PROGRESS.md` → **"Estado atual"**. Em curso: robustez da descoberta (não perder Reels do mesmo autor na mesma conversa) e captura das mensagens enviadas junto a cada Reel.

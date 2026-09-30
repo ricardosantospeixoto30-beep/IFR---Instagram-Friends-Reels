@@ -28,7 +28,7 @@
 ### Como continuar na próxima sessão (quick start)
 
 1. **Pull** do repo. Confirmar `Action receiver registered (build=s50 ...)`.
-2. **Ler primeiro:** esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
+2. **Ler primeiro:** `AGENTS.md` na raiz (regras de trabalho: commits, autoria, autonomia, testes), esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `instagram/IgSelectors.kt` — `Thread` tem os 4 selectors do header (s46), `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` (s49), **s50:** `REPLY_CONTEXT_INFO_TEXT`.
     - `service/InstagramReaderService.kt` — `isThreadTopVisible` (s46), `seenAuthors` pré-filtro (s47b), batch history (s48), reacção actual (s49), **s50:** filtro de reply-attachment em `enumerateReels`, constantes de history desactivadas na prática.
@@ -213,7 +213,7 @@ Já entregue no primeiro commit:
 
 ## 6. Próximos passos concretos
 
-**Estado dos PoCs após sessão 34:**
+**Checklist histórico dos PoCs / sessões** (snapshot cumulativo; o detalhe por sessão está em §7 e no arquivo `docs/session-log-archive.md`):
 
 - ✅ PoC-1 — skeleton (compila, corre, a11y service ativa)
 - ✅ PoC-2 — mapeamento inicial (dumps em `docs/screen-dumps/`)
@@ -242,6 +242,9 @@ Já entregue no primeiro commit:
 - ✅ **s45 — dump com atraso de 5s + Toast countdown.** Validada em device (`docs/screen-dumps/dump.txt`).
 - 🟡 **s46 — detecção real de topo de conversa (`isThreadTopVisible`).** `TopStop-History` (Teste 2) validado em device. `TopStop-Batch` (Teste 1) inconclusivo por falta de Reel apropriado — utilizador aceitou como implicitamente validado dado que o mesmo código sustenta ambos.
 - 🟡 **s47b — instrumentação corrigida do "Reel skipped mid-sweep" (enumeração pré-filtro).** `BATCH_MAX_FORWARD_SCROLLS` 5 → 15. Utilizador apanhou o design flaw da s47 (`seenAuthors` pós-filtro nunca dispararia com match-por-autor). s47b move o accumulator para ANTES do filtro de altura/largura para capturar bubbles transientes. Pronta em código; aguarda validação em device (Q1).
+- ✅ **s48 — `📥 Descobrir tudo`: history-scroll batch em todas as conversas seleccionadas em Definições, com notif única de conclusão.**
+- ✅ **s49 / s49b — sync da reacção actual da DM (Room v5 `currentReaction`, lida de `message_reactions_pill_container`); fix de compilação de leftover da s47b.**
+- 🟡 **s50 — stop-early do history desactivado (`HISTORY_STOP_AFTER_N_EMPTY` 5→500, `HISTORY_MAX_SCROLLS` 100→2000; stop real via `isThreadTopVisible`), skip de bubbles reply-attachment (`REPLY_CONTEXT_INFO_TEXT`), tema IG-like nas 4 activities. Fix 3 (single-pass enrichment) fica pendente.**
 
 ### 6.1 Próxima sessão — arranque
 
@@ -879,7 +882,7 @@ A visão original da spec (Opção A: integração dentro do IG oficial) **NÃO 
 - **WebView wrapper (Opção A.2/B via browser embedded)** — é o que a Socialite real faz. Risco baixo, mas a UX perde-se: o utilizador teria de logar-se DE NOVO no IG dentro da nossa app (independente da sessão nativa) e ficamos limitados ao que o IG web expõe (que é menos rico que a app). DMs no IG web funcionam mas embed de Reels em DMs pode ser limitado.
 - **AccessibilityService (Opção C actual)** — **é objectivamente a via mais segura para a conta** do utilizador. Meta não pode ban server-side (a interacção é local). Único cost: pediu-se explicitamente ao utilizador uma permissão sensível e o serviço tem de estar ligado.
 
-**Recomendação:** manter a Opção C como direcção principal. **Ver §6.4 abaixo para reflexão sobre migração parcial para WebView em iterações futuras** (se o custo de manutenção da a11y aumentar demasiado com updates do IG).
+**Recomendação:** manter a Opção C como direcção principal. **Ver §6.3 acima ("PoC alternativa") para a reflexão sobre migração parcial para WebView em iterações futuras** (se o custo de manutenção da a11y aumentar demasiado com updates do IG).
 
 ### 9.5 Follow-up sugerido pelo agente
 
