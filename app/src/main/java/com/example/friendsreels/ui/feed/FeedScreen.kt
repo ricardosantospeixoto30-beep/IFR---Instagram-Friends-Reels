@@ -336,6 +336,7 @@ private fun ReelPage(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 MetadataBlock(reel)
+                ContextMessagesBlock(reel)
                 ActionRow(
                     state = state,
                     onQueueHeart = onQueueHeart,
@@ -500,6 +501,37 @@ private fun MetadataBlock(reel: ReelEntity) {
         color = Color.White.copy(alpha = 0.55f),
         style = MaterialTheme.typography.bodySmall,
     )
+}
+
+@Composable
+private fun ContextMessagesBlock(reel: ReelEntity) {
+    val messages = remember(reel.contextMessages) {
+        com.example.friendsreels.data.ContextMessages.fromJson(reel.contextMessages)
+    }
+    if (messages.isEmpty()) return
+    val friend = reel.dmSender?.takeIf { it.isNotBlank() } ?: reel.threadTitle
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0x59000000), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.feed_context_title),
+            color = Color.White.copy(alpha = 0.6f),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        messages.forEach { m ->
+            val who = if (m.fromMe) stringResource(R.string.feed_context_me) else friend
+            Text(
+                text = "$who: ${m.text}",
+                color = if (m.fromMe) Color(0xFFE1306C) else Color.White.copy(alpha = 0.92f),
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
 }
 
 @Composable

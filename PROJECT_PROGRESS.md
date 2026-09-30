@@ -8,11 +8,11 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-09-30 (sessão 52 — single-pass "Descobrir + Preparar" para não perder Reels).
+**Última actualização:** 2026-09-30 (sessão 53 — captura das mensagens enviadas junto ao Reel).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s52`.
+**HEAD actual:** `build=s53`.
 
-**Recap sessões 46-52 (as próximas do estado corrente):**
+**Recap sessões 46-53 (as próximas do estado corrente):**
 
 - **s46:** `isThreadTopVisible(root)` detecta o header start-of-conversation via 4 selectors (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username` — capturados no dump da s45). Integrada em `locateReelWithScroll` (aborta backward budget cedo) e `doHistoryScroll` (para no topo real).
 - **s47/s47b:** instrumentação `seenAuthors` pré-filtro para expor o "Reel skipped mid-sweep" no log. `BATCH_MAX_FORWARD_SCROLLS` 5 → 15.
@@ -26,15 +26,16 @@
   - **Fix 3 (pendente):** enrichment de URL é lento (~7s/Reel) porque cada Reel faz nav + locate + viewer + copy + back. Utilizador pediu checkpoint / speedup. Refactor "single-pass enrichment por thread" (uma única scroll por thread, abrir viewer conforme encontra Reels) fica para s52 (ver §6.1).
 - **s51 — reset + docs + investigação de identidade:** botão **🗑 Apagar todos os Reels guardados** em Definições (limpa `reels` + `pending_actions`; mantém a selecção de conversas e as preferências) para testar/descobrir do zero sem esperar pelo enrichment lento. Correcções de documentação (refs partidas, staleness — ver §7). **Investigação-chave:** bolhas de Reel *portrait* na árvore a11y só expõem o autor (`title_text`), sem URL/media-id/caption (só os `generic` têm `caption_title`) → **a única identidade estável por Reel é o URL** (via viewer). É a causa-raiz do dedup `(thread,autor,direção)` colapsar Reels do mesmo autor e de Reels se "perderem". Fix lossless (single-pass Descobrir+Preparar, dedup por URL) → s52.
 - **s52 — single-pass "Descobrir + Preparar" (não perder Reels):** nova acção `ACTION_DISCOVER_PREPARE_ALL` + botão em Definições **"🔎 Descobrir + Preparar tudo"**. Varre cada conversa seleccionada e ABRE cada Reel recebido para capturar o URL, reutilizando a cadeia validada viewer→Partilhar→Copiar→`persistCopiedReel` (dedup por `reelUrl`). Como cada Reel fica com URL, N Reels do mesmo autor = N linhas — **não colapsa nem perde**. Varre de baixo (mais recente) para cima por "páginas" de viewport (cutoff por página evita reabrir a sobreposição), pára no topo real (`isThreadTopVisible`) e tem **paragem incremental** (pára após `SINGLEPASS_INCREMENTAL_STOP=4` URLs seguidos já conhecidos). Instrumentado (`SINGLEPASS:` no log). **⚠ Assume que fechar o viewer restaura a posição de scroll da conversa — a validar no device (§6.1).** A correcção (não perder) é garantida pelo dedup-por-URL mesmo que a eficiência precise de afinação.
+- **s53 — mensagens junto ao Reel (spec §5):** `enumerateReels` passa a capturar as mensagens de texto (`direct_text_message_text_view`) logo abaixo de cada Reel — o que o amigo enviou com o Reel + as minhas respostas — com direção via `sender_avatar`. Guardadas em `ReelEntity.contextMessages` (JSON; Room v5→**v6**, migração destrutiva — dados regeneráveis) e mostradas no feed por baixo do Reel (`ContextMessagesBlock`). Threaded por todos os caminhos: descoberta (`Snapshot`), enrichment on-demand/batch e single-pass (via `PendingCopy`→`persistCopiedReel`). Caps: `CONTEXT_MSG_MAX_PER_REEL=8`, `CONTEXT_MSG_MAX_LEN=400`.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s52 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s53 ...)`.
 2. **Ler primeiro:** `AGENTS.md` na raiz (regras de trabalho: commits, autoria, autonomia, testes), esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `instagram/IgSelectors.kt` — `Thread` tem os 4 selectors do header (s46), `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` (s49), **s50:** `REPLY_CONTEXT_INFO_TEXT`.
     - `service/InstagramReaderService.kt` — `isThreadTopVisible` (s46), `seenAuthors` pré-filtro (s47b), batch history (s48), reacção actual (s49), **s50:** filtro de reply-attachment em `enumerateReels`, constantes de history desactivadas na prática.
-    - `data/*.kt` — Room v5 (s49). `fallbackToDestructiveMigration` — dados regeneráveis.
+    - `data/*.kt` — Room **v6 (s53: `contextMessages`)**. `fallbackToDestructiveMigration` — dados regeneráveis.
     - `ui/theme/FriendsReelsTheme.kt` — **s50**: tema IG dark aplicado em Main/Feed/Settings/Player.
     - `res/xml/data_extraction_rules.xml` + `res/xml/backup_rules.xml` — **s50**: exclusão total (uninstall clean).
     - Dumps: `docs/screen-dumps/dump.txt` (s45 header + s49b logs de reply-attachment + histórico slow).
@@ -249,17 +250,19 @@ Já entregue no primeiro commit:
 - 🟡 **s50 — stop-early do history desactivado (`HISTORY_STOP_AFTER_N_EMPTY` 5→500, `HISTORY_MAX_SCROLLS` 100→2000; stop real via `isThreadTopVisible`), skip de bubbles reply-attachment (`REPLY_CONTEXT_INFO_TEXT`), tema IG-like nas 4 activities. Fix 3 (single-pass enrichment) fica pendente.**
 - ✅ **s51 — botão de reset (🗑 apagar `reels` + fila) em Definições; correcções de documentação; AGENTS.md. Investigação: portrait reels não têm id estável na árvore a11y → URL é a única identidade (motiva o single-pass da s52).**
 - ✅ **s52 — single-pass "Descobrir + Preparar" (`ACTION_DISCOVER_PREPARE_ALL` + botão em Definições): varre cada conversa, abre cada Reel recebido, captura o URL e dedup por `reelUrl` → não colapsa nem perde Reels do mesmo autor. Instrumentado; a validar no device (§6.1, teste `SinglePassNoLoss`).**
+- ✅ **s53 — mensagens junto ao Reel (spec §5): `enumerateReels` captura o texto (`direct_text_message_text_view`) abaixo de cada Reel (amigo + minhas respostas) → `ReelEntity.contextMessages` (Room v6) → mostrado no feed (`ContextMessagesBlock`). A validar no device.**
 
 ### 6.1 Próxima sessão — arranque
 
 > **Actualização s52 (2026-09-30):** as baterias mais abaixo (s48, s50) são **históricas**. O estado corrente e o arranque da próxima sessão estão aqui.
 
 **Feito na s51:** botão de reset (🗑) + correcções de documentação + `AGENTS.md`.
-**Feito na s52:** single-pass **"🔎 Descobrir + Preparar tudo"** (Definições) — varre cada conversa seleccionada, abre cada Reel recebido, captura o URL e faz dedup por `reelUrl`. Não perde Reels do mesmo autor. Ver §7 + bateria abaixo.
+**Feito na s52:** single-pass **"🔎 Descobrir + Preparar tudo"** — não perde Reels do mesmo autor (dedup por `reelUrl`).
+**Feito na s53:** captura das mensagens junto ao Reel (`direct_text_message_text_view` abaixo de cada Reel) → `ReelEntity.contextMessages` (Room v6) → mostradas no feed (`ContextMessagesBlock`).
 
-**Próxima sessão (s53) — capturar as mensagens junto ao Reel (spec §5).**
-- Capturar as mensagens de texto enviadas com o Reel (texto do amigo logo a seguir + as minhas respostas) e mostrá-las no feed por baixo do Reel. (Decidido com o utilizador.)
-- Selector confirmado nos dumps: `direct_text_message_text_view` (bolha de texto); direção via `sender_avatar`. Guardar como campo na `ReelEntity` (Room v6, migração destrutiva — dados regeneráveis).
+**Próxima sessão (s54) — validar s52/s53 no device e afinar.**
+- Prioridade: correr `SinglePassNoLoss` (abaixo) e reportar sobretudo a **F1**: o varrimento chega ao topo, ou faz loop no fundo? Se faz loop → o viewer do IG não restaura a posição de scroll; muda-se a estratégia do varrimento (s52b — p.ex. re-localizar por posição/âncora em vez de assumir restauração).
+- Confirmar a captura de mensagens (`ContextMessages`, abaixo) e afinar constantes (`SINGLEPASS_KEEP_FRACTION`, drag, settles).
 
 #### Teste — "Descobrir + Preparar não perde Reels do mesmo amigo" (`SinglePassNoLoss`) [s52]
 
@@ -292,6 +295,30 @@ Já entregue no primeiro commit:
 - **F1 (loop — o teste crítico):** o log mostra o varrimento a reabrir sempre os mesmos Reels e **nunca** `thread top reached` → o viewer do IG **não** restaura a posição de scroll ao fechar. Reporta isto: muda-se a estratégia do varrimento na s52b.
 - **F2:** faltam Reels do mesmo autor no feed → dedup/persist a colapsar; ver `COPY_LINK: promoted/inserted` nos logs.
 - **F3:** `SINGLEPASS: step timed out` em quase todos → a cadeia viewer→share→copy partiu (selector mudou); fazer dump.
+
+---
+
+#### Teste — "Mensagens junto ao Reel aparecem no feed" (`ContextMessages`) [s53]
+
+**O que se está a validar:** as mensagens de texto enviadas com um Reel (o amigo logo a seguir + as minhas respostas) são capturadas na descoberta e mostradas no feed por baixo do Reel.
+
+**Preparação:**
+1. `build=s53`. **Nota:** Room v5→v6 dispara `fallbackToDestructiveMigration` — os Reels actuais são apagados no 1.º arranque (re-descobrir com 🔍/📥/🔎).
+2. No IG, escolher uma conversa onde um amigo enviou um Reel E logo a seguir 1+ mensagens de texto (idealmente com uma resposta tua também).
+3. Definições → Filtrar conversas → seleccionar essa conversa.
+
+**Passos:**
+1. Descobrir essa conversa (🔍 na notificação, ou 📥/🔎 nessa conversa).
+2. Abrir o feed e navegar até esse Reel.
+
+**O que confirmar na app:** por baixo do Reel aparece o bloco **"💬 Mensagens com o Reel"** com as mensagens certas; as minhas aparecem **"Eu: …"** (a rosa) e as do amigo com o nome dele.
+
+**O que NÃO deve aparecer:** o Reel embebido/quote de uma resposta a contar como mensagem; mensagens de OUTRO Reel.
+
+**Passa se:** as mensagens mostradas são as que estão logo abaixo desse Reel na conversa, com a direção (Eu/amigo) correcta.
+**Falha se:**
+- **F1:** o bloco nunca aparece mesmo havendo texto abaixo do Reel → selector `direct_text_message_text_view` mudou ou o texto está noutra estrutura; fazer dump.
+- **F2:** aparecem mensagens do Reel errado → a associação bolha→Reel (ordem no `message_list`) precisa de revisão.
 
 ---
 
@@ -888,6 +915,18 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Ficheiros:** `service/InstagramReaderService.kt` (bloco single-pass + constantes `SINGLEPASS_*` + 2 acções + registo + hook de settle + `BUILD_TAG=s52`), `data/ReelDao.kt` (`urlsForThread`), `ui/settings/SettingsActivity.kt` (`SinglePassSection`), `res/values/strings.xml` (settings_singlepass_* + notif_singlepass_* + notif_completion_singlepass_*).
 - **⚠ Suposição a validar no device:** a EFICIÊNCIA assume que fechar o viewer restaura a posição de scroll da conversa. Se não restaurar, o varrimento faz loop no fundo e nunca chega ao topo (teste `SinglePassNoLoss` F1, §6.1) → muda-se a estratégia (s52b). A **correcção** (não perder Reels) é garantida pelo dedup-por-URL de qualquer forma.
 - **Validação no ambiente do agente:** kotlinc (JDK 21) parse-check dos ficheiros alterados — 0 erros de sintaxe; símbolos novos resolvem; `strings.xml` XML válido. Comportamento no device pelo utilizador.
+
+### 2026-09-30 — Sessão 53 (Ricardo + Copilot CLI) — mensagens de texto junto ao Reel (spec §5)
+
+- **Pedido do utilizador:** "apanhar as mensagens abaixo do Reel, ou seja as enviadas com o mesmo, para eu puder responder". Decidido: capturar o texto do amigo logo a seguir ao Reel + as minhas respostas; mostrar no feed por baixo do Reel.
+- **Selector (confirmado nos dumps):** `IgSelectors.Thread.TEXT_MESSAGE = "direct_text_message_text_view"`. Uma bolha `message_content` com este text view e SEM container de média é uma mensagem de texto isolada.
+- **Captura (`enumerateReels`):** o loop já não ignora as bolhas sem média; se houver um Reel imediatamente acima (`lastReelIndex`), captura o texto (`.take(CONTEXT_MSG_MAX_LEN=400)`) + direção (`sender_avatar` → `fromMe`) e acumula em `contextByReelIndex` (cap `CONTEXT_MSG_MAX_PER_REEL=8`). No fim, anexa o JSON a cada `DmReelEntry.contextMessages`.
+- **Serialização:** novo `data/ContextMessages.kt` — `ContextMessage(text, fromMe)` + `ContextMessages.toJson/fromJson` (array JSON `{t,me}`). Partilhado entre serviço (escreve) e feed (lê).
+- **Persistência:** `ReelEntity.contextMessages: String?` (Room v5→**v6**, destrutiva). Threaded por `Snapshot` (descoberta rápida/histórico) e por `PendingCopy`→`persistCopiedReel` (copy-url on-demand, batch enrich e single-pass) — todas as construções de `PendingCopy` passam `entry.contextMessages`.
+- **Feed (`FeedScreen`):** novo `ContextMessagesBlock` entre `MetadataBlock` e `ActionRow` — caixa translúcida "💬 Mensagens com o Reel" (minhas a rosa "Eu: …"; do amigo com o nome dele).
+- **Ficheiros:** `data/ContextMessages.kt` (novo), `data/ReelEntity.kt` (+campo), `data/AppDatabase.kt` (v6), `instagram/IgSelectors.kt` (`TEXT_MESSAGE`), `instagram/DmReelEntry.kt` (+campo), `service/InstagramReaderService.kt` (captura + Snapshot/PendingCopy/persist + constantes + `BUILD_TAG=s53`), `ui/feed/FeedScreen.kt` (`ContextMessagesBlock`), `res/values/strings.xml` (`feed_context_*`).
+- **Validação no ambiente do agente:** kotlinc (JDK 21) parse-check — 0 erros de sintaxe; símbolos novos resolvem (os únicos "erros" são `org.json`/androidx unresolved = classpath, nativos no build Android); `strings.xml` XML válido. Comportamento no device pelo utilizador (bateria `ContextMessages`, §6.1).
+- **Limitação conhecida (v1):** captura o texto visível no viewport durante a enumeração; mensagens muito abaixo do Reel podem não ser apanhadas numa só passagem (aceitável — re-descobrir apanha mais). O bloco no feed mostra até 8 mensagens.
 
 ---
 

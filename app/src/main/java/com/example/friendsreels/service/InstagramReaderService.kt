@@ -99,6 +99,7 @@ class InstagramReaderService : AccessibilityService() {
         val kind: String,
         val bubbleIndex: Int,
         val dmSender: String? = null,
+        val contextMessages: String? = null,
     )
 
     private var pendingCopy: PendingCopy? = null
@@ -538,6 +539,7 @@ class InstagramReaderService : AccessibilityService() {
             reelAuthor = target.reelAuthor,
             kind = target.kind,
             bubbleIndex = target.index,
+            contextMessages = target.contextMessages,
         )
         Log.i(TAG, "COPY_LINK: pendingCopy=$pendingCopy")
 
@@ -795,6 +797,7 @@ class InstagramReaderService : AccessibilityService() {
             bubbleIndex = pending.bubbleIndex,
             reelUrl = url,
             discoveredAt = discoveredAt,
+            contextMessages = pending.contextMessages,
         )
         serviceScope.launch {
             val dao = AppDatabase.get(this@InstagramReaderService).reelDao()
@@ -1075,6 +1078,7 @@ class InstagramReaderService : AccessibilityService() {
                 direction = it.direction,
                 author = it.reelAuthor,
                 currentReaction = it.currentReaction,
+                contextMessages = it.contextMessages,
             )
         }
         val discoveredAt = System.currentTimeMillis()
@@ -1108,6 +1112,7 @@ class InstagramReaderService : AccessibilityService() {
                     reelUrl = null,
                     discoveredAt = discoveredAt,
                     currentReaction = s.currentReaction,
+                    contextMessages = s.contextMessages,
                 )
                 val id = dao.insert(row)
                 if (id > 0) inserted++ else skipped++
@@ -1264,7 +1269,7 @@ class InstagramReaderService : AccessibilityService() {
         val entries = enumerateReels(messageList)
         val kept = if (state.ignoreSent) entries.filter { it.direction == Direction.RECEIVED } else entries
         val snapshot = kept.map {
-            Snapshot(it.index, it.kind, it.direction, it.reelAuthor, it.currentReaction)
+            Snapshot(it.index, it.kind, it.direction, it.reelAuthor, it.currentReaction, it.contextMessages)
         }
         val discoveredAt = System.currentTimeMillis()
         serviceScope.launch {
@@ -1298,6 +1303,7 @@ class InstagramReaderService : AccessibilityService() {
                     reelUrl = null,
                     discoveredAt = discoveredAt,
                     currentReaction = s.currentReaction,
+                    contextMessages = s.contextMessages,
                 )
                 val id = dao.insert(row)
                 if (id > 0) inserted++ else skipped++
@@ -1625,6 +1631,7 @@ class InstagramReaderService : AccessibilityService() {
         val direction: Direction,
         val author: String?,
         val currentReaction: String? = null,
+        val contextMessages: String? = null,
     )
 
     /**
@@ -1646,6 +1653,7 @@ class InstagramReaderService : AccessibilityService() {
         val authorId = IgSelectors.id(IgSelectors.Thread.REEL_AUTHOR_USERNAME)
         val pillId = IgSelectors.id(IgSelectors.Thread.REACTIONS_PILL_CONTAINER)
         val replyContextId = IgSelectors.id(IgSelectors.Thread.REPLY_CONTEXT_INFO_TEXT)
+        val textMsgId = IgSelectors.id(IgSelectors.Thread.TEXT_MESSAGE)
 
         // s49: enumerate all reactions pills upfront and match them by
         // geometric proximity to bubbles below. IG places the pill just
@@ -1659,12 +1667,34 @@ class InstagramReaderService : AccessibilityService() {
         }
 
         val entries = mutableListOf<DmReelEntry>()
+        // s53: text messages captured right below each Reel (keyed by the
+        // Reel's `index`) — the friend's follow-up texts + my replies.
+        val contextByReelIndex = HashMap<Int, MutableList<Pair<String, Boolean>>>()
         var next = 0
+        var lastReelIndex: Int? = null
         var skippedReplyAttachments = 0
         for (bubble in bubbles) {
             val portrait = bubble.findAccessibilityNodeInfosByViewId(portraitId)?.firstOrNull()
             val generic = bubble.findAccessibilityNodeInfosByViewId(genericId)?.firstOrNull()
-            val media = portrait ?: generic ?: continue
+            val media = portrait ?: generic
+            if (media == null) {
+                // s53: standalone text message — capture it as context for
+                // the Reel immediately above it (the messages sent WITH the
+                // Reel + my replies). Direction via `sender_avatar`.
+                if (lastReelIndex != null) {
+                    val text = bubble.findAccessibilityNodeInfosByViewId(textMsgId)
+                        ?.firstOrNull()?.text?.toString()?.trim()
+                    if (!text.isNullOrEmpty()) {
+                        val list = contextByReelIndex.getOrPut(lastReelIndex!!) { mutableListOf() }
+                        if (list.size < CONTEXT_MSG_MAX_PER_REEL) {
+                            val fromMe = bubble.findAccessibilityNodeInfosByViewId(senderAvatarId)
+                                .orEmpty().isEmpty()
+                            list.add(text.take(CONTEXT_MSG_MAX_LEN) to fromMe)
+                        }
+                    }
+                }
+                continue
+            }
 
             // s50: skip "reply attachment" bubbles. When a friend replies
             // to a Reel we sent, IG wraps the whole exchange in a single
@@ -1690,8 +1720,9 @@ class InstagramReaderService : AccessibilityService() {
             val bounds = Rect().also { media.getBoundsInScreen(it) }
             val bubbleBounds = Rect().also { bubble.getBoundsInScreen(it) }
             val currentReaction = matchReactionPill(bubbleBounds, pillEntries)
+            val idx = next++
             entries += DmReelEntry(
-                index = next++,
+                index = idx,
                 kind = kind,
                 direction = direction,
                 reelAuthor = author,
@@ -1699,6 +1730,7 @@ class InstagramReaderService : AccessibilityService() {
                 node = media,
                 currentReaction = currentReaction,
             )
+            lastReelIndex = idx
         }
         if (skippedReplyAttachments > 0) {
             Log.d(
@@ -1707,7 +1739,13 @@ class InstagramReaderService : AccessibilityService() {
                     "(direct_context_reply_context_info_text_view marker present)."
             )
         }
-        return entries
+        if (contextByReelIndex.isEmpty()) return entries
+        // s53: attach captured context messages (JSON) to each Reel entry.
+        return entries.map { e ->
+            val ctx = contextByReelIndex[e.index]
+            if (ctx.isNullOrEmpty()) e
+            else e.copy(contextMessages = com.example.friendsreels.data.ContextMessages.toJson(ctx))
+        }
     }
 
     /**
@@ -2473,6 +2511,7 @@ class InstagramReaderService : AccessibilityService() {
                 reelAuthor = entry.reelAuthor ?: reel.reelAuthor,
                 kind = entry.kind,
                 bubbleIndex = entry.index,
+                contextMessages = entry.contextMessages,
             )
             Log.i(TAG, "ENRICH_URL: located reelId=${reel.id}, tapping to open viewer. pendingCopy=$pendingCopy")
             dispatchOpenReelViewerTap(Rect(entry.bounds))
@@ -3014,6 +3053,7 @@ class InstagramReaderService : AccessibilityService() {
             reelAuthor = entry.reelAuthor,
             kind = entry.kind,
             bubbleIndex = entry.index,
+            contextMessages = entry.contextMessages,
         )
         state.opened++
         Log.i(
@@ -3658,7 +3698,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s52"
+        private const val BUILD_TAG = "build=s53"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -3891,6 +3931,10 @@ class InstagramReaderService : AccessibilityService() {
         private const val SINGLEPASS_MAX_SCROLLS = 500
         private const val SINGLEPASS_MAX_FAILURES = 6
         private const val SINGLEPASS_INCREMENTAL_STOP = 4
+
+        // --- Context messages captured below a Reel (s53) ---
+        private const val CONTEXT_MSG_MAX_PER_REEL = 8
+        private const val CONTEXT_MSG_MAX_LEN = 400
 
         /**
          * s49 — geometric tolerance for matching a

@@ -88,4 +88,12 @@ data class ReelEntity(
      * lightweight comparison against `PendingActionEntity.KIND_REACT_*`.
      */
     val currentReaction: String? = null,
+
+    /**
+     * s53 — text messages captured right below the Reel in the DM (the
+     * messages the friend "sent with" the Reel + my own replies), stored as
+     * a compact JSON array. See [com.example.friendsreels.data.ContextMessages].
+     * Null when none were captured.
+     */
+    val contextMessages: String? = null,
 )

@@ -21,13 +21,16 @@ import androidx.room.RoomDatabase
  *   so the feed can show the reaction actually present on the DM,
  *   not just the one our own app has sent. Populated during
  *   `enumerateReels` from `message_reactions_pill_container`.
+ * - v6 (sessão 53): adds `contextMessages` column to `reels` — the text
+ *   messages captured right below the Reel (friend's follow-up texts + my
+ *   replies), shown in the feed. See [ContextMessages].
  *
  * We use `fallbackToDestructiveMigration()` — the PoC data is regenerated
  * by the user with a quick "Descobrir" pass.
  */
 @Database(
     entities = [ReelEntity::class, PendingActionEntity::class, TrackedThreadEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {

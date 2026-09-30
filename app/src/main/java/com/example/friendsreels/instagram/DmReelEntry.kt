@@ -57,4 +57,10 @@ data class DmReelEntry(
      * Room.
      */
     val currentReaction: String? = null,
+    /**
+     * s53 — JSON of the text messages captured right below this Reel (the
+     * friend's follow-up texts + my replies). See
+     * [com.example.friendsreels.data.ContextMessages]. Null when none.
+     */
+    val contextMessages: String? = null,
 )

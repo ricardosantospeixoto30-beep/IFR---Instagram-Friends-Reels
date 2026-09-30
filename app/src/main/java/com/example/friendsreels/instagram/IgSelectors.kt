@@ -128,6 +128,16 @@ object IgSelectors {
         // ---------------------------------------------------------------
         const val REPLY_CONTEXT_INFO_TEXT = "direct_context_reply_context_info_text_view"
 
+        // ---------------------------------------------------------------
+        // Plain text message bubble (s53). A `message_content` that holds a
+        // `direct_text_message_text_view` (and NO media/XMA container) is a
+        // standalone text message. We capture these right below a Reel — the
+        // messages the friend "sent with" the Reel + my replies — to show as
+        // context in the feed. Direction (mine vs friend's) is inferred the
+        // same way as Reels: presence of `sender_avatar` in the bubble.
+        // ---------------------------------------------------------------
+        const val TEXT_MESSAGE = "direct_text_message_text_view"
+
         // Composer (text field to send messages back into the DM)
         const val COMPOSER_BAR = "message_composer_bar"
         const val COMPOSER_EDITTEXT = "row_thread_composer_edittext"
