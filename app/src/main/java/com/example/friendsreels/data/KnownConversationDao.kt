@@ -22,6 +22,10 @@ interface KnownConversationDao {
     @Query("DELETE FROM known_conversations WHERE threadTitle = :title")
     suspend fun remove(title: String): Int
 
+    /** s57 — forget several conversations at once (scope: only / all-except). */
+    @Query("DELETE FROM known_conversations WHERE threadTitle IN (:titles)")
+    suspend fun removeAll(titles: List<String>)
+
     @Query("DELETE FROM known_conversations")
     suspend fun clearAll()
 }

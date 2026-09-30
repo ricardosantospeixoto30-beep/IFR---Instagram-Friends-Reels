@@ -48,6 +48,10 @@ interface TrackedThreadDao {
 
     @Query("DELETE FROM tracked_threads")
     suspend fun clearAll()
+
+    /** s57 — un-track several conversations at once (forget conversations). */
+    @Query("DELETE FROM tracked_threads WHERE threadTitle IN (:titles)")
+    suspend fun removeAll(titles: List<String>)
 }
 
 /** Slim projection for [TrackedThreadDao.observeThreadCounts]. */

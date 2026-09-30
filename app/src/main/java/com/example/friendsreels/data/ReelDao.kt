@@ -68,6 +68,10 @@ interface ReelDao {
     @Query("DELETE FROM reels")
     suspend fun clearAll()
 
+    /** s57 — delete every Reel belonging to any of [titles] (forget conversations). */
+    @Query("DELETE FROM reels WHERE threadTitle IN (:titles)")
+    suspend fun deleteByThreads(titles: List<String>)
+
     @Query("UPDATE reels SET seenAt = :epochMs WHERE id = :id AND seenAt IS NULL")
     suspend fun markSeen(id: Long, epochMs: Long)
 

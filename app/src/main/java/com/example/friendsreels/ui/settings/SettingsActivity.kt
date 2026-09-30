@@ -528,6 +528,24 @@ private fun SinglePassSection() {
         text = stringResource(R.string.settings_singlepass_subtitle),
         style = MaterialTheme.typography.bodySmall,
     )
+    val prefs = context.getSharedPreferences(InstagramReaderService.PREFS_NAME, Context.MODE_PRIVATE)
+    var scanToEnd by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                InstagramReaderService.PREF_SINGLEPASS_SCAN_TO_END,
+                InstagramReaderService.PREF_SINGLEPASS_SCAN_TO_END_DEFAULT,
+            )
+        )
+    }
+    SettingToggle(
+        title = stringResource(R.string.settings_scan_to_end_title),
+        subtitle = stringResource(R.string.settings_scan_to_end_subtitle),
+        value = scanToEnd,
+        onChange = {
+            scanToEnd = it
+            prefs.edit().putBoolean(InstagramReaderService.PREF_SINGLEPASS_SCAN_TO_END, it).apply()
+        },
+    )
     Button(
         onClick = {
             sendServiceBroadcast(context, InstagramReaderService.ACTION_DISCOVER_PREPARE_ALL)

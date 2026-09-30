@@ -144,6 +144,34 @@
     <string name="settings_reset_confirm_no">Cancelar</string>
     <string name="settings_reset_done_toast">Dados apagados. O feed está agora vazio.</string>
 
+    <!-- Single-pass depth toggle (s57) -->
+    <string name="settings_scan_to_end_title">Percorrer até ao fim da conversa</string>
+    <string name="settings_scan_to_end_subtitle">Ligado (recomendado): o \"Descobrir + Preparar\" vai até ao topo da conversa, mesmo passando por Reels que já tens. Desligado: pára assim que encontra vários Reels seguidos que já foram recolhidos (mais rápido para testes/atualizações).</string>
+
+    <!-- Home: single-pass + gestão de dados (s57) -->
+    <string name="home_singlepass_title">Descobrir + Preparar (sem perdas)</string>
+    <string name="home_singlepass_hint">Abre cada Reel para ir buscar o link — não perde Reels do mesmo amigo. Seleciona conversas nas Definições (ou usa o botão da conversa aberta).</string>
+    <string name="home_manage_title">Gerir conversas e Reels</string>
+    <string name="home_manage_hint">Apagar Reels mantém as conversas. Esquecer conversas remove as conversas escolhidas E os seus Reels.</string>
+    <string name="home_forget_conversations_button">🗑 Esquecer conversas…</string>
+
+    <!-- Forget conversations dialog (s57) -->
+    <string name="forget_title">Esquecer conversas</string>
+    <string name="forget_hint">Remove as conversas escolhidas da app (lista de conversas + Reels + ações pendentes dessas conversas). Não toca no Instagram e não pode ser desfeito.</string>
+    <string name="forget_mode_all">Todas as conversas</string>
+    <string name="forget_mode_only">Apenas as selecionadas</string>
+    <string name="forget_mode_except">Todas exceto as selecionadas</string>
+    <string name="forget_no_conversations">Ainda não há conversas conhecidas para esquecer.</string>
+    <string name="forget_select_all">Selecionar todas</string>
+    <string name="forget_clear_selection">Limpar seleção</string>
+    <string name="forget_confirm">Esquecer</string>
+    <string name="forget_cancel">Cancelar</string>
+    <string name="forget_summary_all">Vais esquecer TODAS as conversas (%1$d).</string>
+    <string name="forget_summary_count">Vais esquecer %1$d conversa(s).</string>
+    <string name="forget_nothing_toast">Seleciona pelo menos uma conversa.</string>
+    <string name="forget_done_toast">Conversas esquecidas.</string>
+
+
     <!-- Feed screen -->
     <string name="feed_title">Friends Reels</string>
     <string name="feed_empty_title">Feed vazio</string>

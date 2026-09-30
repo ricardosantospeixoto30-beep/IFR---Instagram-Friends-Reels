@@ -88,6 +88,17 @@ interface PendingActionDao {
 
     @Query("DELETE FROM pending_actions")
     suspend fun clearAll()
+
+    /**
+     * s57 — delete pending rows whose Reel belongs to any of [titles].
+     * Used by "forget conversations" so the queue doesn't keep orphaned
+     * actions pointing at Reels we're about to delete.
+     */
+    @Query(
+        "DELETE FROM pending_actions WHERE reelId IN " +
+            "(SELECT id FROM reels WHERE threadTitle IN (:titles))"
+    )
+    suspend fun deleteForThreads(titles: List<String>)
 }
 
 /** Slim projection for [PendingActionDao.observePendingPairs]. */

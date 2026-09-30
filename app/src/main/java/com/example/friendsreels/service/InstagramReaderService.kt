@@ -576,8 +576,10 @@ class InstagramReaderService : AccessibilityService() {
         }, mainHandler)
         Log.i(TAG, "OPEN_REEL: dispatchGesture accepted=$dispatched duration=${TAP_DURATION_MS}ms")
 
-        val delay = TAP_DURATION_MS + REEL_VIEWER_SETTLE_MS
-        mainHandler.postDelayed({ tapShareInReelViewer() }, delay)
+        // s57: hand off to the poll-based share step, which waits for the
+        // viewer to actually render (fast path ~700ms) instead of a fixed
+        // 2s worst-case delay.
+        mainHandler.postDelayed({ tapShareInReelViewer() }, TAP_DURATION_MS)
     }
 
     /**
@@ -587,32 +589,44 @@ class InstagramReaderService : AccessibilityService() {
      * settles, chain into [clickCopyLinkInShareSheet].
      */
     private fun tapShareInReelViewer() {
-        // While the viewer is stable (right before we tap Share), grab the
-        // human sender from `sender_username_or_fullname`. This is what
-        // lets us know WHO shared the Reel — critical in group DMs where
-        // the thread title is the group name, not a person.
-        enrichPendingCopyFromViewer()
-
         val shareId = IgSelectors.id(IgSelectors.ReelViewer.UFI_SHARE_BUTTON)
-        val shareNode = findFirstNodeAcrossWindows { it.viewIdResourceName == shareId }
-        if (shareNode == null) {
-            Log.w(TAG, "SHARE_IN_VIEWER: '${IgSelectors.ReelViewer.UFI_SHARE_BUTTON}' not found. Viewer failed to open?")
-            if (!singlePassInProgress) dumpAllWindows("share-not-found")
-            // s55: signal the single-pass sweep immediately (settled, url=null)
-            // so it advances to the next Reel instead of waiting the 20s step
-            // timeout. Viewer never opened → we're still on the thread.
-            if (singlePassInProgress) { singlePassStepUrl = null; singlePassStepSettled = true }
-            return
-        }
-        val bounds = Rect().also { shareNode.getBoundsInScreen(it) }
-        val target = if (shareNode.isClickable) shareNode else findClickableAncestor(shareNode) ?: shareNode
-        val ok = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-        Log.i(
-            TAG,
-            "SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned $ok bounds=${bounds.toShortString()}"
+        // s57: poll for the share button instead of a single fixed-delay
+        // check. Proceeds the instant the viewer is ready (fast path
+        // ~700ms vs the old fixed 2s) while giving slow frames MORE total
+        // time before declaring the viewer failed to open.
+        pollForNodeAcrossWindows(
+            minDelayMs = REEL_VIEWER_MIN_SETTLE_MS,
+            timeoutMs = REEL_VIEWER_POLL_TIMEOUT_MS,
+            intervalMs = CHAIN_POLL_INTERVAL_MS,
+            match = { it.viewIdResourceName == shareId },
+            onFound = { shareNode ->
+                // Viewer confirmed open — grab the human sender from
+                // `sender_username_or_fullname` (critical in group DMs where
+                // the thread title is the group name, not a person).
+                enrichPendingCopyFromViewer()
+                val bounds = Rect().also { shareNode.getBoundsInScreen(it) }
+                val target = if (shareNode.isClickable) shareNode
+                    else findClickableAncestor(shareNode) ?: shareNode
+                val ok = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                Log.i(
+                    TAG,
+                    "SHARE_IN_VIEWER: performAction(ACTION_CLICK) on 'Partilhar' returned $ok " +
+                        "bounds=${bounds.toShortString()}"
+                )
+                clickCopyLinkInShareSheet()
+            },
+            onTimeout = {
+                Log.w(
+                    TAG,
+                    "SHARE_IN_VIEWER: '${IgSelectors.ReelViewer.UFI_SHARE_BUTTON}' not found. Viewer failed to open?"
+                )
+                if (!singlePassInProgress) dumpAllWindows("share-not-found")
+                // s55: signal the single-pass sweep immediately (settled,
+                // url=null) so it advances/retries instead of waiting the 20s
+                // step timeout. Viewer never opened → we're still on the thread.
+                if (singlePassInProgress) { singlePassStepUrl = null; singlePassStepSettled = true }
+            },
         )
-        // The IG share sheet fetches the friends grid — give it time.
-        mainHandler.postDelayed({ clickCopyLinkInShareSheet() }, SHARE_SHEET_SETTLE_MS)
     }
 
     /**
@@ -625,24 +639,32 @@ class InstagramReaderService : AccessibilityService() {
      */
     private fun clickCopyLinkInShareSheet() {
         val labels = IgSelectors.ReelViewer.COPY_LINK_LABELS
-        val copyNode = findFirstNodeAcrossWindows { node ->
-            val desc = node.contentDescription?.toString() ?: return@findFirstNodeAcrossWindows false
-            labels.contains(desc)
-        }
-        if (copyNode == null) {
-            Log.w(TAG, "COPY_LINK: 'Copiar ligação' not found in share sheet (labels=$labels).")
-            if (!singlePassInProgress) dumpAllWindows("copy-link-not-found")
-            if (singlePassInProgress) { singlePassStepUrl = null; singlePassStepSettled = true }
-            return
-        }
-        val bounds = Rect().also { copyNode.getBoundsInScreen(it) }
-        val ok = clickWithGestureFallback(copyNode, bounds, "COPY_LINK")
-        if (!ok) {
-            Log.w(TAG, "COPY_LINK: click on 'Copiar ligação' failed via both performAction and dispatchGesture.")
-            if (singlePassInProgress) { singlePassStepUrl = null; singlePassStepSettled = true }
-            return
-        }
-        mainHandler.postDelayed({ readReelUrlFromClipboard() }, CLIPBOARD_READ_DELAY_MS)
+        // s57: poll for the "Copiar ligação" entry instead of a fixed 1.8s
+        // wait — the share sheet often renders in well under a second.
+        pollForNodeAcrossWindows(
+            minDelayMs = SHARE_SHEET_MIN_SETTLE_MS,
+            timeoutMs = SHARE_SHEET_POLL_TIMEOUT_MS,
+            intervalMs = CHAIN_POLL_INTERVAL_MS,
+            match = { node ->
+                val desc = node.contentDescription?.toString()
+                desc != null && labels.contains(desc)
+            },
+            onFound = { copyNode ->
+                val bounds = Rect().also { copyNode.getBoundsInScreen(it) }
+                val ok = clickWithGestureFallback(copyNode, bounds, "COPY_LINK")
+                if (!ok) {
+                    Log.w(TAG, "COPY_LINK: click on 'Copiar ligação' failed via both performAction and dispatchGesture.")
+                    if (singlePassInProgress) { singlePassStepUrl = null; singlePassStepSettled = true }
+                } else {
+                    mainHandler.postDelayed({ readReelUrlFromClipboard() }, CLIPBOARD_READ_DELAY_MS)
+                }
+            },
+            onTimeout = {
+                Log.w(TAG, "COPY_LINK: 'Copiar ligação' not found in share sheet (labels=$labels).")
+                if (!singlePassInProgress) dumpAllWindows("copy-link-not-found")
+                if (singlePassInProgress) { singlePassStepUrl = null; singlePassStepSettled = true }
+            },
+        )
     }
 
     /**
@@ -994,6 +1016,35 @@ class InstagramReaderService : AccessibilityService() {
             if (hit != null) return hit
         }
         return null
+    }
+
+    /**
+     * s57 — poll (on the main thread) for a node matching [match] across
+     * all IG windows. Waits [minDelayMs] before the first look, then checks
+     * every [intervalMs] until the node appears (→ [onFound]) or the total
+     * budget [timeoutMs] elapses (→ [onTimeout]). This replaces the copy
+     * chain's fixed worst-case `postDelayed` waits: the happy path proceeds
+     * as soon as IG renders the element, while slow frames still get the
+     * full budget before we declare failure.
+     */
+    private fun pollForNodeAcrossWindows(
+        minDelayMs: Long,
+        timeoutMs: Long,
+        intervalMs: Long,
+        match: (AccessibilityNodeInfo) -> Boolean,
+        onFound: (AccessibilityNodeInfo) -> Unit,
+        onTimeout: () -> Unit,
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        val attempt = object : Runnable {
+            override fun run() {
+                val node = findFirstNodeAcrossWindows(match)
+                if (node != null) { onFound(node); return }
+                if (System.currentTimeMillis() >= deadline) { onTimeout(); return }
+                mainHandler.postDelayed(this, intervalMs)
+            }
+        }
+        mainHandler.postDelayed(attempt, minDelayMs)
     }
 
     /**
@@ -1853,6 +1904,12 @@ class InstagramReaderService : AccessibilityService() {
     private fun isIgnoreSentEnabled(): Boolean {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getBoolean(PREF_IGNORE_SENT, PREF_IGNORE_SENT_DEFAULT)
+    }
+
+    /** s57 — whether the single-pass sweep walks to the thread top (true) or stops at already-known Reels (false). */
+    private fun isSinglePassScanToEndEnabled(): Boolean {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(PREF_SINGLEPASS_SCAN_TO_END, PREF_SINGLEPASS_SCAN_TO_END_DEFAULT)
     }
 
     // ---------------------------------------------------------------------
@@ -2899,6 +2956,10 @@ class InstagramReaderService : AccessibilityService() {
         val threadTitle: String,
         val knownBeforeRun: Set<String>,
         val onFinish: ((SinglePassState) -> Unit)?,
+        // s57: when true, sweep every Reel up to the thread top ignoring the
+        // "already-known" early stop; when false, stop after
+        // SINGLEPASS_INCREMENTAL_STOP consecutive already-known Reels.
+        val scanToEnd: Boolean = true,
         var scrolls: Int = 0,
         var opened: Int = 0,
         var newReels: Int = 0,
@@ -2906,6 +2967,11 @@ class InstagramReaderService : AccessibilityService() {
         var failures: Int = 0,
         var processedTopThisPage: Int = Int.MIN_VALUE,
         var scrolledAtLeastOnce: Boolean = false,
+        // s57: the Reel currently being opened + how many times we've retried
+        // it. Lets a flaky viewer-open (tap landed mid-layout) be re-tapped
+        // once instead of silently skipped.
+        var currentReelTop: Int = Int.MIN_VALUE,
+        var currentReelRetries: Int = 0,
         val capturedThisRun: MutableSet<String> = mutableSetOf(),
     )
 
@@ -3023,8 +3089,8 @@ class InstagramReaderService : AccessibilityService() {
         singlePassCancelled = false
         serviceScope.launch {
             val known = AppDatabase.get(this@InstagramReaderService).reelDao().urlsForThread(thread).toSet()
-            val state = SinglePassState(thread, known, onFinish)
-            Log.i(TAG, "SINGLEPASS: starting thread='$thread' knownUrls=${known.size}")
+            val state = SinglePassState(thread, known, onFinish, scanToEnd = isSinglePassScanToEndEnabled())
+            Log.i(TAG, "SINGLEPASS: starting thread='$thread' knownUrls=${known.size} scanToEnd=${state.scanToEnd}")
             mainHandler.post {
                 updateSinglePassNotification(state)
                 singlePassStep(state)
@@ -3072,6 +3138,11 @@ class InstagramReaderService : AccessibilityService() {
         }
         if (next != null) {
             state.processedTopThisPage = next.bounds.top
+            // s57: mark this as a fresh Reel (reset the retry counter). A retry
+            // re-taps the same Reel via retrySinglePassReel WITHOUT going through
+            // this picker, so its counter survives across attempts.
+            state.currentReelTop = next.bounds.top
+            state.currentReelRetries = 0
             openReelForSinglePass(state, next)
             return
         }
@@ -3139,18 +3210,31 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
         // A step "fails" when the chain didn't yield a URL — a full timeout
-        // OR the s55 fast-fail signal (viewer/share/copy broke). We advance
-        // past the Reel (processedTopThisPage was already set) and continue,
-        // WITHOUT blindly pressing BACK: on s54 device logs a failed tap left
-        // us on the thread and the 2x BACK exited the conversation, killing
-        // the sweep. Recover gently instead (see recoverToThreadThen).
+        // OR the s55 fast-fail signal (viewer/share/copy broke).
         if (!settled || url == null) {
-            state.failures++
             pendingCopy = null
+            // s57: retry a flaky Reel once before giving up. The dominant
+            // failure on device is a tap that lands mid-layout (right after a
+            // scroll) so the viewer never opens; re-tapping the same Reel
+            // after a settle usually succeeds. Without this the Reel — and the
+            // text messages captured under it — are silently skipped, exactly
+            // the bug the user hit ("não apanhava esse reel e o texto").
+            if (state.currentReelRetries < SINGLEPASS_MAX_RETRY) {
+                state.currentReelRetries++
+                Log.w(
+                    TAG,
+                    "SINGLEPASS: step failed (settled=$settled gotUrl=${url != null}) — retry " +
+                        "${state.currentReelRetries}/$SINGLEPASS_MAX_RETRY for Reel at top=${state.currentReelTop}."
+                )
+                retrySinglePassReel(state)
+                return
+            }
+            state.failures++
+            state.currentReelRetries = 0
             Log.w(
                 TAG,
-                "SINGLEPASS: step failed (settled=$settled gotUrl=${url != null}) failures=${state.failures} " +
-                    "— recovering to thread and continuing."
+                "SINGLEPASS: step failed after retries (failures=${state.failures}) — skipping Reel at " +
+                    "top=${state.currentReelTop} and continuing."
             )
             if (state.failures >= SINGLEPASS_MAX_FAILURES) {
                 Log.w(TAG, "SINGLEPASS: too many consecutive failures, stopping thread='${state.threadTitle}'.")
@@ -3161,15 +3245,20 @@ class InstagramReaderService : AccessibilityService() {
             return
         }
         state.failures = 0
+        state.currentReelRetries = 0
         when {
             url in state.knownBeforeRun -> {
                 state.knownInARow++
                 Log.i(TAG, "SINGLEPASS: URL already known before run (knownInARow=${state.knownInARow}) — $url")
-                if (state.knownInARow >= SINGLEPASS_INCREMENTAL_STOP) {
+                // s57: only stop early in "stop-at-known" mode. In scan-to-end
+                // mode (default) keep sweeping to the thread top regardless, so
+                // re-runs still reach older Reels that a cancelled first pass
+                // never got to.
+                if (!state.scanToEnd && state.knownInARow >= SINGLEPASS_INCREMENTAL_STOP) {
                     Log.i(
                         TAG,
                         "SINGLEPASS: reached already-scanned territory (${state.knownInARow} known in a row) " +
-                            "— stopping thread='${state.threadTitle}' early."
+                            "— stopping thread='${state.threadTitle}' early (scanToEnd=off)."
                     )
                     finishSinglePass(state, cancelled = false, reachedKnown = true)
                     return
@@ -3193,27 +3282,90 @@ class InstagramReaderService : AccessibilityService() {
     }
 
     /**
-     * s55 — return to the conversation after a failed step WITHOUT exiting
-     * it. If `message_list` is already visible (common case: the viewer
-     * never opened), proceeds immediately. Only presses BACK while we are
-     * NOT on the thread (stuck in the viewer / share sheet), up to
-     * [backsLeft] times, re-checking after each — so it never backs out of
-     * the conversation into the inbox and kills the sweep.
+     * s55/s57 — return to the conversation after a failed/retry step WITHOUT
+     * ever exiting it. Order of checks:
+     * 1. Already on the thread (`message_list` visible) → continue, no BACK.
+     *    Common case when a tap simply missed and the viewer never opened.
+     * 2. We've left Instagram entirely (package != IG — e.g. a stray BACK
+     *    bounced us to our own app) → re-navigate to the thread instead of
+     *    pressing BACK blindly (the s55 log showed blind BACKs walking out to
+     *    the inbox and killing the sweep).
+     * 3. Still inside IG but on a sub-screen (viewer / share sheet / profile)
+     *    → BACK once, wait a GENEROUS settle, re-check. The long settle is
+     *    critical: the old ~700ms re-check fired before the thread re-rendered
+     *    so it pressed BACK again and over-shot out of the conversation.
+     * 4. Out of BACK budget while still off-thread → re-navigate as a safe
+     *    fallback (loses scroll position, but never abandons the sweep).
      */
     private fun recoverToThreadThen(state: SinglePassState, backsLeft: Int, then: () -> Unit) {
         if (singlePassCancelled) { finishSinglePass(state, cancelled = true); return }
         val root = findIgApplicationWindow()?.root ?: rootInActiveWindow
-        val onThread = root != null &&
-            root.packageName?.toString() == IgSelectors.IG_PACKAGE &&
+        val pkg = root?.packageName?.toString()
+        val onThread = root != null && pkg == IgSelectors.IG_PACKAGE &&
             root.findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
                 .orEmpty().isNotEmpty()
-        if (onThread || backsLeft <= 0) {
+        if (onThread) {
             mainHandler.postDelayed({ then() }, SINGLEPASS_RETURN_SETTLE_MS)
             return
         }
-        Log.i(TAG, "SINGLEPASS: recovery BACK (backsLeft=$backsLeft, not on thread yet).")
+        if (pkg != IgSelectors.IG_PACKAGE) {
+            Log.w(TAG, "SINGLEPASS: recovery — left IG (pkg=$pkg), re-navigating to thread='${state.threadTitle}'.")
+            navigateToThreadAsync(state.threadTitle, attemptsLeft = NAV_MAX_ATTEMPTS) {
+                mainHandler.postDelayed({ then() }, SINGLEPASS_RETURN_SETTLE_MS)
+            }
+            return
+        }
+        if (backsLeft <= 0) {
+            Log.w(
+                TAG,
+                "SINGLEPASS: recovery — still off-thread after backs, re-navigating to thread='${state.threadTitle}'."
+            )
+            navigateToThreadAsync(state.threadTitle, attemptsLeft = NAV_MAX_ATTEMPTS) {
+                mainHandler.postDelayed({ then() }, SINGLEPASS_RETURN_SETTLE_MS)
+            }
+            return
+        }
+        Log.i(TAG, "SINGLEPASS: recovery BACK (backsLeft=$backsLeft, on IG sub-screen, not thread).")
         performGlobalAction(GLOBAL_ACTION_BACK)
-        mainHandler.postDelayed({ recoverToThreadThen(state, backsLeft - 1, then) }, BACK_AFTER_COPY_DELAY_MS + 300)
+        mainHandler.postDelayed({ recoverToThreadThen(state, backsLeft - 1, then) }, SINGLEPASS_RECOVER_RECHECK_MS)
+    }
+
+    /**
+     * s57 — re-tap the Reel we just failed to open. Recovers to the thread
+     * first (dismissing any half-open viewer/profile), then re-enumerates and
+     * finds the received Reel whose top is closest to
+     * [SinglePassState.currentReelTop]. If it's still in view we open it
+     * again; otherwise we give up the retry and fall back to the normal step.
+     */
+    private fun retrySinglePassReel(state: SinglePassState) {
+        recoverToThreadThen(state, backsLeft = 2) {
+            if (singlePassCancelled) { finishSinglePass(state, cancelled = true); return@recoverToThreadThen }
+            val root = findIgApplicationWindow()?.root ?: rootInActiveWindow
+            val messageList = root
+                ?.findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
+                ?.firstOrNull()
+            if (messageList == null) {
+                Log.w(TAG, "SINGLEPASS: retry could not find message_list — falling back to step.")
+                singlePassStep(state)
+                return@recoverToThreadThen
+            }
+            val target = enumerateReels(messageList)
+                .filter { it.bounds.width() > 0 && it.bounds.height() >= MIN_REEL_BUBBLE_HEIGHT_PX }
+                .filter { it.direction == Direction.RECEIVED }
+                .minByOrNull { kotlin.math.abs(it.bounds.top - state.currentReelTop) }
+            if (target != null &&
+                kotlin.math.abs(target.bounds.top - state.currentReelTop) <= SINGLEPASS_RETRY_MATCH_TOL_PX
+            ) {
+                Log.i(TAG, "SINGLEPASS: retrying Reel at top=${target.bounds.top} (wanted ~${state.currentReelTop}).")
+                openReelForSinglePass(state, target)
+            } else {
+                Log.w(
+                    TAG,
+                    "SINGLEPASS: Reel to retry no longer in view (wanted ~${state.currentReelTop}) — skipping."
+                )
+                singlePassStep(state)
+            }
+        }
     }
 
     private fun singlePassScrollUpPage(
@@ -3775,17 +3927,26 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s56"
+        private const val BUILD_TAG = "build=s57"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
         private const val COMPOSER_SETTLE_MS = 900L // context menu closes + reply preview + composer focus
         private const val SEND_SETTLE_MS = 500L // wait for the voice/gallery strip to become the Send button
         private const val TAP_DURATION_MS = 80L // short click gesture for opening a Reel bubble
-        private const val REEL_VIEWER_SETTLE_MS = 2000L // Reel viewer needs to load the video/controls
-        private const val SHARE_SHEET_SETTLE_MS = 1800L // IG share sheet loads the friends grid, needs more time
         private const val CLIPBOARD_READ_DELAY_MS = 700L // wait for IG to write the URL after clicking "Copiar ligação"
         private const val BACK_AFTER_COPY_DELAY_MS = 400L // pause between BACK gestures to close sheet + viewer
+
+        // s57 — poll the copy chain instead of fixed worst-case waits. The
+        // MIN_SETTLE is the grace before the first look; the POLL_TIMEOUT is
+        // the total budget before we declare the element missing. Together
+        // the happy path is ~0.7-1.2s/step instead of the old ~3.8s while
+        // slow frames still get MORE time than the old single fixed check.
+        private const val CHAIN_POLL_INTERVAL_MS = 120L
+        private const val REEL_VIEWER_MIN_SETTLE_MS = 700L
+        private const val REEL_VIEWER_POLL_TIMEOUT_MS = 2_400L
+        private const val SHARE_SHEET_MIN_SETTLE_MS = 550L
+        private const val SHARE_SHEET_POLL_TIMEOUT_MS = 2_400L
         private const val FOREGROUND_POLL_INTERVAL_MS = 200L
         private const val FOREGROUND_POLL_MAX_RETRIES = 30 // ~6s total, enough for task-switch animations
         private const val MIN_REEL_BUBBLE_HEIGHT_PX = 200 // ignore stubs that are almost fully scrolled off
@@ -4011,6 +4172,15 @@ class InstagramReaderService : AccessibilityService() {
         private const val SINGLEPASS_MAX_SCROLLS = 500
         private const val SINGLEPASS_MAX_FAILURES = 6
         private const val SINGLEPASS_INCREMENTAL_STOP = 4
+        // s57 — retry a Reel whose viewer failed to open (flaky mid-layout
+        // tap) this many times before skipping it. Re-tap only if a received
+        // Reel is still within this many px of the one we meant to open.
+        private const val SINGLEPASS_MAX_RETRY = 1
+        private const val SINGLEPASS_RETRY_MATCH_TOL_PX = 60
+        // s57 — settle after a recovery BACK before re-checking we're on the
+        // thread. Must be generous: a too-eager re-check pressed BACK again
+        // and over-shot out of the conversation (s55 device log).
+        private const val SINGLEPASS_RECOVER_RECHECK_MS = 1_300L
 
         // --- Context messages captured below a Reel (s53) ---
         private const val CONTEXT_MSG_MAX_PER_REEL = 8
@@ -4229,6 +4399,17 @@ class InstagramReaderService : AccessibilityService() {
          */
         const val PREF_INVERT_SWIPE = "invert_swipe_direction"
         const val PREF_INVERT_SWIPE_DEFAULT = false
+
+        /**
+         * s57 — single-pass sweep depth. When true (default) the
+         * "Descobrir + Preparar" sweep walks every received Reel up to the
+         * thread top, ignoring the "already-known" early stop; when false it
+         * stops after [SINGLEPASS_INCREMENTAL_STOP] consecutive Reels whose
+         * URL was already in the DB (fast incremental sync, handy while
+         * testing). Exposed as a toggle on the Home screen + Settings.
+         */
+        const val PREF_SINGLEPASS_SCAN_TO_END = "singlepass_scan_to_end"
+        const val PREF_SINGLEPASS_SCAN_TO_END_DEFAULT = true
 
         /**
          * Selection mode for the feed (spec §8). Controls whether the

@@ -8,11 +8,11 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-09-30 (sessão 56 — conversas conhecidas separadas dos Reels + botão "Conhecer conversa").
+**Última actualização:** 2026-09-30 (sessão 57 — single-pass mais rápido + retry de Reels falhados + recuperação que nunca sai da conversa + modo "até ao fim" vs "parar nos já recolhidos" + botões na Home + esquecer conversas).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s56`.
+**HEAD actual:** `build=s57`.
 
-**Recap sessões 46-56 (as próximas do estado corrente):**
+**Recap sessões 46-57 (as próximas do estado corrente):**
 
 - **s46:** `isThreadTopVisible(root)` detecta o header start-of-conversation via 4 selectors (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username` — capturados no dump da s45). Integrada em `locateReelWithScroll` (aborta backward budget cedo) e `doHistoryScroll` (para no topo real).
 - **s47/s47b:** instrumentação `seenAuthors` pré-filtro para expor o "Reel skipped mid-sweep" no log. `BATCH_MAX_FORWARD_SCROLLS` 5 → 15.
@@ -30,10 +30,16 @@
 - **s54 — atalho single-pass para a conversa aberta:** nova acção `ACTION_DISCOVER_PREPARE_CURRENT` + botão em Definições **"🔎 Preparar só a conversa aberta no IG"** → corre `discoverAndPrepareThread()` na conversa actual (via `runInInstagram`), **sem precisar de a seleccionar** em "Filtrar conversas". Resolve a lacuna de teste: depois de um reset a lista de conversas está vazia, e agora dá para preparar/testar uma conversa directamente.
 - **s55 — single-pass robusto (fix do 1.º teste em device):** o log da s54 mostrou que **o scroll do IG RESTAURA a posição** (bom!), mas ao abrir um Reel **a meio do layout** (topo da página, logo após o scroll) o viewer não abre; a cadeia detectava `share-not-found`, **não sinalizava** o varrimento (esperava 20s) e a recuperação com **2× BACK saía da conversa** → o varrimento morria à 1.ª falha. Correcções: (a) **fast-fail** — as falhas da cadeia (share/copy) sinalizam o varrimento de imediato (sem esperar 20s); (b) **recuperação suave** `recoverToThreadThen` — só carrega BACK enquanto NÃO está na conversa (nunca sai dela), por isso salta o Reel falhado e **continua até ao topo**; (c) `SINGLEPASS_SCROLL_SETTLE_MS` 700→1200 para reduzir taps a meio-layout; (d) sem dump gigante durante o varrimento.
 - **s56 — conversas conhecidas separadas dos Reels + "Conhecer conversa":** nova tabela Room `known_conversations` (v6→**v7**) desacopla as conversas dos `reels`. (1) Botão **"➕ Conhecer esta conversa (aberta no IG)"** (`ACTION_KNOW_CURRENT_CONVERSATION`) regista a conversa aberta SEM descobrir Reels, para a poderes seleccionar em "Filtrar conversas" e só depois correr o "🔎 Descobrir + Preparar tudo". (2) A lista de "Filtrar conversas" passa a ser a UNIÃO de `known_conversations` + threads com Reels (via `combine` no ViewModel). (3) O 🗑 reset **já não faz desaparecer as conversas** (só apaga `reels` + fila; `known_conversations` persiste). Qualquer descoberta/preparação também regista a conversa (`rememberKnownConversation`).
+- **s57 — single-pass mais rápido + robusto + configurável + acções na Home (2.º teste em device, `Newtests2.txt`):** o log mostrou o varrimento a apanhar 13 Reels mas (a) lento (~11s/Reel, o utilizador cancelou), (b) a **falhar Reels no topo da página logo após o scroll** (reel #8 `top=280`: `sender not found`+`share button not found` → viewer não abriu) e a **saltá-los** (incluindo o texto por baixo), e (c) numa re-execução a recuperação por BACK **ainda saiu do IG** e matou o varrimento. Além disso, em re-execução parava cedo nos Reels já conhecidos, nunca chegando aos mais antigos.
+  - **Velocidade:** a cadeia copy (`dispatchOpenReelViewerTap`→`tapShareInReelViewer`→`clickCopyLinkInShareSheet`) deixou de usar esperas fixas (2000+1800ms) e passa a **fazer polling** (`pollForNodeAcrossWindows`, novo helper): avança assim que o viewer/partilha aparece (caminho rápido ~0.7-1.2s/passo em vez de ~3.8s) e dá MAIS tempo total antes de declarar falha. Remove `REEL_VIEWER_SETTLE_MS`/`SHARE_SHEET_SETTLE_MS`.
+  - **Não saltar Reels:** `retrySinglePassReel` — quando o viewer não abre, faz **retry 1×** (re-tap do mesmo Reel após settle, casando por `top` ±60px) antes de saltar. Campos novos em `SinglePassState`: `currentReelTop`, `currentReelRetries`.
+  - **Recuperação que nunca sai da conversa:** `recoverToThreadThen` reescrito — se já está na conversa não faz BACK; se **saiu do IG** re-navega (`navigateToThreadAsync`) em vez de martelar BACK; se está num sub-ecrã do IG faz 1 BACK e **re-verifica após 1300ms** (o settle curto anterior levava a um 2.º BACK que saía da conversa).
+  - **"Até ao fim" vs "parar nos já recolhidos":** nova preferência `PREF_SINGLEPASS_SCAN_TO_END` (default **ligado** = vai até ao topo da conversa ignorando a paragem incremental). Toggle na Home e nas Definições.
+  - **Acções na Home:** `MainActivity` (+ `HomeViewModel`) ganha os botões "🔎 Descobrir + Preparar tudo / só a conversa aberta / cancelar", o toggle "até ao fim", **"🗑 Esquecer conversas…"** (diálogo com escolha *todas / apenas X / todas exceto X*) e "🗑 Apagar Reels guardados" — para não ser preciso ir às Definições. Esquecer conversas apaga Reels + fila + `known_conversations` + `tracked_threads` dessas conversas (novos DAOs bulk `deleteByThreads`/`removeAll`/`deleteForThreads`); o reset continua a manter as conversas.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s56 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s57 ...)`.
 2. **Ler primeiro:** `AGENTS.md` na raiz (regras de trabalho: commits, autoria, autonomia, testes), esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `instagram/IgSelectors.kt` — `Thread` tem os 4 selectors do header (s46), `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` (s49), **s50:** `REPLY_CONTEXT_INFO_TEXT`.
@@ -266,10 +272,13 @@ Já entregue no primeiro commit:
 **Feito na s52:** single-pass **"🔎 Descobrir + Preparar tudo"** — não perde Reels do mesmo autor (dedup por `reelUrl`).
 **Feito na s53:** captura das mensagens junto ao Reel → `ReelEntity.contextMessages` (Room v6) → mostradas no feed.
 **Feito na s54:** atalho **"🔎 Preparar só a conversa aberta no IG"** (corre o single-pass na conversa actual sem a seleccionar).
+**Feito na s55:** single-pass robusto (fast-fail + recuperação suave).
+**Feito na s56:** conversas conhecidas separadas dos Reels + "➕ Conhecer esta conversa".
+**Feito na s57:** single-pass **mais rápido** (polling em vez de esperas fixas) + **retry** de Reels falhados + recuperação que **nunca sai da conversa** + toggle **"até ao fim" vs "parar nos já recolhidos"** + acções na **Home** (Descobrir+Preparar, **Esquecer conversas** com escolha todas/apenas/exceto, Apagar Reels).
 
-**Próxima etapa (s55+) — validar no device e afinar.**
-- Prioridade: correr `SinglePassNoLoss` (abaixo) e reportar sobretudo a **F1**: o varrimento chega ao topo, ou faz loop no fundo? Se faz loop → o viewer do IG não restaura a posição de scroll; muda-se a estratégia do varrimento (s55 — p.ex. re-localizar por posição/âncora em vez de assumir restauração).
-- Confirmar a captura de mensagens (`ContextMessages`, abaixo) e afinar constantes (`SINGLEPASS_KEEP_FRACTION`, drag, settles).
+**Próxima etapa (s58+) — validar a s57 no device.**
+- Prioridade: correr `SinglePassFast` (abaixo) — confirmar que (1) está **mais rápido**, (2) **não salta** Reels (retry a funcionar, incl. o que tem mensagem por baixo), (3) chega a `thread top reached` (com `scanToEnd` ligado) **sem sair do IG**, e (4) o **Esquecer conversas** funciona nos 3 modos.
+- Se ainda saltar/falhar Reels, capturar novo logcat em `docs/screen-dumps/` e reportar quantos `SINGLEPASS: step failed after retries` aparecem.
 
 #### Teste — "Descobrir + Preparar não perde Reels do mesmo amigo" (`SinglePassNoLoss`) [s52]
 
@@ -302,6 +311,53 @@ Já entregue no primeiro commit:
 - **F1 (não chega ao topo):** o `SINGLEPASS: thread top reached` **nunca** aparece e a passagem pára cedo. Na s54 isto era o varrimento a morrer à 1.ª falha de Reel — corrigido na s55 (fast-fail + recuperação suave). Se voltar a acontecer, reportar quantos `SINGLEPASS: step failed` aparecem e se há `no message_list`.
 - **F2:** faltam Reels do mesmo autor no feed → dedup/persist a colapsar; ver `COPY_LINK: promoted/inserted` nos logs.
 - **F3:** `SINGLEPASS: step timed out` em quase todos → a cadeia viewer→share→copy partiu (selector mudou); fazer dump.
+
+---
+
+#### Teste — "Single-pass rápido, sem saltar Reels, sem sair da conversa" (`SinglePassFast`) [s57]
+
+**O que se está a validar:** as correcções da s57 — (a) mais rápido (polling), (b) retry de Reel que não abre o viewer (não salta o Reel nem o texto por baixo), (c) recuperação que nunca sai da conversa, (d) modo "até ao fim" e (e) botões na Home.
+
+**Preparação:**
+1. `git pull`; recompilar e reinstalar em `build=s57`. Confirmar `Action receiver registered (build=s57 ...)`.
+2. Na **Home** (ecrã inicial), confirmar a secção **"Descobrir + Preparar (sem perdas)"** com o toggle **"Percorrer até ao fim da conversa"** LIGADO.
+3. No IG, abrir uma conversa com vários Reels recebidos (idealmente com pelo menos um Reel que tenha **uma mensagem de texto logo por baixo**). `adb logcat -s IGReaderService`.
+
+**Passos:**
+1. Com a conversa aberta no IG → Home → **"🔎 Preparar só a conversa aberta no IG"** (ou selecciona em Definições → Filtrar conversas e usa "🔎 Descobrir + Preparar tudo").
+2. Deixar correr até à notif de conclusão (deve ser visivelmente mais rápido que antes).
+
+**O que confirmar no logcat:**
+- `SINGLEPASS: starting thread='<titulo>' knownUrls=... scanToEnd=true`.
+- Passos mais rápidos: menos ~2s entre `opening reel` e `Reel URL =` (o polling avança assim que o viewer aparece).
+- Quando um Reel não abre à 1.ª: `SINGLEPASS: step failed ... — retry 1/1 for Reel at top=...` seguido de `SINGLEPASS: retrying Reel at top=...` e (idealmente) `captured new URL` — **o Reel NÃO é saltado**.
+- **Nunca** aparece `IG no longer foreground` a meio por causa de um BACK; se sair do IG, aparece `recovery — left IG ... re-navigating` (recupera) em vez de morrer.
+- No fim, com scanToEnd: `SINGLEPASS: thread top reached ...` (não `reached already-scanned territory`).
+
+**O que confirmar na app:** o Reel que tinha mensagem por baixo aparece no feed COM o bloco "💬 Mensagens com o Reel".
+
+**Passa se:** mais rápido que a s56; Reels que falham à 1.ª são recuperados pelo retry; chega ao topo sem sair da conversa; o Reel com texto por baixo é apanhado.
+**Falha se:**
+- **F1:** ainda salta Reels → ver quantos `step failed after retries`; pode ser preciso 2 retries ou mais settle.
+- **F2:** sai do IG a meio na mesma → reportar a linha à volta do `recovery`.
+- **F3:** desligar o toggle "até ao fim" e reconfirmar que aí pára em `reached already-scanned territory`.
+
+---
+
+#### Teste — "Esquecer conversas (todas / apenas X / exceto X)" (`ForgetConversations`) [s57]
+
+**O que se está a validar:** o novo botão **"🗑 Esquecer conversas…"** na Home remove só as conversas escolhidas (Reels + fila + lista de conversas), ao contrário do reset (que mantém as conversas).
+
+**Preparação:** ter ≥2 conversas conhecidas (com Reels e/ou registadas com "➕ Conhecer esta conversa").
+
+**Passos + o que confirmar:**
+1. Home → **"🗑 Esquecer conversas…"** → modo **"Apenas as selecionadas"** → escolher 1 conversa → **Esquecer**. Confirmar que ESSA desaparece de "Filtrar conversas" e os seus Reels somem do feed; as outras ficam.
+2. Repetir com **"Todas exceto as selecionadas"** (escolher a que se quer manter) → só essa fica.
+3. Repetir com **"Todas as conversas"** → lista de conversas e feed ficam vazios.
+4. Reconfirmar que **"🗑 Apagar Reels guardados"** (reset) apaga só os Reels mas **mantém** as conversas em "Filtrar conversas".
+
+**Passa se:** cada modo remove exactamente o conjunto certo; o reset continua a preservar as conversas.
+**Falha se:** esquecer uma conversa não a tira da lista (ainda tem Reels) → ver se `deleteByThreads` apagou; ou o reset apaga conversas (regressão da s56).
 
 ---
 
@@ -964,6 +1020,18 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Ficheiros:** `data/KnownConversationEntity.kt` + `data/KnownConversationDao.kt` (novos), `data/AppDatabase.kt` (v7 + DAO), `service/InstagramReaderService.kt` (helper + acção + registo + 4 chamadas + `BUILD_TAG=s56`), `ui/settings/SettingsViewModel.kt` (combine), `ui/settings/SettingsActivity.kt` (botão), `res/values/strings.xml`.
 - **Logs de teste** movidos para `docs/screen-dumps/` (convenção existente — pôr os próximos aí).
 - **Validação:** kotlinc (JDK 21) parse-check — 0 erros de sintaxe; símbolos novos resolvem; `strings.xml` válido. Device pelo utilizador.
+
+### 2026-09-30 — Sessão 57 (Ricardo + Copilot CLI) — single-pass rápido/robusto/configurável + acções na Home + esquecer conversas
+
+- **2.º teste em device (`docs/screen-dumps/Newtests2.txt`, build=s56):** o varrimento apanhou 13 Reels mas o utilizador reportou: (a) **lento** (~11s/Reel; cancelou a meio), (b) **saltou Reels** e (c) não apanhou um Reel que tinha **uma mensagem por baixo**. O log confirma: reel #8 `top=280` logo após um scroll → `sender_username_or_fullname not found` + `direct_share_button not found` (viewer não abriu) → Reel saltado. Numa re-execução, a recuperação por BACK **ainda saiu do IG** (`IG no longer foreground`) e matou o varrimento; e o `INCREMENTAL_STOP` parava cedo nos já-conhecidos, nunca chegando aos Reels mais antigos.
+- **Correcções:**
+  1. **Velocidade (polling em vez de esperas fixas):** novo helper `pollForNodeAcrossWindows(minDelay, timeout, interval, match, onFound, onTimeout)`. A cadeia `tapShareInReelViewer`/`clickCopyLinkInShareSheet` avança assim que o botão aparece (caminho rápido ~0.7-1.2s vs ~3.8s fixos) e dá mais tempo total antes de falhar. Removidos `REEL_VIEWER_SETTLE_MS`/`SHARE_SHEET_SETTLE_MS`; novos `CHAIN_POLL_INTERVAL_MS`/`*_MIN_SETTLE_MS`/`*_POLL_TIMEOUT_MS`.
+  2. **Retry de Reel falhado:** `retrySinglePassReel` — quando o viewer não abre, faz **1 retry** (re-tap do mesmo Reel após settle, casando pelo `top` ±`SINGLEPASS_RETRY_MATCH_TOL_PX=60`) antes de saltar. `SinglePassState` ganha `currentReelTop`/`currentReelRetries`. Resolve o "não apanhava esse reel e o texto".
+  3. **Recuperação nunca sai da conversa:** `recoverToThreadThen` reescrito — se está na conversa não faz BACK; se **saiu do IG** re-navega (`navigateToThreadAsync`) em vez de martelar BACK; se está num sub-ecrã do IG faz 1 BACK e **re-verifica após `SINGLEPASS_RECOVER_RECHECK_MS=1300`** (o re-check curto anterior provocava um 2.º BACK que saía da conversa).
+  4. **Profundidade configurável:** `PREF_SINGLEPASS_SCAN_TO_END` (default **ligado** = vai até ao topo ignorando a paragem incremental; desligado = pára nos já-recolhidos, útil para testes). `onSinglePassReelDone` só faz `reachedKnown` quando `!scanToEnd`.
+  5. **Acções na Home:** `MainActivity` reescrito + novo `HomeViewModel`. Home ganha "🔎 Descobrir + Preparar tudo / só a conversa aberta / cancelar", o toggle "até ao fim", **"🗑 Esquecer conversas…"** (diálogo *todas / apenas X / todas exceto X*) e "🗑 Apagar Reels guardados". Esquecer conversas apaga Reels + fila + `known_conversations` + `tracked_threads` dessas conversas (DAOs bulk novos: `ReelDao.deleteByThreads`, `KnownConversationDao.removeAll`, `TrackedThreadDao.removeAll`, `PendingActionDao.deleteForThreads`); o reset (s51) continua a manter as conversas. O mesmo toggle também nas Definições.
+- **Ficheiros:** `service/InstagramReaderService.kt` (cadeia com polling, retry, recovery, scan-mode, prefs/constantes, `BUILD_TAG=s57`), `MainActivity.kt` (reescrito) + `HomeViewModel.kt` (novo), `data/{ReelDao,KnownConversationDao,TrackedThreadDao,PendingActionDao}.kt` (bulk deletes), `ui/settings/SettingsActivity.kt` (toggle), `res/values/strings.xml`.
+- **Validação no ambiente do agente:** kotlinc (JDK 21) parse-check — 0 erros de sintaxe/estrutura nos ficheiros alterados (restantes são unresolved androidx/`R`/Room = baseline sem classpath); recursos de string e acessores de DAO referenciados confirmados por grep; revisão por agente `code-review`. Comportamento no device pelo utilizador (bateria `SinglePassFast`, §6.1).
 
 ---
 
