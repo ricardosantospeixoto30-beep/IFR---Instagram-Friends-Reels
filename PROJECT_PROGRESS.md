@@ -8,11 +8,11 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-09-30 (sessão 54 — atalho "Descobrir + Preparar" para a conversa aberta).
+**Última actualização:** 2026-09-30 (sessão 55 — single-pass robusto: não morre numa falha de Reel).
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s54`.
+**HEAD actual:** `build=s55`.
 
-**Recap sessões 46-54 (as próximas do estado corrente):**
+**Recap sessões 46-55 (as próximas do estado corrente):**
 
 - **s46:** `isThreadTopVisible(root)` detecta o header start-of-conversation via 4 selectors (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username` — capturados no dump da s45). Integrada em `locateReelWithScroll` (aborta backward budget cedo) e `doHistoryScroll` (para no topo real).
 - **s47/s47b:** instrumentação `seenAuthors` pré-filtro para expor o "Reel skipped mid-sweep" no log. `BATCH_MAX_FORWARD_SCROLLS` 5 → 15.
@@ -28,10 +28,11 @@
 - **s52 — single-pass "Descobrir + Preparar" (não perder Reels):** nova acção `ACTION_DISCOVER_PREPARE_ALL` + botão em Definições **"🔎 Descobrir + Preparar tudo"**. Varre cada conversa seleccionada e ABRE cada Reel recebido para capturar o URL, reutilizando a cadeia validada viewer→Partilhar→Copiar→`persistCopiedReel` (dedup por `reelUrl`). Como cada Reel fica com URL, N Reels do mesmo autor = N linhas — **não colapsa nem perde**. Varre de baixo (mais recente) para cima por "páginas" de viewport (cutoff por página evita reabrir a sobreposição), pára no topo real (`isThreadTopVisible`) e tem **paragem incremental** (pára após `SINGLEPASS_INCREMENTAL_STOP=4` URLs seguidos já conhecidos). Instrumentado (`SINGLEPASS:` no log). **⚠ Assume que fechar o viewer restaura a posição de scroll da conversa — a validar no device (§6.1).** A correcção (não perder) é garantida pelo dedup-por-URL mesmo que a eficiência precise de afinação.
 - **s53 — mensagens junto ao Reel (spec §5):** `enumerateReels` passa a capturar as mensagens de texto (`direct_text_message_text_view`) logo abaixo de cada Reel — o que o amigo enviou com o Reel + as minhas respostas — com direção via `sender_avatar`. Guardadas em `ReelEntity.contextMessages` (JSON; Room v5→**v6**, migração destrutiva — dados regeneráveis) e mostradas no feed por baixo do Reel (`ContextMessagesBlock`). Threaded por todos os caminhos: descoberta (`Snapshot`), enrichment on-demand/batch e single-pass (via `PendingCopy`→`persistCopiedReel`). Caps: `CONTEXT_MSG_MAX_PER_REEL=8`, `CONTEXT_MSG_MAX_LEN=400`.
 - **s54 — atalho single-pass para a conversa aberta:** nova acção `ACTION_DISCOVER_PREPARE_CURRENT` + botão em Definições **"🔎 Preparar só a conversa aberta no IG"** → corre `discoverAndPrepareThread()` na conversa actual (via `runInInstagram`), **sem precisar de a seleccionar** em "Filtrar conversas". Resolve a lacuna de teste: depois de um reset a lista de conversas está vazia, e agora dá para preparar/testar uma conversa directamente.
+- **s55 — single-pass robusto (fix do 1.º teste em device):** o log da s54 mostrou que **o scroll do IG RESTAURA a posição** (bom!), mas ao abrir um Reel **a meio do layout** (topo da página, logo após o scroll) o viewer não abre; a cadeia detectava `share-not-found`, **não sinalizava** o varrimento (esperava 20s) e a recuperação com **2× BACK saía da conversa** → o varrimento morria à 1.ª falha. Correcções: (a) **fast-fail** — as falhas da cadeia (share/copy) sinalizam o varrimento de imediato (sem esperar 20s); (b) **recuperação suave** `recoverToThreadThen` — só carrega BACK enquanto NÃO está na conversa (nunca sai dela), por isso salta o Reel falhado e **continua até ao topo**; (c) `SINGLEPASS_SCROLL_SETTLE_MS` 700→1200 para reduzir taps a meio-layout; (d) sem dump gigante durante o varrimento.
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s54 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s55 ...)`.
 2. **Ler primeiro:** `AGENTS.md` na raiz (regras de trabalho: commits, autoria, autonomia, testes), esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `instagram/IgSelectors.kt` — `Thread` tem os 4 selectors do header (s46), `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` (s49), **s50:** `REPLY_CONTEXT_INFO_TEXT`.
@@ -253,6 +254,7 @@ Já entregue no primeiro commit:
 - ✅ **s52 — single-pass "Descobrir + Preparar" (`ACTION_DISCOVER_PREPARE_ALL` + botão em Definições): varre cada conversa, abre cada Reel recebido, captura o URL e dedup por `reelUrl` → não colapsa nem perde Reels do mesmo autor. Instrumentado; a validar no device (§6.1, teste `SinglePassNoLoss`).**
 - ✅ **s53 — mensagens junto ao Reel (spec §5): `enumerateReels` captura o texto (`direct_text_message_text_view`) abaixo de cada Reel (amigo + minhas respostas) → `ReelEntity.contextMessages` (Room v6) → mostrado no feed (`ContextMessagesBlock`). A validar no device.**
 - ✅ **s54 — atalho "🔎 Preparar só a conversa aberta no IG" (`ACTION_DISCOVER_PREPARE_CURRENT`) em Definições: corre o single-pass na conversa actual sem a seleccionar (facilita testar 1 conversa). A validar no device.**
+- ✅ **s55 — single-pass robusto: fast-fail das falhas da cadeia (não espera 20s) + recuperação suave que não sai da conversa (salta o Reel falhado e continua até ao topo) + mais settle após scroll. Fix do 1.º teste em device (NewTests.txt).**
 
 ### 6.1 Próxima sessão — arranque
 
@@ -272,7 +274,7 @@ Já entregue no primeiro commit:
 **O que se está a validar:** a nova acção abre cada Reel recebido de uma conversa, captura o URL e cria UMA linha por Reel (dedup por `reelUrl`), incluindo vários Reels do mesmo autor — sem colapsar nem perder. E que chega ao topo real da conversa.
 
 **Preparação:**
-1. `git pull`; recompilar e reinstalar em `build=s54`. Confirmar no logcat `Action receiver registered (build=s54 ...)`.
+1. `git pull`; recompilar e reinstalar em `build=s55`. Confirmar no logcat `Action receiver registered (build=s55 ...)`.
 2. (opcional) Definições → **🗑 Apagar todos os Reels guardados** (reset, para contar do zero).
 3. No Instagram, **abrir uma conversa** com ≥2 Reels do MESMO amigo/autor (para provar que não colapsa). Curta de preferência (o varrimento é lento).
 4. `adb logcat -s IGReaderService`.
@@ -295,7 +297,7 @@ Já entregue no primeiro commit:
 
 **Passa se:** nº de Reels no feed dessa conversa == nº real (sem colapsar os do mesmo autor); o varrimento chega ao topo; sem crash.
 **Falha se:**
-- **F1 (loop — o teste crítico):** o log mostra o varrimento a reabrir sempre os mesmos Reels e **nunca** `thread top reached` → o viewer do IG **não** restaura a posição de scroll ao fechar. Reporta isto: muda-se a estratégia do varrimento na s52b.
+- **F1 (não chega ao topo):** o `SINGLEPASS: thread top reached` **nunca** aparece e a passagem pára cedo. Na s54 isto era o varrimento a morrer à 1.ª falha de Reel — corrigido na s55 (fast-fail + recuperação suave). Se voltar a acontecer, reportar quantos `SINGLEPASS: step failed` aparecem e se há `no message_list`.
 - **F2:** faltam Reels do mesmo autor no feed → dedup/persist a colapsar; ver `COPY_LINK: promoted/inserted` nos logs.
 - **F3:** `SINGLEPASS: step timed out` em quase todos → a cadeia viewer→share→copy partiu (selector mudou); fazer dump.
 
@@ -938,6 +940,17 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Reutilização total:** zero lógica nova de varrimento — apenas um novo ponto de entrada para `discoverAndPrepareThread()` (que já posta a notif de conclusão quando `onFinish==null`).
 - **Ficheiros:** `service/InstagramReaderService.kt` (acção + registo + handler, `BUILD_TAG=s54`), `ui/settings/SettingsActivity.kt` (botão + hint), `res/values/strings.xml` (`settings_singlepass_current_*`).
 - **Validação no ambiente do agente:** kotlinc (JDK 21) parse-check — 0 erros de sintaxe; símbolos resolvem; `strings.xml` válido. Device pelo utilizador.
+
+### 2026-09-30 — Sessão 55 (Ricardo + Copilot CLI) — single-pass robusto (fix do 1.º teste em device)
+
+- **Teste em device (`NewTests.txt`, build=s54):** o single-pass captura URLs (#1, #2) e **o scroll do IG restaura a posição** — a suposição crítica F1 **está OK**. MAS morria à 1.ª falha: ao abrir o Reel do topo logo após um scroll (ex.: `this_is_me_mochi` top=267), o dump mostrava a bolha **a meio do layout** (bounds de filhos invertidos, ex. `title_text [263,267][551,122]`) → o viewer não abria → `direct_share_button not found`.
+- **3 bugs encadeados corrigidos:**
+  1. **Sem sinal de falha:** `tapShareInReelViewer`/`clickCopyLinkInShareSheet` retornavam sem avisar o varrimento → 20s de timeout por Reel falhado. **Fix:** nas branches de falha, se `singlePassInProgress`, pôr `singlePassStepUrl=null; singlePassStepSettled=true` (fast-fail).
+  2. **Recuperação saía da conversa:** a falha fazia 2× BACK; como o viewer nunca abriu, estávamos na conversa e o BACK **saía** dela → `no message_list` → fim. **Fix:** `recoverToThreadThen(backsLeft=2)` — só carrega BACK enquanto NÃO há `message_list` (nunca sai da conversa); depois salta o Reel (via `processedTopThisPage`) e continua.
+  3. **Tap a meio-layout:** `SINGLEPASS_SCROLL_SETTLE_MS` 700→1200 para o RecyclerView assentar antes de enumerar/tocar. Dump gigante suprimido durante o varrimento.
+- **Efeito:** um Reel que não abra deixa de matar o varrimento — é saltado e a passagem continua até `thread top reached`. Não-perder continua garantido pelo dedup-por-URL; Reels saltados podem ser apanhados numa 2.ª passagem.
+- **Ficheiros:** `service/InstagramReaderService.kt` (fast-fail nas 3 branches + `onSinglePassReelDone` reescrito + `recoverToThreadThen` + constantes + `BUILD_TAG=s55`).
+- **Validação:** kotlinc (JDK 21) parse-check 0 erros; símbolos resolvem. Re-testar `SinglePassNoLoss` no device.
 
 ---
 

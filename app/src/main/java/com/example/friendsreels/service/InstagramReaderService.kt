@@ -594,7 +594,11 @@ class InstagramReaderService : AccessibilityService() {
         val shareNode = findFirstNodeAcrossWindows { it.viewIdResourceName == shareId }
         if (shareNode == null) {
             Log.w(TAG, "SHARE_IN_VIEWER: '${IgSelectors.ReelViewer.UFI_SHARE_BUTTON}' not found. Viewer failed to open?")
-            dumpAllWindows("share-not-found")
+            if (!singlePassInProgress) dumpAllWindows("share-not-found")
+            // s55: signal the single-pass sweep immediately (settled, url=null)
+            // so it advances to the next Reel instead of waiting the 20s step
+            // timeout. Viewer never opened → we're still on the thread.
+            if (singlePassInProgress) { singlePassStepUrl = null; singlePassStepSettled = true }
             return
         }
         val bounds = Rect().also { shareNode.getBoundsInScreen(it) }
@@ -624,13 +628,15 @@ class InstagramReaderService : AccessibilityService() {
         }
         if (copyNode == null) {
             Log.w(TAG, "COPY_LINK: 'Copiar ligação' not found in share sheet (labels=$labels).")
-            dumpAllWindows("copy-link-not-found")
+            if (!singlePassInProgress) dumpAllWindows("copy-link-not-found")
+            if (singlePassInProgress) { singlePassStepUrl = null; singlePassStepSettled = true }
             return
         }
         val bounds = Rect().also { copyNode.getBoundsInScreen(it) }
         val ok = clickWithGestureFallback(copyNode, bounds, "COPY_LINK")
         if (!ok) {
             Log.w(TAG, "COPY_LINK: click on 'Copiar ligação' failed via both performAction and dispatchGesture.")
+            if (singlePassInProgress) { singlePassStepUrl = null; singlePassStepSettled = true }
             return
         }
         mainHandler.postDelayed({ readReelUrlFromClipboard() }, CLIPBOARD_READ_DELAY_MS)
@@ -695,6 +701,7 @@ class InstagramReaderService : AccessibilityService() {
             Log.i(TAG, "COPY_LINK: launched ClipboardCaptureActivity to bridge the read.")
         } catch (e: Exception) {
             Log.w(TAG, "COPY_LINK: failed to launch ClipboardCaptureActivity", e)
+            if (singlePassInProgress) { singlePassStepUrl = null; singlePassStepSettled = true }
         }
     }
 
@@ -3084,61 +3091,82 @@ class InstagramReaderService : AccessibilityService() {
             finishSinglePass(state, cancelled = true)
             return
         }
-        if (!settled) {
+        // A step "fails" when the chain didn't yield a URL — a full timeout
+        // OR the s55 fast-fail signal (viewer/share/copy broke). We advance
+        // past the Reel (processedTopThisPage was already set) and continue,
+        // WITHOUT blindly pressing BACK: on s54 device logs a failed tap left
+        // us on the thread and the 2x BACK exited the conversation, killing
+        // the sweep. Recover gently instead (see recoverToThreadThen).
+        if (!settled || url == null) {
             state.failures++
+            pendingCopy = null
             Log.w(
                 TAG,
-                "SINGLEPASS: step timed out (viewer/share/copy failed) failures=${state.failures} — " +
-                    "recovering with BACK."
+                "SINGLEPASS: step failed (settled=$settled gotUrl=${url != null}) failures=${state.failures} " +
+                    "— recovering to thread and continuing."
             )
-            performGlobalAction(GLOBAL_ACTION_BACK)
-            mainHandler.postDelayed({ performGlobalAction(GLOBAL_ACTION_BACK) }, BACK_AFTER_COPY_DELAY_MS)
-            pendingCopy = null
             if (state.failures >= SINGLEPASS_MAX_FAILURES) {
                 Log.w(TAG, "SINGLEPASS: too many consecutive failures, stopping thread='${state.threadTitle}'.")
                 finishSinglePass(state, cancelled = false)
                 return
             }
-            mainHandler.postDelayed({ singlePassStep(state) }, SINGLEPASS_RETURN_SETTLE_MS)
+            recoverToThreadThen(state, backsLeft = 2) { singlePassStep(state) }
             return
         }
         state.failures = 0
-        if (url != null) {
-            when {
-                url in state.knownBeforeRun -> {
-                    state.knownInARow++
+        when {
+            url in state.knownBeforeRun -> {
+                state.knownInARow++
+                Log.i(TAG, "SINGLEPASS: URL already known before run (knownInARow=${state.knownInARow}) — $url")
+                if (state.knownInARow >= SINGLEPASS_INCREMENTAL_STOP) {
                     Log.i(
                         TAG,
-                        "SINGLEPASS: URL already known before run (knownInARow=${state.knownInARow}) — $url"
+                        "SINGLEPASS: reached already-scanned territory (${state.knownInARow} known in a row) " +
+                            "— stopping thread='${state.threadTitle}' early."
                     )
-                    if (state.knownInARow >= SINGLEPASS_INCREMENTAL_STOP) {
-                        Log.i(
-                            TAG,
-                            "SINGLEPASS: reached already-scanned territory (${state.knownInARow} known in a " +
-                                "row) — stopping thread='${state.threadTitle}' early."
-                        )
-                        finishSinglePass(state, cancelled = false, reachedKnown = true)
-                        return
-                    }
-                }
-                state.capturedThisRun.add(url) -> {
-                    state.newReels++
-                    state.knownInARow = 0
-                    Log.i(TAG, "SINGLEPASS: captured new URL (#${state.newReels} this run) — $url")
-                }
-                else -> {
-                    // Same URL seen twice this run (overlap re-open) — dedup no-op.
-                    state.knownInARow = 0
-                    Log.i(TAG, "SINGLEPASS: URL already captured this run (overlap re-open) — $url")
+                    finishSinglePass(state, cancelled = false, reachedKnown = true)
+                    return
                 }
             }
-        } else {
-            Log.w(TAG, "SINGLEPASS: step settled with empty URL — skipping.")
+            state.capturedThisRun.add(url) -> {
+                state.newReels++
+                state.knownInARow = 0
+                Log.i(TAG, "SINGLEPASS: captured new URL (#${state.newReels} this run) — $url")
+            }
+            else -> {
+                // Same URL seen twice this run (overlap re-open) — dedup no-op.
+                state.knownInARow = 0
+                Log.i(TAG, "SINGLEPASS: URL already captured this run (overlap re-open) — $url")
+            }
         }
         updateSinglePassNotification(state)
-        // Wait for the 2x BACK (scheduled by handleClipboardCaptured) to
-        // return us to the thread before enumerating again.
+        // On success handleClipboardCaptured scheduled 2x BACK to return to
+        // the thread; wait for it before enumerating again.
         mainHandler.postDelayed({ singlePassStep(state) }, SINGLEPASS_RETURN_SETTLE_MS)
+    }
+
+    /**
+     * s55 — return to the conversation after a failed step WITHOUT exiting
+     * it. If `message_list` is already visible (common case: the viewer
+     * never opened), proceeds immediately. Only presses BACK while we are
+     * NOT on the thread (stuck in the viewer / share sheet), up to
+     * [backsLeft] times, re-checking after each — so it never backs out of
+     * the conversation into the inbox and kills the sweep.
+     */
+    private fun recoverToThreadThen(state: SinglePassState, backsLeft: Int, then: () -> Unit) {
+        if (singlePassCancelled) { finishSinglePass(state, cancelled = true); return }
+        val root = findIgApplicationWindow()?.root ?: rootInActiveWindow
+        val onThread = root != null &&
+            root.packageName?.toString() == IgSelectors.IG_PACKAGE &&
+            root.findAccessibilityNodeInfosByViewId(IgSelectors.id(IgSelectors.Thread.MESSAGE_LIST))
+                .orEmpty().isNotEmpty()
+        if (onThread || backsLeft <= 0) {
+            mainHandler.postDelayed({ then() }, SINGLEPASS_RETURN_SETTLE_MS)
+            return
+        }
+        Log.i(TAG, "SINGLEPASS: recovery BACK (backsLeft=$backsLeft, not on thread yet).")
+        performGlobalAction(GLOBAL_ACTION_BACK)
+        mainHandler.postDelayed({ recoverToThreadThen(state, backsLeft - 1, then) }, BACK_AFTER_COPY_DELAY_MS + 300)
     }
 
     private fun singlePassScrollUpPage(
@@ -3700,7 +3728,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s54"
+        private const val BUILD_TAG = "build=s55"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -3920,7 +3948,10 @@ class InstagramReaderService : AccessibilityService() {
         // Wait after the 2x BACK (scheduled by handleClipboardCaptured) so the
         // thread is restored before we enumerate/scroll again.
         private const val SINGLEPASS_RETURN_SETTLE_MS = 1_000L
-        private const val SINGLEPASS_SCROLL_SETTLE_MS = 700L
+        // s55: more settle after a scroll — the s54 device log showed the top
+        // Reel being tapped mid-layout (inverted child bounds) right after the
+        // scroll, so the viewer never opened. Give the RecyclerView time.
+        private const val SINGLEPASS_SCROLL_SETTLE_MS = 1_200L
         // Slow drag so the scroll distance is predictable (minimal fling).
         private const val SINGLEPASS_DRAG_DURATION_MS = 800L
         private const val SINGLEPASS_DRAG_START_FRAC = 0.2f
