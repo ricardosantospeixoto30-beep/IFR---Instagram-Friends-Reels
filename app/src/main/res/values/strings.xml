@@ -91,6 +91,13 @@
     <string name="settings_selection_no_threads">Ainda não descobriste Reels em nenhuma conversa. Corre \"🔍 Descobrir\" primeiro.</string>
     <string name="settings_selection_reel_count">%1$d Reels descobertos</string>
 
+    <!-- Know conversation (s56) -->
+    <string name="settings_know_conversation_hint">Para escolher uma conversa em baixo sem descobrir Reels primeiro: abre-a no Instagram, volta aqui e toca no botão. Assim podes juntar várias conversas e depois correr o \"🔎 Descobrir + Preparar tudo\".</string>
+    <string name="settings_know_conversation_button">➕ Conhecer esta conversa (aberta no IG)</string>
+    <string name="settings_know_conversation_toast">A registar a conversa aberta no Instagram…</string>
+    <string name="know_conversation_done">Conversa conhecida: %1$s</string>
+    <string name="know_conversation_none">Abre uma conversa no Instagram primeiro.</string>
+
     <string name="settings_diagnostics_title">Ferramentas de diagnóstico</string>
     <string name="settings_diagnostics_body">Botões que disparam broadcasts directos ao serviço. Úteis para debug — o fluxo normal usa o feed e a notificação persistente.</string>
     <string name="btn_dump_tree">🌳 Dump da árvore da página atual (Logcat)</string>
@@ -129,7 +136,7 @@
 
     <!-- Data reset (s51) -->
     <string name="settings_reset_title">Apagar dados descobertos</string>
-    <string name="settings_reset_subtitle">Remove da app todos os Reels descobertos e a fila de ações pendentes, para poderes testar/descobrir do zero. Não toca no Instagram nem apaga a seleção de conversas ou as definições.</string>
+    <string name="settings_reset_subtitle">Remove da app todos os Reels descobertos e a fila de ações pendentes, para poderes testar/descobrir do zero. Não toca no Instagram. Mantém as conversas conhecidas, a seleção de conversas e as definições.</string>
     <string name="settings_reset_button">🗑 Apagar todos os Reels guardados</string>
     <string name="settings_reset_confirm_title">Apagar dados descobertos?</string>
     <string name="settings_reset_confirm_message">Vais remover todos os Reels descobertos (%1$d) e a fila de ações pendentes. Esta ação não afeta o Instagram e não pode ser desfeita. Continuar?</string>

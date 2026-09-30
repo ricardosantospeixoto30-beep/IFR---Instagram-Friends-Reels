@@ -181,6 +181,24 @@ private fun SettingsScreen(
                 text = stringResource(R.string.settings_selection_subtitle),
                 style = MaterialTheme.typography.bodySmall,
             )
+            Text(
+                text = stringResource(R.string.settings_know_conversation_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            )
+            OutlinedButton(
+                onClick = {
+                    sendServiceBroadcast(context, InstagramReaderService.ACTION_KNOW_CURRENT_CONVERSATION)
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.settings_know_conversation_toast),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.settings_know_conversation_button))
+            }
             SelectionModeRow(
                 current = selectionMode,
                 onChange = { vm.setSelectionMode(it) },

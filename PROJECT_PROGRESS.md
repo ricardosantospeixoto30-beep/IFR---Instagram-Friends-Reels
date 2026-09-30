@@ -8,11 +8,11 @@
 ## Estado atual
 
 **Fase actual:** Fase 1 (PoC → MVP).
-**Última actualização:** 2026-09-30 (sessão 55 — single-pass robusto: não morre numa falha de Reel).
+**Última actualização:** 2026-09-30 (sessão 56 — conversas conhecidas separadas dos Reels + botão "Conhecer conversa").
 **Arquitectura:** Opção C — app externa Android + `AccessibilityService`.
-**HEAD actual:** `build=s55`.
+**HEAD actual:** `build=s56`.
 
-**Recap sessões 46-55 (as próximas do estado corrente):**
+**Recap sessões 46-56 (as próximas do estado corrente):**
 
 - **s46:** `isThreadTopVisible(root)` detecta o header start-of-conversation via 4 selectors (`view_profile_button`, `user_avatar`, `network_attribution`, `other_user_full_name_or_username` — capturados no dump da s45). Integrada em `locateReelWithScroll` (aborta backward budget cedo) e `doHistoryScroll` (para no topo real).
 - **s47/s47b:** instrumentação `seenAuthors` pré-filtro para expor o "Reel skipped mid-sweep" no log. `BATCH_MAX_FORWARD_SCROLLS` 5 → 15.
@@ -29,10 +29,11 @@
 - **s53 — mensagens junto ao Reel (spec §5):** `enumerateReels` passa a capturar as mensagens de texto (`direct_text_message_text_view`) logo abaixo de cada Reel — o que o amigo enviou com o Reel + as minhas respostas — com direção via `sender_avatar`. Guardadas em `ReelEntity.contextMessages` (JSON; Room v5→**v6**, migração destrutiva — dados regeneráveis) e mostradas no feed por baixo do Reel (`ContextMessagesBlock`). Threaded por todos os caminhos: descoberta (`Snapshot`), enrichment on-demand/batch e single-pass (via `PendingCopy`→`persistCopiedReel`). Caps: `CONTEXT_MSG_MAX_PER_REEL=8`, `CONTEXT_MSG_MAX_LEN=400`.
 - **s54 — atalho single-pass para a conversa aberta:** nova acção `ACTION_DISCOVER_PREPARE_CURRENT` + botão em Definições **"🔎 Preparar só a conversa aberta no IG"** → corre `discoverAndPrepareThread()` na conversa actual (via `runInInstagram`), **sem precisar de a seleccionar** em "Filtrar conversas". Resolve a lacuna de teste: depois de um reset a lista de conversas está vazia, e agora dá para preparar/testar uma conversa directamente.
 - **s55 — single-pass robusto (fix do 1.º teste em device):** o log da s54 mostrou que **o scroll do IG RESTAURA a posição** (bom!), mas ao abrir um Reel **a meio do layout** (topo da página, logo após o scroll) o viewer não abre; a cadeia detectava `share-not-found`, **não sinalizava** o varrimento (esperava 20s) e a recuperação com **2× BACK saía da conversa** → o varrimento morria à 1.ª falha. Correcções: (a) **fast-fail** — as falhas da cadeia (share/copy) sinalizam o varrimento de imediato (sem esperar 20s); (b) **recuperação suave** `recoverToThreadThen` — só carrega BACK enquanto NÃO está na conversa (nunca sai dela), por isso salta o Reel falhado e **continua até ao topo**; (c) `SINGLEPASS_SCROLL_SETTLE_MS` 700→1200 para reduzir taps a meio-layout; (d) sem dump gigante durante o varrimento.
+- **s56 — conversas conhecidas separadas dos Reels + "Conhecer conversa":** nova tabela Room `known_conversations` (v6→**v7**) desacopla as conversas dos `reels`. (1) Botão **"➕ Conhecer esta conversa (aberta no IG)"** (`ACTION_KNOW_CURRENT_CONVERSATION`) regista a conversa aberta SEM descobrir Reels, para a poderes seleccionar em "Filtrar conversas" e só depois correr o "🔎 Descobrir + Preparar tudo". (2) A lista de "Filtrar conversas" passa a ser a UNIÃO de `known_conversations` + threads com Reels (via `combine` no ViewModel). (3) O 🗑 reset **já não faz desaparecer as conversas** (só apaga `reels` + fila; `known_conversations` persiste). Qualquer descoberta/preparação também regista a conversa (`rememberKnownConversation`).
 
 ### Como continuar na próxima sessão (quick start)
 
-1. **Pull** do repo. Confirmar `Action receiver registered (build=s55 ...)`.
+1. **Pull** do repo. Confirmar `Action receiver registered (build=s56 ...)`.
 2. **Ler primeiro:** `AGENTS.md` na raiz (regras de trabalho: commits, autoria, autonomia, testes), esta secção "Estado atual", §6 "Próximos passos", §7 log, **§8 "Como testar" (regras obrigatórias de formato de teste — cada bateria em §6.1 deve seguir §8.1)**.
 3. **Ficheiros-chave:**
     - `instagram/IgSelectors.kt` — `Thread` tem os 4 selectors do header (s46), `REACTIONS_PILL_CONTAINER` + `REACTION_ADD_BUTTON` (s49), **s50:** `REPLY_CONTEXT_INFO_TEXT`.
@@ -255,6 +256,7 @@ Já entregue no primeiro commit:
 - ✅ **s53 — mensagens junto ao Reel (spec §5): `enumerateReels` captura o texto (`direct_text_message_text_view`) abaixo de cada Reel (amigo + minhas respostas) → `ReelEntity.contextMessages` (Room v6) → mostrado no feed (`ContextMessagesBlock`). A validar no device.**
 - ✅ **s54 — atalho "🔎 Preparar só a conversa aberta no IG" (`ACTION_DISCOVER_PREPARE_CURRENT`) em Definições: corre o single-pass na conversa actual sem a seleccionar (facilita testar 1 conversa). A validar no device.**
 - ✅ **s55 — single-pass robusto: fast-fail das falhas da cadeia (não espera 20s) + recuperação suave que não sai da conversa (salta o Reel falhado e continua até ao topo) + mais settle após scroll. Fix do 1.º teste em device (NewTests.txt).**
+- ✅ **s56 — conversas conhecidas separadas dos Reels: tabela `known_conversations` (Room v7) + botão "➕ Conhecer esta conversa". A lista "Filtrar conversas" = known ∪ threads-com-Reels; o 🗑 reset já não apaga as conversas. A validar no device.**
 
 ### 6.1 Próxima sessão — arranque
 
@@ -951,6 +953,17 @@ Este trabalho fica em backlog até haver sinal claro de que a a11y não escala.
 - **Efeito:** um Reel que não abra deixa de matar o varrimento — é saltado e a passagem continua até `thread top reached`. Não-perder continua garantido pelo dedup-por-URL; Reels saltados podem ser apanhados numa 2.ª passagem.
 - **Ficheiros:** `service/InstagramReaderService.kt` (fast-fail nas 3 branches + `onSinglePassReelDone` reescrito + `recoverToThreadThen` + constantes + `BUILD_TAG=s55`).
 - **Validação:** kotlinc (JDK 21) parse-check 0 erros; símbolos resolvem. Re-testar `SinglePassNoLoss` no device.
+
+### 2026-09-30 — Sessão 56 (Ricardo + Copilot CLI) — conversas conhecidas separadas dos Reels
+
+- **Feedback do utilizador (teste s54/s55):** (1) falta um botão para "conhecer a conversa" sem descobrir Reels, para depois seleccionar e correr o "Descobrir tudo" de uma vez; (2) apagar os Reels (reset) não devia apagar as conversas — separar conversas de Reels.
+- **Nova tabela `known_conversations`** (`KnownConversationEntity` / `KnownConversationDao`, Room v6→v7 destrutiva) — conversas registadas, independentes de `reels`.
+- **Registo:** `rememberKnownConversation(title)` (idempotente, `INSERT OR IGNORE`) chamado em `discoverReels`, `discoverReelsHistory`, `discoverAndPrepareThread` e `persistCopiedReel` — qualquer toque numa conversa regista-a. E `knowCurrentConversation()` (nova acção `ACTION_KNOW_CURRENT_CONVERSATION` → `runInInstagram`) lê o `currentHeaderTitle()` da conversa aberta e regista-a, com Toast.
+- **UI:** botão **"➕ Conhecer esta conversa (aberta no IG)"** na secção "Filtrar conversas". A lista de conversas passa a ser a UNIÃO de `known_conversations` + threads com Reels (`combine(observeThreadCounts, knownDao.observeTitles)` no `SettingsViewModel`); conversas sem Reels mostram contagem 0.
+- **Reset:** `clearAllDiscoveredData` continua a limpar só `reels` + `pending_actions` → `known_conversations` (e a selecção) persistem. Subtítulo do reset actualizado.
+- **Ficheiros:** `data/KnownConversationEntity.kt` + `data/KnownConversationDao.kt` (novos), `data/AppDatabase.kt` (v7 + DAO), `service/InstagramReaderService.kt` (helper + acção + registo + 4 chamadas + `BUILD_TAG=s56`), `ui/settings/SettingsViewModel.kt` (combine), `ui/settings/SettingsActivity.kt` (botão), `res/values/strings.xml`.
+- **Logs de teste** movidos para `docs/screen-dumps/` (convenção existente — pôr os próximos aí).
+- **Validação:** kotlinc (JDK 21) parse-check — 0 erros de sintaxe; símbolos novos resolvem; `strings.xml` válido. Device pelo utilizador.
 
 ---
 

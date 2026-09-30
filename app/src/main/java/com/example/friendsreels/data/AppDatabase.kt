@@ -24,19 +24,28 @@ import androidx.room.RoomDatabase
  * - v6 (sessão 53): adds `contextMessages` column to `reels` — the text
  *   messages captured right below the Reel (friend's follow-up texts + my
  *   replies), shown in the feed. See [ContextMessages].
+ * - v7 (sessão 56): adds `known_conversations` table — conversations the
+ *   user registered (decoupled from `reels`, survives the reset). See
+ *   [KnownConversationEntity].
  *
  * We use `fallbackToDestructiveMigration()` — the PoC data is regenerated
  * by the user with a quick "Descobrir" pass.
  */
 @Database(
-    entities = [ReelEntity::class, PendingActionEntity::class, TrackedThreadEntity::class],
-    version = 6,
+    entities = [
+        ReelEntity::class,
+        PendingActionEntity::class,
+        TrackedThreadEntity::class,
+        KnownConversationEntity::class,
+    ],
+    version = 7,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun reelDao(): ReelDao
     abstract fun pendingActionDao(): PendingActionDao
     abstract fun trackedThreadDao(): TrackedThreadDao
+    abstract fun knownConversationDao(): KnownConversationDao
 
     companion object {
         private const val DB_NAME = "friends_reels.db"

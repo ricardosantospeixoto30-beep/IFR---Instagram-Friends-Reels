@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.friendsreels.data.AppDatabase
+import com.example.friendsreels.data.KnownConversationDao
 import com.example.friendsreels.data.PendingActionDao
 import com.example.friendsreels.data.ReelDao
 import com.example.friendsreels.data.ThreadCount
@@ -17,6 +18,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -32,6 +34,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val trackedDao: TrackedThreadDao = AppDatabase.get(app).trackedThreadDao()
     private val reelDao: ReelDao = AppDatabase.get(app).reelDao()
     private val pendingDao: PendingActionDao = AppDatabase.get(app).pendingActionDao()
+    private val knownDao: KnownConversationDao = AppDatabase.get(app).knownConversationDao()
     private val prefs: SharedPreferences = app.getSharedPreferences(
         InstagramReaderService.PREFS_NAME,
         android.content.Context.MODE_PRIVATE,
@@ -79,9 +82,19 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
      */
     val threadCounts: StateFlow<List<ThreadCount>> = kotlinx.coroutines.flow.MutableStateFlow(emptyList<ThreadCount>()).also { out ->
         viewModelScope.launch {
-            trackedDao.observeThreadCounts().collect { list ->
-                out.value = list.filter { it.threadTitle.isNotBlank() && it.threadTitle != "?" }
-            }
+            // s56: the list is the UNION of conversations that have Reels
+            // (from `reels`) and conversations the user registered
+            // (`known_conversations`, which survive the reset). Reel-less
+            // known conversations show a count of 0.
+            combine(
+                trackedDao.observeThreadCounts(),
+                knownDao.observeTitles(),
+            ) { counts, known ->
+                val byTitle = LinkedHashMap<String, ThreadCount>()
+                counts.forEach { if (it.threadTitle.isNotBlank() && it.threadTitle != "?") byTitle[it.threadTitle] = it }
+                known.forEach { t -> if (t.isNotBlank() && t != "?" && t !in byTitle) byTitle[t] = ThreadCount(t, 0) }
+                byTitle.values.sortedBy { it.threadTitle.lowercase() }
+            }.collect { out.value = it }
         }
     }
 
@@ -158,9 +171,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
      * s51 — wipe all discovered content so the user can start a fresh
      * discovery/test run. Clears the `reels` table and the
      * `pending_actions` queue. Intentionally KEEPS `tracked_threads`
-     * (the conversation selection preference) and SharedPreferences so
-     * the user doesn't have to reconfigure after every reset. Does not
-     * touch Instagram in any way.
+     * (selection), `known_conversations` (s56 — so conversations survive
+     * the reset) and SharedPreferences, so the user doesn't have to
+     * reconfigure after every reset. Does not touch Instagram in any way.
      */
     fun clearAllDiscoveredData() {
         viewModelScope.launch {

@@ -23,6 +23,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.friendsreels.R
 import com.example.friendsreels.data.AppDatabase
+import com.example.friendsreels.data.KnownConversationEntity
 import com.example.friendsreels.data.PendingActionEntity
 import com.example.friendsreels.data.ReelEntity
 import com.example.friendsreels.instagram.Direction
@@ -177,6 +178,7 @@ class InstagramReaderService : AccessibilityService() {
                     ACTION_DISCOVER_PREPARE_ALL -> discoverAndPrepareAllTracked()
                     ACTION_DISCOVER_PREPARE_CURRENT -> runInInstagram { discoverAndPrepareThread() }
                     ACTION_DISCOVER_PREPARE_CANCEL -> cancelSinglePass()
+                    ACTION_KNOW_CURRENT_CONVERSATION -> runInInstagram { knowCurrentConversation() }
                     ACTION_DUMP_TREE -> handleDumpTreeBroadcast(intent)
                 }
             }
@@ -199,6 +201,7 @@ class InstagramReaderService : AccessibilityService() {
             addAction(ACTION_DISCOVER_PREPARE_ALL)
             addAction(ACTION_DISCOVER_PREPARE_CURRENT)
             addAction(ACTION_DISCOVER_PREPARE_CANCEL)
+            addAction(ACTION_KNOW_CURRENT_CONVERSATION)
             addAction(ACTION_DUMP_TREE)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -796,6 +799,7 @@ class InstagramReaderService : AccessibilityService() {
      *    it was previously null.
      */
     private fun persistCopiedReel(pending: PendingCopy, url: String) {
+        rememberKnownConversation(pending.threadTitle)
         val discoveredAt = System.currentTimeMillis()
         val row = ReelEntity(
             threadTitle = pending.threadTitle,
@@ -1066,6 +1070,7 @@ class InstagramReaderService : AccessibilityService() {
         }
 
         val threadTitle = lastKnownConversationTitle?.takeIf { it.isNotBlank() } ?: "?"
+        rememberKnownConversation(threadTitle)
         val ignoreSent = isIgnoreSentEnabled()
         val allEntries = enumerateReels(messageList)
         val visibleReceived = allEntries.count { it.direction == Direction.RECEIVED }
@@ -1242,6 +1247,7 @@ class InstagramReaderService : AccessibilityService() {
         val threadTitle = overrideThreadTitle?.takeIf { it.isNotBlank() }
             ?: lastKnownConversationTitle?.takeIf { it.isNotBlank() }
             ?: "?"
+        rememberKnownConversation(threadTitle)
         val state = HistoryState(
             threadTitle = threadTitle,
             ignoreSent = isIgnoreSentEnabled(),
@@ -1847,6 +1853,46 @@ class InstagramReaderService : AccessibilityService() {
     private fun isIgnoreSentEnabled(): Boolean {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getBoolean(PREF_IGNORE_SENT, PREF_IGNORE_SENT_DEFAULT)
+    }
+
+    // ---------------------------------------------------------------------
+    // Known conversations (s56) — decoupled from the reels table.
+    // ---------------------------------------------------------------------
+
+    /**
+     * Register [title] as a known conversation (idempotent). Called by the
+     * explicit "➕ Conhecer esta conversa" action AND by every discovery
+     * pass, so a conversation the user has touched survives the 🗑 reset.
+     */
+    private fun rememberKnownConversation(title: String?) {
+        val t = title?.takeIf { it.isNotBlank() && it != "?" } ?: return
+        serviceScope.launch {
+            AppDatabase.get(this@InstagramReaderService).knownConversationDao()
+                .insert(KnownConversationEntity(t, System.currentTimeMillis()))
+        }
+    }
+
+    /**
+     * `ACTION_KNOW_CURRENT_CONVERSATION` — register the conversation open in
+     * Instagram right now, WITHOUT discovering any Reels. Lets the user line
+     * up conversations in "Filtrar conversas" first and then run
+     * "🔎 Descobrir + Preparar tudo" over the selected set.
+     */
+    private fun knowCurrentConversation() {
+        val title = currentHeaderTitle()?.takeIf { it.isNotBlank() }
+            ?: lastKnownConversationTitle?.takeIf { it.isNotBlank() }
+        if (title == null) {
+            Log.w(TAG, "KNOW_CONVERSATION: no conversation title available — are you on a thread?")
+            mainHandler.post {
+                Toast.makeText(this, getString(R.string.know_conversation_none), Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+        rememberKnownConversation(title)
+        Log.i(TAG, "KNOW_CONVERSATION: remembered '$title'.")
+        mainHandler.post {
+            Toast.makeText(this, getString(R.string.know_conversation_done, title), Toast.LENGTH_LONG).show()
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -2972,6 +3018,7 @@ class InstagramReaderService : AccessibilityService() {
         val thread = overrideThreadTitle?.takeIf { it.isNotBlank() }
             ?: lastKnownConversationTitle?.takeIf { it.isNotBlank() }
             ?: "?"
+        rememberKnownConversation(thread)
         singlePassInProgress = true
         singlePassCancelled = false
         serviceScope.launch {
@@ -3728,7 +3775,7 @@ class InstagramReaderService : AccessibilityService() {
          * confirm which build is actually running on the device — it shows
          * up at the top of every `Action receiver registered` log line.
          */
-        private const val BUILD_TAG = "build=s55"
+        private const val BUILD_TAG = "build=s56"
 
         private const val LONG_PRESS_DURATION_MS = 600L
         private const val POST_LONG_PRESS_SETTLE_MS = 1500L
@@ -4128,6 +4175,9 @@ class InstagramReaderService : AccessibilityService() {
             "com.example.friendsreels.ACTION_DISCOVER_PREPARE_CURRENT"
         const val ACTION_DISCOVER_PREPARE_CANCEL =
             "com.example.friendsreels.ACTION_DISCOVER_PREPARE_CANCEL"
+        /** s56 — register the currently-open conversation (no Reel discovery). */
+        const val ACTION_KNOW_CURRENT_CONVERSATION =
+            "com.example.friendsreels.ACTION_KNOW_CURRENT_CONVERSATION"
 
         /**
          * Diagnostic broadcast — dumps every accessibility window's node
